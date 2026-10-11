@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -8,11 +10,21 @@ import 'model.dart';
 import 'profile.dart';
 import 'rooms.dart';
 import 'widgets.dart';
+import 'accounts/account_api.dart';
+import 'accounts/account_controller.dart';
+import 'accounts/account_profile.dart';
+import 'accounts/account_search.dart';
+import 'accounts/auth_screen.dart';
 
 class TomiApp extends StatefulWidget {
-  const TomiApp({super.key, this.store, this.textScaler});
+  const TomiApp({super.key, this.store, this.textScaler, this.accounts,
+    this.previewMode = const bool.fromEnvironment('TOMI_PREVIEW_MODE'),
+    this.apiUrl = const String.fromEnvironment('TOMI_API_URL')});
   final TomiStore? store;
   final TextScaler? textScaler;
+  final AccountController? accounts;
+  final bool previewMode;
+  final String apiUrl;
 
   @override
   State<TomiApp> createState() => _TomiAppState();
@@ -20,9 +32,89 @@ class TomiApp extends StatefulWidget {
 
 class _TomiAppState extends State<TomiApp> {
   late final TomiStore store = widget.store ?? TomiStore();
+  final navigator = GlobalKey<NavigatorState>();
+  AccountController? accounts;
+  String? previousUserId;
+  String? previousRecoveryCode;
+  bool previewSelected = false;
+
+  @override
+  void initState() {
+    super.initState();
+    accounts = widget.accounts;
+    if (accounts == null && widget.store == null && !widget.previewMode && widget.apiUrl.isNotEmpty) {
+      accounts = AccountController(api: AccountApi(widget.apiUrl));
+    }
+    previousUserId = accounts?.user?.id;
+    previousRecoveryCode = accounts?.pendingRecoveryCode;
+    accounts?.addListener(accountChanged);
+    if (accounts?.phase == AccountPhase.restoring) unawaited(accounts!.restore());
+  }
+
+  void accountChanged() {
+    final id = accounts?.user?.id;
+    final code = accounts?.pendingRecoveryCode;
+    if ((previousUserId != null && previousUserId != id) ||
+        (code != null && code != previousRecoveryCode)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) navigator.currentState?.popUntil((route) => route.isFirst);
+      });
+    }
+    previousUserId = id;
+    previousRecoveryCode = code;
+  }
+
+  Widget accountHome() {
+    final controller = accounts;
+    if (widget.store != null || widget.previewMode || previewSelected) {
+      return TomiShell(store: store,
+        onExitPreview: !widget.previewMode && widget.store == null ? () => setState(() => previewSelected = false) : null);
+    }
+    if (controller == null) {
+      return Scaffold(body: SafeArea(child: ListView(padding: const EdgeInsets.all(24), children: [
+        const SizedBox(height: 40),
+        const Text('TOMI', textDirection: TextDirection.ltr, textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 38, fontWeight: FontWeight.w900, color: TomiColors.accent)),
+        const SizedBox(height: 28),
+        const Text('خدمة الحسابات قيد التجهيز', textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        const Text('تگدر تتصفّح التصميم الآن، وتسجيل الحساب يتفعّل عند اتصال النسخة بالخدمة.',
+          textAlign: TextAlign.center, style: TextStyle(height: 1.7, color: TomiColors.muted)),
+        const SizedBox(height: 24),
+        FilledButton(onPressed: () => setState(() => previewSelected = true), child: const Text('تجربة التصميم')),
+      ])));
+    }
+    return AnimatedBuilder(animation: controller, builder: (context, _) {
+      if (controller.phase == AccountPhase.restoring) {
+        return const Scaffold(body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          CircularProgressIndicator(), SizedBox(height: 18),
+          Padding(padding: EdgeInsets.all(20), child: Text('نتحقق من جلسة حسابك…', textAlign: TextAlign.center)),
+        ])));
+      }
+      if (controller.phase == AccountPhase.connectionError) {
+        return Scaffold(body: SafeArea(child: ListView(padding: const EdgeInsets.all(24), children: [
+          const SizedBox(height: 40),
+          const Icon(Icons.cloud_off_outlined, size: 58, color: TomiColors.accent),
+          const SizedBox(height: 20),
+          Text(controller.error ?? 'تعذّر الاتصال حاليًا.', textAlign: TextAlign.center,
+            style: const TextStyle(height: 1.7)),
+          const SizedBox(height: 24),
+          FilledButton(key: const Key('restore-retry'), onPressed: controller.restore, child: const Text('إعادة المحاولة')),
+        ])));
+      }
+      if (controller.phase == AccountPhase.signedOut) return AuthScreen(accounts: controller);
+      if (controller.pendingRecoveryCode != null) {
+        return RecoveryCodeScreen(code: controller.pendingRecoveryCode!, onSaved: controller.acknowledgeRecoveryCode);
+      }
+      return AccountShell(key: ValueKey(controller.user!.id), accounts: controller);
+    });
+  }
 
   @override
   void dispose() {
+    accounts?.removeListener(accountChanged);
+    if (widget.accounts == null) accounts?.dispose();
     if (widget.store == null) store.dispose();
     super.dispose();
   }
@@ -30,6 +122,7 @@ class _TomiAppState extends State<TomiApp> {
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'TOMI',
+    navigatorKey: navigator,
     debugShowCheckedModeBanner: false,
     locale: const Locale('ar'),
     supportedLocales: const [Locale('ar'), Locale('en')],
@@ -54,13 +147,46 @@ class _TomiAppState extends State<TomiApp> {
       ),
       snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
     ),
-    home: TomiShell(store: store),
+    home: accountHome(),
   );
 }
 
+class AccountShell extends StatefulWidget {
+  const AccountShell({super.key, required this.accounts});
+  final AccountController accounts;
+  @override
+  State<AccountShell> createState() => _AccountShellState();
+}
+
+class _AccountShellState extends State<AccountShell> {
+  final store = TomiStore();
+  @override
+  void initState() {
+    super.initState();
+    synchronize();
+    widget.accounts.addListener(synchronize);
+  }
+  void synchronize() {
+    final user = widget.accounts.user;
+    if (user != null && (store.username != user.username || store.displayName != user.displayName || store.bio != user.bio)) {
+      store.updateProfile(user.displayName, user.username, user.bio);
+    }
+  }
+  @override
+  void dispose() {
+    widget.accounts.removeListener(synchronize);
+    store.dispose();
+    super.dispose();
+  }
+  @override
+  Widget build(BuildContext context) => TomiShell(store: store, accounts: widget.accounts);
+}
+
 class TomiShell extends StatefulWidget {
-  const TomiShell({super.key, required this.store});
+  const TomiShell({super.key, required this.store, this.accounts, this.onExitPreview});
   final TomiStore store;
+  final AccountController? accounts;
+  final VoidCallback? onExitPreview;
 
   @override
   State<TomiShell> createState() => _TomiShellState();
@@ -75,29 +201,39 @@ class _TomiShellState extends State<TomiShell> {
     builder: (context, _) => Scaffold(
       appBar: AppBar(
         titleSpacing: 18,
-        title: const FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerRight,
+        title: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerRight,
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text('TOMI', textDirection: TextDirection.ltr,
+          const Text('TOMI', textDirection: TextDirection.ltr,
             style: TextStyle(fontSize: 23, letterSpacing: 2.8, fontWeight: FontWeight.w900)),
-          SizedBox(width: 9),
-          TinyLabel('تجريبي'),
+          const SizedBox(width: 9),
+          TinyLabel(widget.accounts == null ? 'تجريبي' : '0.2'),
         ])),
         actions: [
           IconButton(tooltip: 'البحث', icon: const Icon(Icons.search_rounded),
             onPressed: () => Navigator.push(context, MaterialPageRoute<void>(
-              builder: (_) => SearchPage(store: widget.store)))),
+              builder: (_) => widget.accounts == null ? SearchPage(store: widget.store)
+                : AccountSearchPage(accounts: widget.accounts!)))),
           IconButton(tooltip: 'الإشعارات', icon: const Icon(Icons.notifications_none_rounded),
             onPressed: () => showInfo(context, 'الإشعارات',
               'أهلًا بيك في معاينة TOMI 💜\nكل الأسماء والأرصدة والرسائل هنا تجريبية.\nتغييراتك تبقى خلال جلسة تشغيل التطبيق فقط.')),
+          if (widget.onExitPreview != null) IconButton(tooltip: 'الرجوع للحسابات',
+            onPressed: widget.onExitPreview, icon: const Icon(Icons.person_outline_rounded)),
           const SizedBox(width: 7),
         ],
       ),
-      body: SafeArea(bottom: false, child: IndexedStack(index: selected, children: [
+      body: SafeArea(bottom: false, child: Column(children: [
+        if (widget.accounts != null && selected != 4) const Padding(
+          padding: EdgeInsets.fromLTRB(18, 4, 18, 0), child: Text(
+            'هذا القسم معاينة؛ الحساب والبحث والمتابعة فعّالة.',
+            style: TextStyle(color: TomiColors.muted, fontSize: 11, height: 1.5))),
+        Expanded(child: IndexedStack(index: selected, children: [
         HomeScreen(store: widget.store),
         ChatsScreen(store: widget.store),
         RoomsScreen(store: widget.store),
         GamesScreen(store: widget.store),
-        ProfileScreen(store: widget.store),
+        widget.accounts == null ? ProfileScreen(store: widget.store)
+          : AccountProfileScreen(accounts: widget.accounts!),
+      ])),
       ])),
       bottomNavigationBar: NavigationBar(
         selectedIndex: selected,

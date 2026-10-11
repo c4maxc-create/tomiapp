@@ -18,12 +18,12 @@ def main() -> None:
     assert flow["instance_type"] == "mac_mini_m2"
     assert flow["environment"]["flutter"] == "stable"
     assert len(flow["scripts"]) == 5
-    assert flow["artifacts"] == ["output/TOMI-preview-0.1.apk"]
+    assert flow["artifacts"] == ["output/TOMI-0.2.0.apk"]
 
     with tempfile.TemporaryDirectory(prefix="tomi-check-") as temp:
         temp = Path(temp)
         project = temp / "project"
-        shutil.copytree(ROOT, project, ignore=shutil.ignore_patterns("__pycache__", "build", ".dart_tool"))
+        shutil.copytree(ROOT, project, ignore=shutil.ignore_patterns("__pycache__", "build", ".dart_tool", "node_modules"))
         original = {path.relative_to(project): path.read_bytes()
                     for path in project.rglob("*") if path.is_file()}
         bin_dir = temp / "bin"
@@ -52,9 +52,13 @@ Path("README.md").write_text("template readme")
         ns = "{http://schemas.android.com/apk/res/android}"
         assert app is not None and app.get(ns + "label") == "TOMI"
         assert app.get(ns + "icon") == "@drawable/tomi_launcher"
+        assert app.get(ns + "allowBackup") == "false"
+        assert app.get(ns + "usesCleartextTraffic") == "false"
+        assert any(item.get(ns + "name") == "android.permission.INTERNET"
+                   for item in manifest.getroot().findall("uses-permission"))
         ET.parse(project / "android/app/src/main/res/drawable/tomi_launcher.xml")
     print("PASS: YAML, original source preservation, template-test removal, Android label and vector icon.")
-    print("Flutter analyze, Flutter widget tests, and APK compilation still require the Codemagic build.")
+    print("Flutter analyze, widget tests, PostgreSQL integration and APK compilation run in GitHub Actions.")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Apply the preview's app label and a vector launcher icon to Flutter output."""
+"""Apply TOMI branding, networking permissions and secure-session settings."""
 
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -20,7 +20,21 @@ def configure_android(root: Path = ROOT) -> None:
         raise ValueError("Android manifest has no application element.")
     application.set(f"{{{ANDROID_NS}}}label", "TOMI")
     application.set(f"{{{ANDROID_NS}}}icon", "@drawable/tomi_launcher")
+    application.set(f"{{{ANDROID_NS}}}allowBackup", "false")
+    application.set(f"{{{ANDROID_NS}}}usesCleartextTraffic", "false")
+    if not any(item.get(f"{{{ANDROID_NS}}}name") == "android.permission.INTERNET"
+               for item in tree.getroot().findall("uses-permission")):
+        ET.SubElement(tree.getroot(), "uses-permission", {f"{{{ANDROID_NS}}}name": "android.permission.INTERNET"})
     tree.write(manifest, encoding="utf-8", xml_declaration=True)
+    # Secure storage requires Android 6.0+; Flutter's generated default varies.
+    for filename in ["android/app/build.gradle.kts", "android/app/build.gradle"]:
+        gradle = root / filename
+        if gradle.exists():
+            import re
+            source = gradle.read_text(encoding="utf-8")
+            replacement = "minSdk = maxOf(flutter.minSdkVersion, 23)" if filename.endswith(".kts") else "minSdkVersion Math.max(flutter.minSdkVersion, 23)"
+            source = re.sub(r"\bminSdk(?:Version)?\s*(?:=\s*)?(?:flutter\.minSdkVersion|\d+)", replacement, source)
+            gradle.write_text(source, encoding="utf-8")
     icon = root / "android/app/src/main/res/drawable/tomi_launcher.xml"
     icon.parent.mkdir(parents=True, exist_ok=True)
     icon.write_text('''<?xml version="1.0" encoding="utf-8"?>

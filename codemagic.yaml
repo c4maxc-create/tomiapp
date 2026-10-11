@@ -17,8 +17,8 @@ workflows:
         script: flutter test --reporter expanded
       - name: Build preview APK
         script: |
-          flutter build apk --debug
+          flutter build apk --debug --dart-define="TOMI_API_URL=${TOMI_API_URL:-}" --dart-define="TOMI_PREVIEW_MODE=${TOMI_PREVIEW_MODE:-true}"
           mkdir -p output
-          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-preview-0.1.apk
+          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-0.2.0.apk
     artifacts:
-      - output/TOMI-preview-0.1.apk
+      - output/TOMI-0.2.0.apk

@@ -10,7 +10,7 @@ void main() {
       tester.view.physicalSize = viewport;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(const TomiApp());
+      await tester.pumpWidget(const TomiApp(previewMode: true));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       for (final key in ['nav-chats', 'nav-rooms', 'nav-games', 'nav-profile', 'nav-home']) {
@@ -26,7 +26,7 @@ void main() {
     tester.view.physicalSize = const Size(320, 640);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const TomiApp(textScaler: TextScaler.linear(1.5)));
+    await tester.pumpWidget(const TomiApp(previewMode: true, textScaler: TextScaler.linear(1.5)));
     await tester.pumpAndSettle();
     for (final key in ['nav-home', 'nav-chats', 'nav-rooms', 'nav-games', 'nav-profile']) {
       await tester.tap(find.byKey(Key(key)));
