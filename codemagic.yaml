@@ -1,0 +1,24 @@
+workflows:
+  tomi-android-preview:
+    name: TOMI Android Preview
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      java: 17
+    scripts:
+      - name: Generate Android scaffold without changing TOMI source
+        script: bash tool/bootstrap_android.sh
+      - name: Install Flutter dependencies
+        script: flutter pub get
+      - name: Analyze Dart source
+        script: flutter analyze
+      - name: Test demo interactions and compact screens
+        script: flutter test --reporter expanded
+      - name: Build preview APK
+        script: |
+          flutter build apk --debug
+          mkdir -p output
+          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-preview-0.1.apk
+    artifacts:
+      - output/TOMI-preview-0.1.apk
