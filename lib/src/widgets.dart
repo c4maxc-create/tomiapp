@@ -32,14 +32,14 @@ class TomiCard extends StatelessWidget {
   final EdgeInsetsGeometry padding;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: padding,
-    decoration: BoxDecoration(
-      color: TomiColors.surface,
+  Widget build(BuildContext context) => Material(
+    color: TomiColors.surface,
+    shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(24),
-      border: Border.all(color: TomiColors.border.withAlpha(140)),
+      side: BorderSide(color: TomiColors.border.withAlpha(140)),
     ),
-    child: child,
+    clipBehavior: Clip.antiAlias,
+    child: Padding(padding: padding, child: child),
   );
 }
 
