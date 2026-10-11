@@ -18,11 +18,11 @@ class GamesScreen extends StatelessWidget {
           style: const TextStyle(height: 1.7))),
       ])),
       const SizedBox(height: 20),
-      GridView(shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2,
-          mainAxisSpacing: 14, crossAxisSpacing: 14,
-          mainAxisExtent: 170 * MediaQuery.textScalerOf(context).scale(14) / 14), children: [
+      LayoutBuilder(builder: (context, constraints) {
+        final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
+        final columns = constraints.maxWidth >= 320 * textScale ? 2 : 1;
+        final cardWidth = (constraints.maxWidth - 14 * (columns - 1)) / columns;
+        final cards = [
           _game(context, 'تحدّي الأسئلة', 'اختبار فردي تجريبي', '🧠', const Color(0xFF5D468E),
             () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => QuizPage(store: store)))),
           _game(context, 'توميرو', 'معاينة بطاقة اللعبة', '♠', const Color(0xFF5E3D69),
@@ -31,7 +31,12 @@ class GamesScreen extends StatelessWidget {
             () => _details(context, 'دومينو', 'بطاقة تصميم للعبة الدومينو.')),
           _game(context, 'سلّم وثعبان', 'معاينة بطاقة اللعبة', '🐍', const Color(0xFF675A46),
             () => _details(context, 'سلّم وثعبان', 'بطاقة تصميم للعبة السلم والثعبان.')),
-        ]),
+        ];
+        // Cards keep their natural height when text wraps or is enlarged.
+        return Wrap(spacing: 14, runSpacing: 14, children: [
+          for (final card in cards) SizedBox(width: cardWidth, child: card),
+        ]);
+      }),
       const SizedBox(height: 20),
       const Text('تحدّي الأسئلة قابل للتجربة. باقي الألعاب بطاقات تصميم، واللعب الجماعي يُضاف لاحقًا.',
         style: TextStyle(color: TomiColors.muted, height: 1.7, fontSize: 12)),
@@ -39,10 +44,11 @@ class GamesScreen extends StatelessWidget {
 
   Widget _game(BuildContext context, String title, String subtitle, String symbol, Color color, VoidCallback onTap) =>
     InkWell(onTap: onTap, borderRadius: BorderRadius.circular(24), child: Container(
+      constraints: const BoxConstraints(minHeight: 170),
       padding: const EdgeInsets.all(14), decoration: BoxDecoration(borderRadius: BorderRadius.circular(24),
         gradient: LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft,
           colors: [color, TomiColors.surface])),
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      child: Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
         Text(symbol, style: const TextStyle(fontSize: 37)),
         const SizedBox(height: 12),
         Text(title, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
