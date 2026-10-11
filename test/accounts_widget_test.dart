@@ -16,6 +16,17 @@ http.Response response(Map<String, dynamic> data, [int status = 200]) =>
   http.Response(jsonEncode(data), status, headers: {'content-type': 'application/json; charset=utf-8'});
 
 Future<void> visibleTap(WidgetTester tester, Finder finder) async {
+  if (finder.evaluate().isEmpty) {
+    // A long ListView has not built its footer yet. Scroll the page itself,
+    // rather than the horizontal Scrollables inside its text fields.
+    final page = find.byType(ListView).last;
+    final scrollable = find.descendant(
+      of: page,
+      matching: find.byWidgetPredicate((widget) =>
+        widget is Scrollable && widget.axisDirection == AxisDirection.down),
+    ).first;
+    await tester.scrollUntilVisible(finder, 150, scrollable: scrollable);
+  }
   await tester.ensureVisible(finder);
   await tester.pumpAndSettle();
   await tester.tap(finder);
