@@ -1,7 +1,17 @@
-name: TOMI Android Preview
+name: TOMI 0.2 Android
 
 "on":
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'accounts = real accounts; preview = design only'
+        type: choice
+        options: [accounts, preview]
+        default: preview
+      api_url:
+        description: 'HTTPS server URL (or set repository variable TOMI_API_URL)'
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -11,8 +21,49 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  accounts-api:
+    name: Test accounts API and database
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: tomi_test
+          POSTGRES_USER: tomi_ci
+          POSTGRES_PASSWORD: ephemeral_ci_password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Download project source
+        uses: actions/checkout@v6.1.0
+        with:
+          persist-credentials: false
+      - name: Set up Node 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install backend dependencies
+        working-directory: server
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Test local persistence and authentication
+        working-directory: server
+        run: npm test
+      - name: Test real PostgreSQL integration
+        working-directory: server
+        env:
+          TEST_DATABASE_URL: postgresql://tomi_ci:ephemeral_ci_password@localhost:5432/tomi_test
+        run: npm test
+
   android:
-    name: Build preview APK
+    name: Build TOMI 0.2 APK
+    needs: accounts-api
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -20,6 +71,15 @@ jobs:
         uses: actions/checkout@v6.1.0
         with:
           persist-credentials: false
+
+      - name: Show source revision
+        run: git rev-parse HEAD
+
+      - name: Validate build configuration
+        env:
+          TOMI_BUILD_MODE: ${{ inputs.mode }}
+          TOMI_API_URL: ${{ inputs.api_url || vars.TOMI_API_URL }}
+        run: python3 tool/check_build_config.py
 
       - name: Set up Java 17
         uses: actions/setup-java@v6
@@ -45,19 +105,21 @@ jobs:
       - name: Analyze Dart source
         run: flutter analyze
 
-      - name: Test demo interactions and compact screens
+      - name: Test accounts, interactions and compact screens
         run: flutter test --reporter expanded
 
       - name: Build preview APK
         run: |
-          flutter build apk --debug --no-pub
+          flutter build apk --debug --no-pub \
+            --dart-define="TOMI_API_URL=$TOMI_API_URL" \
+            --dart-define="TOMI_PREVIEW_MODE=$TOMI_PREVIEW_MODE"
           mkdir -p output
-          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-preview-0.1.apk
+          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-0.2.0.apk
 
       - name: Upload preview APK
         uses: actions/upload-artifact@v7
         with:
-          path: output/TOMI-preview-0.1.apk
+          path: output/TOMI-0.2.0.apk
           archive: false
           if-no-files-found: error
           retention-days: 7
