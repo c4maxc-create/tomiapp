@@ -15,10 +15,10 @@ import 'account_fakes.dart';
 http.Response response(Map<String, dynamic> data, [int status = 200]) =>
   http.Response(jsonEncode(data), status, headers: {'content-type': 'application/json; charset=utf-8'});
 
-Future<void> visibleTap(WidgetTester tester, Finder finder) async {
+Future<void> revealWidget(WidgetTester tester, Finder finder) async {
   if (finder.evaluate().isEmpty) {
-    // A long ListView has not built its footer yet. Scroll the page itself,
-    // rather than the horizontal Scrollables inside its text fields.
+    // Scroll the page's vertical ListView when its target is not onstage.
+    // Text fields may have their own horizontal Scrollables.
     final page = find.byType(ListView).last;
     final scrollable = find.descendant(
       of: page,
@@ -29,6 +29,10 @@ Future<void> visibleTap(WidgetTester tester, Finder finder) async {
   }
   await tester.ensureVisible(finder);
   await tester.pumpAndSettle();
+}
+
+Future<void> visibleTap(WidgetTester tester, Finder finder) async {
+  await revealWidget(tester, finder);
   await tester.tap(finder);
   await tester.pumpAndSettle();
 }
@@ -60,6 +64,7 @@ void main() {
 
   testWidgets('registration presents recovery before opening the signed-in app', (tester) async {
     smallScreen(tester);
+    const recoveryCodeValue = '12345678-ABCDEF12-12345678-ABCDEF12-12345678';
     final vault = MemoryTokenVault();
     final accounts = AccountController(vault: vault,
       api: AccountApi('https://accounts.example', client: MockClient((request) async {
@@ -68,7 +73,7 @@ void main() {
         final body = jsonDecode(request.body);
         expect(body['username'], 'new_user');
         return response({'token': 'new-token', 'user': accountJson(username: 'new_user', name: 'مستخدم جديد'),
-          'recoveryCode': '12345678-ABCDEF12-12345678-ABCDEF12-12345678'}, 201);
+          'recoveryCode': recoveryCodeValue}, 201);
       })));
     addTearDown(accounts.dispose);
     await accounts.restore();
@@ -86,10 +91,17 @@ void main() {
     tester.binding.focusManager.primaryFocus?.unfocus();
     await tester.pumpAndSettle();
     await visibleTap(tester, find.byKey(const Key('account-submit')));
-    expect(find.byKey(const Key('recovery-code')), findsOneWidget);
+    expect(accounts.phase, AccountPhase.signedIn,
+      reason: 'Registration must succeed before checking the recovery screen.');
     expect(vault.token, 'new-token');
+    expect(accounts.pendingRecoveryCode, recoveryCodeValue);
+    final recoveryCode = find.byKey(const Key('recovery-code'));
+    await revealWidget(tester, recoveryCode);
+    expect(recoveryCode, findsOneWidget);
+    expect(find.byKey(const Key('nav-home')), findsNothing);
     expect(tester.takeException(), isNull);
     await visibleTap(tester, find.byKey(const Key('recovery-saved')));
+    expect(accounts.pendingRecoveryCode, isNull);
     for (final key in ['nav-chats', 'nav-rooms', 'nav-games', 'nav-profile', 'nav-home']) {
       await tester.tap(find.byKey(Key(key)));
       await tester.pumpAndSettle();

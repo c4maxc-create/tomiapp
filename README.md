@@ -32,13 +32,18 @@ previews and do not affect stored account counts or real balances.
    an optional Blueprint. Supply the database connection in server environment
    variable `DATABASE_URL`; never add it to Flutter, GitHub variables or source.
 4. Set the **public HTTPS app server URL** in GitHub variable `TOMI_API_URL`.
-5. Run **TOMI Android Preview**, mode **accounts**, on **main**.
+5. Run **TOMI 0.2 Android**, mode **accounts**, on **main**.
 
 GitHub first tests the backend with SQLite and an isolated PostgreSQL 17 service.
 It then bootstraps Android, installs dependencies, runs `flutter analyze` and
 all Flutter tests, and compiles **TOMI-0.2.0.apk** only if the checks pass.
-Mode **preview** builds the design without a live server; it cannot create real
+The default mode **preview** builds the design without a live server; it cannot create real
 accounts. Accounts builds refuse missing, non-HTTPS or credential-bearing URLs.
+
+This repaired package scrolls the compact recovery screen before looking for
+its code, checks successful registration/session persistence before checking the
+screen, and keeps the recovery acknowledgement and five-tab checks enabled.
+The workflow prints its checked-out source revision to make future runs traceable.
 
 The APK is a debug test build. App-store release signing is not configured.
 The scaffold helper enables Internet access, disables cleartext connections and
@@ -86,6 +91,9 @@ PostgreSQL run accepts only a local database named `tomi_test`.
 - Flutter tests/analyze, the full PostgreSQL service test and APK compilation
   still require the included GitHub workflow. Local Flutter execution was blocked
   by automatic approval review because its setup attempted a metadata endpoint.
+- The latest user-supplied GitHub run passed Dart analysis and 21 of 22 Flutter
+  tests using the older registration test. The corrected registration test and
+  updated workflow still need a fresh GitHub run; this ZIP contains source only.
 - No hosted database, server deployment or cross-phone acceptance test has been
   completed in this authoring session.
 
