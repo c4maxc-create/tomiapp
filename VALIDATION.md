@@ -1,30 +1,50 @@
-# TOMI 0.3 validation
+# TOMI 0.4 validation
 
-Source baseline: user-provided TOMI-0.2-fixed.zip.
-Local tools: Node 24.19.0, Flutter 3.47.7, Dart 3.13.5.
+Baseline: TOMI-0.3-posts-r2.zip. Tools: Node 24.19.0, Flutter 3.47.7,
+Dart 3.13.5. These results apply to the final source archive.
 
 ## Passed
 
-- Node backend integration: 14 tests passed.
-  Includes the six existing account tests plus persisted posts/counts, retries and
-  concurrent publication, unique likes, comments, ownership, pagination with equal
-  timestamps, validation, verified image publication, rejected uploads and cleanup.
-- Signature V4 matches the exact AWS published GET presigning test vector.
-- Flutter tests: all 29 passed.
-  Includes existing account/preview tests plus real post retry, scope races,
-  likes/comments, direct upload without Bearer leakage, enlarged text and
-  comment errors with keyboard in portrait and landscape layouts.
-- Flutter analyze: no issues.
-- PostgreSQL WASM smoke: additive schema and complete account → follow → post →
-  like → comment → deletion flow passed against a PostgreSQL engine.
-- Android bootstrap/source preservation and build configuration checks passed.
+- Backend integration: all 25 tests passed, including the 14 existing account
+  and social tests and 11 chat/storage/migration tests. Covered persistence
+  across restart, concurrent pair creation, stable nonce retries, cross-recipient
+  nonce conflicts, sequence pagination, participant permissions, bounded and
+  monotonic reads, blocking, authenticated WebSocket isolation, typing rejection,
+  logout socket closure, tombstone deletion and cleanup.
+- A SQLite database created with the exact 0.3 schema snapshot upgraded while
+  retaining an existing account, session and post.
+- Image tests use a fake object store with the actual signing/verification code.
+  Covered sender/thread/feature scoping, checksums and signatures, five-minute
+  chat GET URLs, private bucket configuration and separate feed/chat cleanup.
+- Flutter tests: all 43 passed, including the 29 existing account, preview and
+  social tests and 14 new chat tests. Covered lost replies, stable image retries,
+  visibility-based reads, concurrent unseen arrival, stale deletion/block data,
+  logout response races and paging to the oldest of 600 messages with a bounded
+  500-message client cache.
+- Chat widget tests passed with a visible keyboard on a compact screen, failed
+  send/retry controls, deletion, long history with enlarged text, and an attached
+  photo plus multiline text in landscape with the keyboard visible.
+- Flutter/Dart analysis: no issues.
+- PostgreSQL WASM engine smoke passed: additive schema, accounts, private chat,
+  nonce replay, unread/read markers, blocking and deletion.
+- Android bootstrap checks passed: source preservation, workflow YAML,
+  generated-template test removal, launcher label and vector icon.
+- Build configuration accepted accounts/preview and rejected database URLs,
+  insecure HTTP URLs and URLs containing credentials.
 
 ## Environment-dependent checks
 
-The local PostgreSQL WASM smoke does not test pg TCP/TLS connectivity. The
-included GitHub workflow runs the complete backend tests against PostgreSQL 17
-before compiling the APK. No new hosted service, database or real R2 bucket was
-modified or configured in this session. Real-phone gallery access, real R2
-credentials and the final APK build still require deployment/build environments.
+The PostgreSQL smoke uses a PostgreSQL engine but does not test pg TCP/TLS or
+multiple independent database connections. GitHub Actions runs the full backend
+suite against PostgreSQL 17 before compiling the APK. That remote workflow has
+not been run from this workspace.
 
-The archive is source code and setup instructions; it contains no compiled APK.
+No live Northflank deployment, real R2 bucket, credentials or hosted database
+was modified. Physical Android gallery/process recreation, real R2 policies,
+hosted WebSocket proxy behavior and APK installation need their own environment.
+
+Realtime fanout is local to one API instance. Multi-replica event distribution,
+push notifications, end-to-end encryption, store signing and production load
+capacity are outside this version's validation.
+
+This archive contains source and instructions, with no compiled APK.

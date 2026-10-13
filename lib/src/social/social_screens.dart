@@ -1,7 +1,13 @@
+import '../messaging/gallery_intent.dart';
+import '../messaging/chat_screens.dart';
+import '../messaging/chat_models.dart';
+
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../accounts/account_api.dart';
 import '../accounts/account_controller.dart';
 import '../accounts/account_profile.dart';
@@ -102,8 +108,32 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
   Future<void> recoverPicker() async {
     try {
       final lost = await ImagePicker().retrieveLostData();
-      if (mounted && lost.files?.isNotEmpty == true)
+      final destination = await GalleryIntent.take();
+      if (!mounted ||
+          lost.files?.isNotEmpty != true ||
+          destination == null ||
+          destination['baseUrl'] != widget.accounts.api.baseUrl ||
+          destination['userId'] != widget.accounts.user?.id)
+        return;
+      final id = destination['conversationId'];
+      if (id is String) {
+        final d = await widget.accounts.chatRequest('GET', '/v1/chats/$id');
+        if (mounted)
+          await Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => PrivateChatPage(
+                chats: widget.accounts.chats,
+                conversation: DirectConversation.fromJson(
+                  d['conversation'] as Map<String, dynamic>,
+                ),
+                initialImage: lost.files!.first,
+              ),
+            ),
+          );
+      } else {
         await compose(initialImage: lost.files!.first);
+      }
     } catch (_) {
       /* No pending selection on this platform. */
     }
@@ -532,6 +562,10 @@ class _SocialComposerState extends State<SocialComposer> {
       error = null;
     });
     try {
+      await GalleryIntent.remember(
+        widget.accounts.api.baseUrl,
+        widget.accounts.user!.id,
+      );
       final f = await ImagePicker().pickImage(
         source: ImageSource.gallery,
         maxWidth: 2400,
@@ -539,6 +573,7 @@ class _SocialComposerState extends State<SocialComposer> {
         imageQuality: 90,
         requestFullMetadata: false,
       );
+      await GalleryIntent.clear();
       if (f != null) await loadImage(f);
     } catch (_) {
       if (mounted)

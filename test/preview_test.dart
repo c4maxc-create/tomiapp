@@ -13,7 +13,13 @@ void main() {
       await tester.pumpWidget(const TomiApp(previewMode: true));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      for (final key in ['nav-chats', 'nav-rooms', 'nav-games', 'nav-profile', 'nav-home']) {
+      for (final key in [
+        'nav-chats',
+        'nav-rooms',
+        'nav-games',
+        'nav-profile',
+        'nav-home',
+      ]) {
         await tester.tap(find.byKey(Key(key)));
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull, reason: key);
@@ -21,14 +27,24 @@ void main() {
     });
   }
 
-  testWidgets('compact screen supports larger text across tabs', (tester) async {
+  testWidgets('compact screen supports larger text across tabs', (
+    tester,
+  ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(320, 640);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const TomiApp(previewMode: true, textScaler: TextScaler.linear(1.5)));
+    await tester.pumpWidget(
+      const TomiApp(previewMode: true, textScaler: TextScaler.linear(1.5)),
+    );
     await tester.pumpAndSettle();
-    for (final key in ['nav-home', 'nav-chats', 'nav-rooms', 'nav-games', 'nav-profile']) {
+    for (final key in [
+      'nav-home',
+      'nav-chats',
+      'nav-rooms',
+      'nav-games',
+      'nav-profile',
+    ]) {
       await tester.tap(find.byKey(Key(key)));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: key);
@@ -41,7 +57,10 @@ void main() {
     await tester.pumpWidget(TomiApp(store: store));
     await tester.tap(find.byKey(const Key('compose-post')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('post-input')), 'أول تجربة TOMI');
+    await tester.enterText(
+      find.byKey(const Key('post-input')),
+      'أول تجربة TOMI',
+    );
     await tester.tap(find.byKey(const Key('publish-post')));
     await tester.pumpAndSettle();
     expect(store.posts.first.text, 'أول تجربة TOMI');
@@ -58,7 +77,10 @@ void main() {
     await tester.tap(find.text('علي').first);
     await tester.pumpAndSettle();
     expect(store.chats.first.unread, 0);
-    await tester.enterText(find.byKey(const Key('message-input')), 'هلا من تومي');
+    await tester.enterText(
+      find.byKey(const Key('message-input')),
+      'هلا من تومي',
+    );
     await tester.tap(find.byKey(const Key('send-message')));
     await tester.pumpAndSettle();
     expect(store.chats.first.messages.last.text, 'هلا من تومي');

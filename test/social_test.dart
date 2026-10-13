@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -11,6 +12,7 @@ import 'package:tomi_app/src/accounts/account_controller.dart';
 import 'package:tomi_app/src/social/feed_controller.dart';
 import 'package:tomi_app/src/social/social_models.dart';
 import 'package:tomi_app/src/social/social_screens.dart';
+
 import 'account_fakes.dart';
 
 http.Response reply(Map<String, dynamic> d, [int code = 200]) => http.Response(
@@ -60,6 +62,7 @@ void main() {
     ) async {
       screen(t, viewport);
       final a = AccountController(
+        realtimeEnabled: false,
         vault: MemoryTokenVault('token'),
         api: AccountApi(
           'https://tomi.example',
@@ -112,6 +115,7 @@ void main() {
       String? firstRequest;
       final posts = <Map<String, dynamic>>[];
       final a = AccountController(
+        realtimeEnabled: false,
         vault: MemoryTokenVault('token'),
         api: AccountApi(
           'https://tomi.example',
@@ -178,6 +182,7 @@ void main() {
       var p = postJson();
       final comments = <Map<String, dynamic>>[];
       final a = AccountController(
+        realtimeEnabled: false,
         vault: MemoryTokenVault('token'),
         api: AccountApi(
           'https://tomi.example',
@@ -278,6 +283,7 @@ void main() {
   test('late feed responses cannot replace a newly selected scope', () async {
     final old = Completer<http.Response>();
     final a = AccountController(
+      realtimeEnabled: false,
       vault: MemoryTokenVault('token'),
       api: AccountApi(
         'https://tomi.example',

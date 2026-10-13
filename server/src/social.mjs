@@ -16,7 +16,7 @@ function page(url){const v=url.searchParams.get('limit')||'20';if(!/^\d{1,2}$/.t
  if(raw)try{if(raw.length>200)throw new Error();cursor=JSON.parse(Buffer.from(raw,'base64url').toString());if(!uuid.test(cursor.id)||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(cursor.time)||!Number.isFinite(Date.parse(cursor.time)))throw new Error();}catch{throw new ApiError(400,'VALIDATION','الصفحة غير صحيحة؛ حدّث القائمة.');}return{size:Number(v),cursor};}
 const cursorFor=r=>Buffer.from(JSON.stringify({time:r.created_at,id:r.id})).toString('base64url');
 const author=r=>({id:r.user_id,username:r.username,displayName:r.display_name,avatarPreset:r.avatar_preset});
-export function createSocial({database,storage,readJson,respond,limit,userById}){
+export function createSocial({database,storage,readJson,respond,limit,userById,cleanupPrefix='tomi/'}){
  const postJson=(r,viewer)=>({id:r.id,text:r.body,createdAt:r.created_at,author:author(r),image:r.object_key?{url:storage?.readUrl(r.object_key)??null,width:Number(r.width),height:Number(r.height)}:null,likesCount:Number(r.likes_count),commentsCount:Number(r.comments_count),liked:Number(r.is_liked)>0,isMine:r.user_id===viewer});
  const commentJson=(r,viewer)=>({id:r.id,text:r.body,createdAt:r.created_at,author:author(r),isMine:r.user_id===viewer});
  async function getPost(id,viewer,db=database){const{rows}=await db.query(posts+'WHERE p.id=?',[viewer,id]);if(!rows[0])throw new ApiError(404,'POST_NOT_FOUND','المنشور غير موجود أو انحذف.');return postJson(rows[0],viewer);}
@@ -44,7 +44,7 @@ export function createSocial({database,storage,readJson,respond,limit,userById})
    await limit('posts:'+viewer,20);const d=await readJson(request);fields(d,['text','imageUploadId','requestId']);const text=textBody(d.text,2000),key=reqId(d.requestId),image=d.imageUploadId??null;
    if(image!==null&&(typeof image!=='string'||!uuid.test(image)))throw new ApiError(400,'INVALID_IMAGE','الصورة غير صحيحة.');if(!text&&!image)throw new ApiError(400,'VALIDATION','اكتب نص أو اختَر صورة.');
    let id=await existing(viewer,key,text,image),dimensions;const repeated=!!id;
-   if(!id&&image){if(!storage)throw new ApiError(503,'IMAGES_DISABLED','نشر الصور غير متاح حاليًا؛ تگدر تنشر نص.');const{rows}=await database.query('SELECT * FROM tomi_image_uploads WHERE id=? AND user_id=?',[image,viewer]);const u=rows[0];if(!u||u.state!=='pending'||u.expires_at<=now())throw new ApiError(400,'UPLOAD_INVALID','رفع الصورة انتهى أو استُخدم؛ اختَرها مرة ثانية.');dimensions=await storage.verify(u);}
+   if(!id&&image){if(!storage)throw new ApiError(503,'IMAGES_DISABLED','نشر الصور غير متاح حاليًا؛ تگدر تنشر نص.');const{rows}=await database.query('SELECT * FROM tomi_image_uploads WHERE id=? AND user_id=?',[image,viewer]);const u=rows[0];if(!u||u.state!=='pending'||u.expires_at<=now()||!u.object_key.startsWith('tomi/posts/'+viewer+'/'))throw new ApiError(400,'UPLOAD_INVALID','رفع الصورة انتهى أو استُخدم؛ اختَرها مرة ثانية.');dimensions=await storage.verify(u);}
    if(!id){id=randomUUID();try{await database.transaction(async db=>{
     await db.query('INSERT INTO tomi_posts (id,user_id,request_id,body,image_upload_id,created_at) VALUES (?,?,?,?,?,?)',[id,viewer,key,text,image,now()]);
     if(image){const changed=await db.query("UPDATE tomi_image_uploads SET state='attached',width=?,height=? WHERE id=? AND user_id=? AND state='pending' AND expires_at>?",[dimensions.width,dimensions.height,image,viewer,now()]);if(changed.changes!==1)throw new ApiError(409,'UPLOAD_INVALID','الصورة انتهت أو استُخدمت؛ اختَرها مرة ثانية.');}
@@ -64,6 +64,6 @@ export function createSocial({database,storage,readJson,respond,limit,userById})
   return false;
  }
  let cleaning=false;
- async function cleanup(){if(!storage||cleaning)return;cleaning=true;try{const{rows}=await database.query("SELECT id,object_key FROM tomi_image_uploads WHERE state<>'attached' AND expires_at<=? ORDER BY expires_at LIMIT 20",[now()]);for(const r of rows)try{await storage.delete(r.object_key);await database.query("DELETE FROM tomi_image_uploads WHERE id=? AND state<>'attached' AND expires_at<=?",[r.id,now()]);}catch{console.error('Media cleanup deferred');}}finally{cleaning=false;}}
+ async function cleanup(){if(!storage||cleaning)return;cleaning=true;try{const{rows}=await database.query("SELECT id,object_key FROM tomi_image_uploads WHERE state<>'attached' AND expires_at<=? AND object_key LIKE ? ORDER BY expires_at LIMIT 20",[now(),cleanupPrefix+'%']);for(const r of rows)try{await storage.delete(r.object_key);await database.query("DELETE FROM tomi_image_uploads WHERE id=? AND state<>'attached' AND expires_at<=?",[r.id,now()]);}catch{console.error('Media cleanup deferred');}}finally{cleaning=false;}}
  return {handle,cleanup};
 }

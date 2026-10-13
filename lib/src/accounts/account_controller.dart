@@ -1,3 +1,6 @@
+import '../messaging/chat_controller.dart';
+import '../messaging/chat_connection.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -26,9 +29,39 @@ class SecureTokenVault implements TokenVault {
 enum AccountPhase { restoring, signedOut, signedIn, connectionError }
 
 class AccountController extends ChangeNotifier {
-  AccountController({required this.api, TokenVault? vault})
-    : _vault = vault ?? SecureTokenVault(api.baseUrl);
+  AccountController({
+    required this.api,
+    TokenVault? vault,
+    this.realtimeEnabled = true,
+  }) : _vault = vault ?? SecureTokenVault(api.baseUrl);
   final AccountApi api;
+  final bool realtimeEnabled;
+  ChatController? _chats;
+  ChatController get chats => _chats ??= ChatController(
+    accounts: this,
+    realtimeEnabled: realtimeEnabled,
+  );
+  int get sessionRevision => _revision;
+  Future<Map<String, dynamic>> chatRequest(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    Map<String, String>? query,
+  }) => _authenticated(
+    (token) => api.chatRequest(token, method, path, body: body, query: query),
+  );
+  Future<ChatConnection> openChatConnection() async {
+    final token = _token;
+    if (token == null)
+      throw const AccountFailure('UNAUTHORIZED', 'سجّل دخولك.', status: 401);
+    final socket = await api.openChatConnection(token);
+    if (_disposed || token != _token) {
+      await socket.close();
+      throw const AccountFailure('SESSION_CHANGED', 'جلسة الدخول تغيّرت.');
+    }
+    return socket;
+  }
+
   final TokenVault _vault;
   AccountPhase _phase = AccountPhase.restoring;
   AccountUser? _user;
@@ -115,8 +148,7 @@ class AccountController extends ChangeNotifier {
     try {
       await _vault.write(grant.token);
     } catch (_) {
-      storageWarning =
-          'دخلت لحسابك، لكن تعذّر حفظ الجلسة على الجهاز؛ قد تحتاج تسجّل دخولك لاحقًا.';
+      storageWarning = 'دخلت لحسابك، لكن تعذّر حفظ الجلسة على الجهاز؛ قد تحتاج تسجّل دخولك لاحقًا.';
     }
     _token = grant.token;
     _user = grant.user;
@@ -268,6 +300,7 @@ class AccountController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     ++_revision;
+    _chats?.dispose();
     api.close();
     super.dispose();
   }

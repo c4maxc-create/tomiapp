@@ -66,3 +66,30 @@ CREATE TABLE IF NOT EXISTS tomi_comments (
  UNIQUE(user_id,request_id)
 );
 CREATE INDEX IF NOT EXISTS tomi_comments_post_idx ON tomi_comments(post_id,created_at,id);
+
+-- Additive 0.4 private chat schema.
+CREATE TABLE IF NOT EXISTS tomi_chat_threads (
+ id TEXT PRIMARY KEY,low_user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ high_user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ next_seq BIGINT NOT NULL DEFAULT 0,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,
+ UNIQUE(low_user_id,high_user_id),CHECK(low_user_id<high_user_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_chat_members (
+ thread_id TEXT NOT NULL REFERENCES tomi_chat_threads(id) ON DELETE CASCADE,
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ last_read_seq BIGINT NOT NULL DEFAULT 0,visible INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(thread_id,user_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_chat_messages (
+ id TEXT PRIMARY KEY,thread_id TEXT NOT NULL REFERENCES tomi_chat_threads(id) ON DELETE CASCADE,
+ sender_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,sequence BIGINT NOT NULL,
+ request_id TEXT NOT NULL,payload_hash TEXT NOT NULL,body TEXT NOT NULL,
+ image_upload_id TEXT UNIQUE REFERENCES tomi_image_uploads(id),created_at TEXT NOT NULL,deleted_at TEXT,
+ UNIQUE(thread_id,sequence),UNIQUE(sender_id,request_id)
+);
+CREATE INDEX IF NOT EXISTS tomi_chat_unread_idx ON tomi_chat_messages(thread_id,sender_id,sequence);
+CREATE INDEX IF NOT EXISTS tomi_chat_list_idx ON tomi_chat_threads(updated_at,id);
+CREATE TABLE IF NOT EXISTS tomi_user_blocks (
+ blocker_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ blocked_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,created_at TEXT NOT NULL,
+ PRIMARY KEY(blocker_id,blocked_id),CHECK(blocker_id<>blocked_id)
+);

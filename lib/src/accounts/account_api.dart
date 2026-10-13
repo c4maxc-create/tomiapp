@@ -1,3 +1,7 @@
+import 'package:web_socket_channel/web_socket_channel.dart';
+
+import '../messaging/chat_connection.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -369,6 +373,29 @@ class AccountApi {
         'IMAGE_NETWORK',
         'انقطع رفع الصورة؛ تأكد من الإنترنت وجرّب النشر مرة ثانية.',
       );
+    }
+  }
+
+  Future<Map<String, dynamic>> chatRequest(
+    String token,
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    Map<String, String>? query,
+  }) => _request(method, path, token: token, body: body, query: query);
+  Future<ChatConnection> openChatConnection(String token) async {
+    final channel = WebSocketChannel.connect(
+      Uri.parse('$baseUrl/v1/chat/socket').replace(scheme: 'wss'),
+    );
+    try {
+      await channel.ready.timeout(const Duration(seconds: 10));
+      channel.sink.add(jsonEncode({'type': 'authenticate', 'token': token}));
+      return WebChatConnection(channel);
+    } catch (_) {
+      try {
+        await channel.sink.close().timeout(const Duration(seconds: 2));
+      } catch (_) {}
+      rethrow;
     }
   }
 

@@ -1,3 +1,5 @@
+import 'messaging/chat_screens.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -203,6 +205,7 @@ class _TomiAppState extends State<TomiApp> {
   Widget build(BuildContext context) => MaterialApp(
     title: 'TOMI',
     navigatorKey: navigator,
+    navigatorObservers: [chatRouteObserver],
     debugShowCheckedModeBanner: false,
     locale: const Locale('ar'),
     supportedLocales: const [Locale('ar'), Locale('en')],
@@ -210,9 +213,8 @@ class _TomiAppState extends State<TomiApp> {
     builder: (context, child) => widget.textScaler == null
         ? child!
         : MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: widget.textScaler),
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: widget.textScaler),
             child: child!,
           ),
     theme: ThemeData(
@@ -312,7 +314,10 @@ class _TomiShellState extends State<TomiShell> {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: widget.store,
+    animation: Listenable.merge([
+      widget.store,
+      if (widget.accounts != null) widget.accounts!.chats,
+    ]),
     builder: (context, _) => Scaffold(
       appBar: AppBar(
         titleSpacing: 18,
@@ -332,7 +337,7 @@ class _TomiShellState extends State<TomiShell> {
                 ),
               ),
               const SizedBox(width: 9),
-              TinyLabel(widget.accounts == null ? 'تجريبي' : '0.3'),
+              TinyLabel(widget.accounts == null ? 'تجريبي' : '0.4'),
             ],
           ),
         ),
@@ -373,7 +378,7 @@ class _TomiShellState extends State<TomiShell> {
         bottom: false,
         child: Column(
           children: [
-            if (widget.accounts != null && selected > 0 && selected < 4)
+            if (widget.accounts != null && selected > 1 && selected < 4)
               const Padding(
                 padding: EdgeInsets.fromLTRB(18, 4, 18, 0),
                 child: Text(
@@ -392,7 +397,9 @@ class _TomiShellState extends State<TomiShell> {
                   widget.accounts == null
                       ? HomeScreen(store: widget.store)
                       : SocialFeedScreen(accounts: widget.accounts!),
-                  ChatsScreen(store: widget.store),
+                  widget.accounts == null
+                      ? ChatsScreen(store: widget.store)
+                      : PrivateChatsScreen(accounts: widget.accounts!),
                   RoomsScreen(store: widget.store),
                   GamesScreen(store: widget.store),
                   widget.accounts == null
@@ -408,7 +415,7 @@ class _TomiShellState extends State<TomiShell> {
         selectedIndex: selected,
         onDestinationSelected: (value) => setState(() => selected = value),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: const [
+        destinations: [
           NavigationDestination(
             key: Key('nav-home'),
             icon: Icon(Icons.home_outlined),
@@ -417,7 +424,11 @@ class _TomiShellState extends State<TomiShell> {
           ),
           NavigationDestination(
             key: Key('nav-chats'),
-            icon: Icon(Icons.chat_bubble_outline_rounded),
+            icon: Badge(
+              isLabelVisible: (widget.accounts?.chats.totalUnread ?? 0) > 0,
+              label: Text('${widget.accounts?.chats.totalUnread ?? 0}'),
+              child: const Icon(Icons.chat_bubble_outline_rounded),
+            ),
             selectedIcon: Icon(Icons.chat_bubble_rounded),
             label: 'المحادثات',
           ),

@@ -1,3 +1,5 @@
+import '../messaging/chat_screens.dart';
+
 import 'package:flutter/material.dart';
 
 import '../widgets.dart';
@@ -168,7 +170,7 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
             const SizedBox(height: 16),
             const TomiCard(
               child: Text(
-                'الحساب والمنشورات واللايكات والتعليقات فعّالة. المحادثات والغرف والألعاب والأرصدة تبقى معاينة.',
+                'الحساب والمنشورات واللايكات والتعليقات فعّالة. المحادثات الخاصة فعّالة. الغرف والألعاب والأرصدة تبقى معاينة.',
                 style: TextStyle(color: TomiColors.muted, height: 1.7),
               ),
             ),
@@ -496,6 +498,13 @@ class _UserAccountPageState extends State<UserAccountPage> {
                 ],
                 const SizedBox(height: 24),
                 AccountStats(user),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: () =>
+                      openPrivateChat(context, widget.accounts, user.id),
+                  icon: const Icon(Icons.chat_bubble_outline),
+                  label: const Text('مراسلة'),
+                ),
                 const SizedBox(height: 24),
                 FilledButton.icon(
                   key: const Key('follow-account'),

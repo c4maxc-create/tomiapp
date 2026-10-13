@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { createSocial } from './social.mjs';
+import { createChat } from './chat.mjs';
 import {
   ApiError, digest, hashPassword, verifyPassword, newToken, newRecoveryCode,
   normalizeRecoveryCode, validateUsername, validatePassword, validateProfile, isUniqueConflict,
@@ -54,7 +55,7 @@ function publicUser(row) {
   };
 }
 
-export async function createApp({ database, trustProxy = false, origins = [], rateLimitMultiplier = 1, storage = null }) {
+export async function createApp({ database, trustProxy = false, origins = [], rateLimitMultiplier = 1, storage = null, chatStorage = storage }) {
   // Equal-cost verification for unknown users avoids a cheap username timing oracle.
   const dummyHash = await hashPassword(newToken());
   const userById = async (id, viewer, db = database) => {
@@ -96,7 +97,9 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
     return { token, expiresAt: expires };
   }
 
-  const social = createSocial({database, storage, readJson, respond: json, limit, userById});
+  const social = createSocial({database, storage, readJson, respond: json, limit, userById, cleanupPrefix:chatStorage===storage?'tomi/':'tomi/posts/'});
+  const chatMedia=chatStorage===storage?null:createSocial({database,storage:chatStorage,readJson,respond:json,limit,userById,cleanupPrefix:'tomi/chat-images/'});
+  const chat=createChat({database,storage:chatStorage,readJson,respond:json,limit,userById});
   const server = createServer(async (request, response) => {
     try {
       const origin = request.headers.origin;
@@ -123,7 +126,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       }
       if (method === 'GET' && (path === '/health' || path === '/')) {
         await database.query('SELECT 1 AS ready');
-        json(response, 200, { status: 'ok', service: 'TOMI API', version: '0.3.0' });
+        json(response, 200, { status: 'ok', service: 'TOMI API', version: '0.4.0' });
         return;
       }
 
@@ -191,16 +194,19 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
           return { ...(await grant(db, row.id, row.auth_version + 1)),
             user: await userById(row.id, row.id, db), recoveryCode };
         });
+        chat.invalidateUser(row.id);
         json(response, 200, result);
         return;
       }
 
       const current = await session(request);
-      await limit(`requests:user:${current.id}`, 120);
+      await limit(`requests:user:${current.id}`, 300);
+      if (await chat.handle(request,response,url,current)) return;
       if (await social.handle(request,response,url,current)) return;
 
       if (method === 'POST' && path === '/v1/auth/logout') {
         await database.query('DELETE FROM tomi_sessions WHERE token_hash = ?', [current.tokenHash]);
+        chat.invalidateSession(current.tokenHash);
         json(response, 200, { ok: true });
         return;
       }
@@ -246,6 +252,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
           return { ...(await grant(db, current.id, row.auth_version + 1)),
             user: await userById(current.id, current.id, db), recoveryCode };
         });
+        chat.invalidateUser(current.id);
         json(response, 200, result);
         return;
       }
@@ -299,7 +306,11 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       }
     }
   });
-  server.cleanupMedia = social.cleanup;
+  server.cleanupMedia = async()=>{await social.cleanup();if(chatMedia)await chatMedia.cleanup();};
+  chat.attach(server,{origins,authenticate:token=>session({headers:{authorization:'Bearer '+token}}),validSessions:async hashes=>{
+    if(!hashes.length)return new Set();
+    const{rows}=await database.query(`SELECT s.token_hash FROM tomi_sessions s JOIN tomi_users u ON u.id=s.user_id AND u.auth_version=s.auth_version WHERE s.expires_at>? AND s.token_hash IN (${hashes.map(()=>'?').join(',')})`,[nowText(),...hashes]);return new Set(rows.map(r=>r.token_hash));
+  }});
   server.requestTimeout = 15000;
   server.headersTimeout = 10000;
   server.keepAliveTimeout = 5000;

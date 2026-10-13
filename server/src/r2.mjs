@@ -27,11 +27,17 @@ export function r2FromEnvironment(env=process.env){
  if(env.R2_PUBLIC_BASE_URL){const u=new URL(env.R2_PUBLIC_BASE_URL);if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash)throw new Error('Invalid public R2 HTTPS URL.');publicBaseUrl=u.toString().replace(/\/+$/,'');}
  return new R2Images({endpoint:'https://'+env.R2_ACCOUNT_ID+'.r2.cloudflarestorage.com',bucket:env.R2_BUCKET_NAME,accessKeyId:env.R2_ACCESS_KEY_ID,secretAccessKey:env.R2_SECRET_ACCESS_KEY,publicBaseUrl});
 }
+export function chatR2FromEnvironment(env=process.env,fallback=null){
+ const configured=r2FromEnvironment({R2_ACCOUNT_ID:env.R2_CHAT_ACCOUNT_ID,R2_BUCKET_NAME:env.R2_CHAT_BUCKET_NAME,R2_ACCESS_KEY_ID:env.R2_CHAT_ACCESS_KEY_ID,R2_SECRET_ACCESS_KEY:env.R2_CHAT_SECRET_ACCESS_KEY});
+ if(fallback?.config?.publicBaseUrl){if(!configured)return null;if(configured.config.endpoint===fallback.config.endpoint&&configured.config.bucket===fallback.config.bucket)throw new Error('Chat images need a separate private bucket.');}
+ return configured||fallback;
+}
 export class R2Images {
  constructor(config,{fetcher=fetch}={}){this.config=config;this.fetcher=fetcher;this.active=0;}
  url(method,key,headers={},expires=900){return signS3Url({...this.config,method,key,headers,expires});}
  prepare(u){const headers={'content-type':u.content_type,'content-md5':u.content_md5,'if-none-match':'*'};return{uploadUrl:this.url('PUT',u.object_key,headers),headers,expiresIn:900};}
  readUrl(key){return this.config.publicBaseUrl?this.config.publicBaseUrl+'/'+key.split('/').map(encode).join('/'):this.url('GET',key,{},86400);}
+ privateReadUrl(key){return this.url('GET',key,{},300);}
  async verify(u){
   if(this.active>=2)throw new ApiError(503,'MEDIA_BUSY','الصور قيد المعالجة؛ جرّب النشر بعد قليل.');
   this.active++;const abort=new AbortController(),deadline=setTimeout(()=>abort.abort(),30000);
