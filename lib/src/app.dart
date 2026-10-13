@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'chat.dart';
 import 'games.dart';
 import 'home.dart';
+import 'social/social_screens.dart';
 import 'model.dart';
 import 'profile.dart';
 import 'rooms.dart';
@@ -17,9 +18,14 @@ import 'accounts/account_search.dart';
 import 'accounts/auth_screen.dart';
 
 class TomiApp extends StatefulWidget {
-  const TomiApp({super.key, this.store, this.textScaler, this.accounts,
+  const TomiApp({
+    super.key,
+    this.store,
+    this.textScaler,
+    this.accounts,
     this.previewMode = const bool.fromEnvironment('TOMI_PREVIEW_MODE'),
-    this.apiUrl = const String.fromEnvironment('TOMI_API_URL')});
+    this.apiUrl = const String.fromEnvironment('TOMI_API_URL'),
+  });
   final TomiStore? store;
   final TextScaler? textScaler;
   final AccountController? accounts;
@@ -42,13 +48,17 @@ class _TomiAppState extends State<TomiApp> {
   void initState() {
     super.initState();
     accounts = widget.accounts;
-    if (accounts == null && widget.store == null && !widget.previewMode && widget.apiUrl.isNotEmpty) {
+    if (accounts == null &&
+        widget.store == null &&
+        !widget.previewMode &&
+        widget.apiUrl.isNotEmpty) {
       accounts = AccountController(api: AccountApi(widget.apiUrl));
     }
     previousUserId = accounts?.user?.id;
     previousRecoveryCode = accounts?.pendingRecoveryCode;
     accounts?.addListener(accountChanged);
-    if (accounts?.phase == AccountPhase.restoring) unawaited(accounts!.restore());
+    if (accounts?.phase == AccountPhase.restoring)
+      unawaited(accounts!.restore());
   }
 
   void accountChanged() {
@@ -67,48 +77,118 @@ class _TomiAppState extends State<TomiApp> {
   Widget accountHome() {
     final controller = accounts;
     if (widget.store != null || widget.previewMode || previewSelected) {
-      return TomiShell(store: store,
-        onExitPreview: !widget.previewMode && widget.store == null ? () => setState(() => previewSelected = false) : null);
+      return TomiShell(
+        store: store,
+        onExitPreview: !widget.previewMode && widget.store == null
+            ? () => setState(() => previewSelected = false)
+            : null,
+      );
     }
     if (controller == null) {
-      return Scaffold(body: SafeArea(child: ListView(padding: const EdgeInsets.all(24), children: [
-        const SizedBox(height: 40),
-        const Text('TOMI', textDirection: TextDirection.ltr, textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 38, fontWeight: FontWeight.w900, color: TomiColors.accent)),
-        const SizedBox(height: 28),
-        const Text('خدمة الحسابات قيد التجهيز', textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-        const Text('تگدر تتصفّح التصميم الآن، وتسجيل الحساب يتفعّل عند اتصال النسخة بالخدمة.',
-          textAlign: TextAlign.center, style: TextStyle(height: 1.7, color: TomiColors.muted)),
-        const SizedBox(height: 24),
-        FilledButton(onPressed: () => setState(() => previewSelected = true), child: const Text('تجربة التصميم')),
-      ])));
+      return Scaffold(
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              const SizedBox(height: 40),
+              const Text(
+                'TOMI',
+                textDirection: TextDirection.ltr,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 38,
+                  fontWeight: FontWeight.w900,
+                  color: TomiColors.accent,
+                ),
+              ),
+              const SizedBox(height: 28),
+              const Text(
+                'خدمة الحسابات قيد التجهيز',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'تگدر تتصفّح التصميم الآن، وتسجيل الحساب يتفعّل عند اتصال النسخة بالخدمة.',
+                textAlign: TextAlign.center,
+                style: TextStyle(height: 1.7, color: TomiColors.muted),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: () => setState(() => previewSelected = true),
+                child: const Text('تجربة التصميم'),
+              ),
+            ],
+          ),
+        ),
+      );
     }
-    return AnimatedBuilder(animation: controller, builder: (context, _) {
-      if (controller.phase == AccountPhase.restoring) {
-        return const Scaffold(body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          CircularProgressIndicator(), SizedBox(height: 18),
-          Padding(padding: EdgeInsets.all(20), child: Text('نتحقق من جلسة حسابك…', textAlign: TextAlign.center)),
-        ])));
-      }
-      if (controller.phase == AccountPhase.connectionError) {
-        return Scaffold(body: SafeArea(child: ListView(padding: const EdgeInsets.all(24), children: [
-          const SizedBox(height: 40),
-          const Icon(Icons.cloud_off_outlined, size: 58, color: TomiColors.accent),
-          const SizedBox(height: 20),
-          Text(controller.error ?? 'تعذّر الاتصال حاليًا.', textAlign: TextAlign.center,
-            style: const TextStyle(height: 1.7)),
-          const SizedBox(height: 24),
-          FilledButton(key: const Key('restore-retry'), onPressed: controller.restore, child: const Text('إعادة المحاولة')),
-        ])));
-      }
-      if (controller.phase == AccountPhase.signedOut) return AuthScreen(accounts: controller);
-      if (controller.pendingRecoveryCode != null) {
-        return RecoveryCodeScreen(code: controller.pendingRecoveryCode!, onSaved: controller.acknowledgeRecoveryCode);
-      }
-      return AccountShell(key: ValueKey(controller.user!.id), accounts: controller);
-    });
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        if (controller.phase == AccountPhase.restoring) {
+          return const Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 18),
+                  Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text(
+                      'نتحقق من جلسة حسابك…',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        if (controller.phase == AccountPhase.connectionError) {
+          return Scaffold(
+            body: SafeArea(
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  const SizedBox(height: 40),
+                  const Icon(
+                    Icons.cloud_off_outlined,
+                    size: 58,
+                    color: TomiColors.accent,
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    controller.error ?? 'تعذّر الاتصال حاليًا.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(height: 1.7),
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    key: const Key('restore-retry'),
+                    onPressed: controller.restore,
+                    child: const Text('إعادة المحاولة'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        if (controller.phase == AccountPhase.signedOut)
+          return AuthScreen(accounts: controller);
+        if (controller.pendingRecoveryCode != null) {
+          return RecoveryCodeScreen(
+            code: controller.pendingRecoveryCode!,
+            onSaved: controller.acknowledgeRecoveryCode,
+          );
+        }
+        return AccountShell(
+          key: ValueKey(controller.user!.id),
+          accounts: controller,
+        );
+      },
+    );
   }
 
   @override
@@ -127,25 +207,48 @@ class _TomiAppState extends State<TomiApp> {
     locale: const Locale('ar'),
     supportedLocales: const [Locale('ar'), Locale('en')],
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
-    builder: (context, child) => widget.textScaler == null ? child! : MediaQuery(
-      data: MediaQuery.of(context).copyWith(textScaler: widget.textScaler), child: child!),
+    builder: (context, child) => widget.textScaler == null
+        ? child!
+        : MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: widget.textScaler),
+            child: child!,
+          ),
     theme: ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: TomiColors.background,
-      colorScheme: ColorScheme.fromSeed(seedColor: TomiColors.accent,
-        brightness: Brightness.dark, surface: TomiColors.surface),
-      appBarTheme: const AppBarTheme(backgroundColor: TomiColors.background,
-        foregroundColor: TomiColors.text, elevation: 0, scrolledUnderElevation: 0),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: TomiColors.accent,
+        brightness: Brightness.dark,
+        surface: TomiColors.surface,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: TomiColors.background,
+        foregroundColor: TomiColors.text,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
       navigationBarTheme: const NavigationBarThemeData(
-        backgroundColor: Color(0xFF10131E), indicatorColor: Color(0xFF3C305C),
+        backgroundColor: Color(0xFF10131E),
+        indicatorColor: Color(0xFF3C305C),
       ),
       inputDecorationTheme: InputDecorationTheme(
-        filled: true, fillColor: TomiColors.raised,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        filled: true,
+        fillColor: TomiColors.raised,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
       ),
-      snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
+      snackBarTheme: const SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+      ),
     ),
     home: accountHome(),
   );
@@ -166,24 +269,36 @@ class _AccountShellState extends State<AccountShell> {
     synchronize();
     widget.accounts.addListener(synchronize);
   }
+
   void synchronize() {
     final user = widget.accounts.user;
-    if (user != null && (store.username != user.username || store.displayName != user.displayName || store.bio != user.bio)) {
+    if (user != null &&
+        (store.username != user.username ||
+            store.displayName != user.displayName ||
+            store.bio != user.bio)) {
       store.updateProfile(user.displayName, user.username, user.bio);
     }
   }
+
   @override
   void dispose() {
     widget.accounts.removeListener(synchronize);
     store.dispose();
     super.dispose();
   }
+
   @override
-  Widget build(BuildContext context) => TomiShell(store: store, accounts: widget.accounts);
+  Widget build(BuildContext context) =>
+      TomiShell(store: store, accounts: widget.accounts);
 }
 
 class TomiShell extends StatefulWidget {
-  const TomiShell({super.key, required this.store, this.accounts, this.onExitPreview});
+  const TomiShell({
+    super.key,
+    required this.store,
+    this.accounts,
+    this.onExitPreview,
+  });
   final TomiStore store;
   final AccountController? accounts;
   final VoidCallback? onExitPreview;
@@ -201,55 +316,129 @@ class _TomiShellState extends State<TomiShell> {
     builder: (context, _) => Scaffold(
       appBar: AppBar(
         titleSpacing: 18,
-        title: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerRight,
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-          const Text('TOMI', textDirection: TextDirection.ltr,
-            style: TextStyle(fontSize: 23, letterSpacing: 2.8, fontWeight: FontWeight.w900)),
-          const SizedBox(width: 9),
-          TinyLabel(widget.accounts == null ? 'تجريبي' : '0.2'),
-        ])),
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerRight,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'TOMI',
+                textDirection: TextDirection.ltr,
+                style: TextStyle(
+                  fontSize: 23,
+                  letterSpacing: 2.8,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(width: 9),
+              TinyLabel(widget.accounts == null ? 'تجريبي' : '0.3'),
+            ],
+          ),
+        ),
         actions: [
-          IconButton(tooltip: 'البحث', icon: const Icon(Icons.search_rounded),
-            onPressed: () => Navigator.push(context, MaterialPageRoute<void>(
-              builder: (_) => widget.accounts == null ? SearchPage(store: widget.store)
-                : AccountSearchPage(accounts: widget.accounts!)))),
-          IconButton(tooltip: 'الإشعارات', icon: const Icon(Icons.notifications_none_rounded),
-            onPressed: () => showInfo(context, 'الإشعارات',
-              'أهلًا بيك في معاينة TOMI 💜\nكل الأسماء والأرصدة والرسائل هنا تجريبية.\nتغييراتك تبقى خلال جلسة تشغيل التطبيق فقط.')),
-          if (widget.onExitPreview != null) IconButton(tooltip: 'الرجوع للحسابات',
-            onPressed: widget.onExitPreview, icon: const Icon(Icons.person_outline_rounded)),
+          IconButton(
+            tooltip: 'البحث',
+            icon: const Icon(Icons.search_rounded),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => widget.accounts == null
+                    ? SearchPage(store: widget.store)
+                    : AccountSearchPage(accounts: widget.accounts!),
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'الإشعارات',
+            icon: const Icon(Icons.notifications_none_rounded),
+            onPressed: () => showInfo(
+              context,
+              'الإشعارات',
+              widget.accounts == null
+                  ? 'أهلًا بيك في معاينة TOMI 💜\nتغييرات المعاينة تبقى خلال جلسة تشغيل التطبيق فقط.'
+                  : 'الإشعارات تتفعّل في تحديث قادم.',
+            ),
+          ),
+          if (widget.onExitPreview != null)
+            IconButton(
+              tooltip: 'الرجوع للحسابات',
+              onPressed: widget.onExitPreview,
+              icon: const Icon(Icons.person_outline_rounded),
+            ),
           const SizedBox(width: 7),
         ],
       ),
-      body: SafeArea(bottom: false, child: Column(children: [
-        if (widget.accounts != null && selected != 4) const Padding(
-          padding: EdgeInsets.fromLTRB(18, 4, 18, 0), child: Text(
-            'هذا القسم معاينة؛ الحساب والبحث والمتابعة فعّالة.',
-            style: TextStyle(color: TomiColors.muted, fontSize: 11, height: 1.5))),
-        Expanded(child: IndexedStack(index: selected, children: [
-        HomeScreen(store: widget.store),
-        ChatsScreen(store: widget.store),
-        RoomsScreen(store: widget.store),
-        GamesScreen(store: widget.store),
-        widget.accounts == null ? ProfileScreen(store: widget.store)
-          : AccountProfileScreen(accounts: widget.accounts!),
-      ])),
-      ])),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            if (widget.accounts != null && selected > 0 && selected < 4)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(18, 4, 18, 0),
+                child: Text(
+                  'هذا القسم معاينة؛ الحساب والمنشورات والتفاعلات فعّالة.',
+                  style: TextStyle(
+                    color: TomiColors.muted,
+                    fontSize: 11,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            Expanded(
+              child: IndexedStack(
+                index: selected,
+                children: [
+                  widget.accounts == null
+                      ? HomeScreen(store: widget.store)
+                      : SocialFeedScreen(accounts: widget.accounts!),
+                  ChatsScreen(store: widget.store),
+                  RoomsScreen(store: widget.store),
+                  GamesScreen(store: widget.store),
+                  widget.accounts == null
+                      ? ProfileScreen(store: widget.store)
+                      : AccountProfileScreen(accounts: widget.accounts!),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: selected,
         onDestinationSelected: (value) => setState(() => selected = value),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: const [
-          NavigationDestination(key: Key('nav-home'), icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded), label: 'الرئيسية'),
-          NavigationDestination(key: Key('nav-chats'), icon: Icon(Icons.chat_bubble_outline_rounded),
-            selectedIcon: Icon(Icons.chat_bubble_rounded), label: 'المحادثات'),
-          NavigationDestination(key: Key('nav-rooms'), icon: Icon(Icons.mic_none_rounded),
-            selectedIcon: Icon(Icons.mic_rounded), label: 'الغرف'),
-          NavigationDestination(key: Key('nav-games'), icon: Icon(Icons.sports_esports_outlined),
-            selectedIcon: Icon(Icons.sports_esports_rounded), label: 'الألعاب'),
-          NavigationDestination(key: Key('nav-profile'), icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded), label: 'حسابي'),
+          NavigationDestination(
+            key: Key('nav-home'),
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_rounded),
+            label: 'الرئيسية',
+          ),
+          NavigationDestination(
+            key: Key('nav-chats'),
+            icon: Icon(Icons.chat_bubble_outline_rounded),
+            selectedIcon: Icon(Icons.chat_bubble_rounded),
+            label: 'المحادثات',
+          ),
+          NavigationDestination(
+            key: Key('nav-rooms'),
+            icon: Icon(Icons.mic_none_rounded),
+            selectedIcon: Icon(Icons.mic_rounded),
+            label: 'الغرف',
+          ),
+          NavigationDestination(
+            key: Key('nav-games'),
+            icon: Icon(Icons.sports_esports_outlined),
+            selectedIcon: Icon(Icons.sports_esports_rounded),
+            label: 'الألعاب',
+          ),
+          NavigationDestination(
+            key: Key('nav-profile'),
+            icon: Icon(Icons.person_outline_rounded),
+            selectedIcon: Icon(Icons.person_rounded),
+            label: 'حسابي',
+          ),
         ],
       ),
     ),
@@ -269,24 +458,52 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final results = widget.store.chats.where((chat) =>
-      '${chat.name} ${chat.username}'.toLowerCase().contains(query.toLowerCase())).toList();
+    final results = widget.store.chats
+        .where(
+          (chat) => '${chat.name} ${chat.username}'.toLowerCase().contains(
+            query.toLowerCase(),
+          ),
+        )
+        .toList();
     return Scaffold(
       appBar: AppBar(title: const Text('البحث عن أشخاص')),
-      body: ListView(padding: const EdgeInsets.all(18), children: [
-        TextField(autofocus: true, onChanged: (value) => setState(() => query = value),
-          decoration: const InputDecoration(hintText: 'اكتب الاسم أو اليوزر', prefixIcon: Icon(Icons.search))),
-        const SizedBox(height: 16),
-        if (results.isEmpty) const Padding(padding: EdgeInsets.all(24), child: Text('ما لقينا نتيجة بهذا الاسم.')),
-        for (final chat in results) ListTile(
-          leading: Avatar(chat.name), title: Text(chat.name),
-          subtitle: Text('@${chat.username}', textDirection: TextDirection.ltr),
-          onTap: () {
-            widget.store.markRead(chat);
-            Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ChatPage(store: widget.store, chat: chat)));
-          },
-        ),
-      ]),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          TextField(
+            autofocus: true,
+            onChanged: (value) => setState(() => query = value),
+            decoration: const InputDecoration(
+              hintText: 'اكتب الاسم أو اليوزر',
+              prefixIcon: Icon(Icons.search),
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (results.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Text('ما لقينا نتيجة بهذا الاسم.'),
+            ),
+          for (final chat in results)
+            ListTile(
+              leading: Avatar(chat.name),
+              title: Text(chat.name),
+              subtitle: Text(
+                '@${chat.username}',
+                textDirection: TextDirection.ltr,
+              ),
+              onTap: () {
+                widget.store.markRead(chat);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => ChatPage(store: widget.store, chat: chat),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
     );
   }
 }

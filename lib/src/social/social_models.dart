@@ -1,0 +1,178 @@
+import 'dart:convert';
+import 'dart:math';
+import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
+import '../accounts/account_models.dart';
+
+String newRequestId() {
+  final b = List<int>.generate(16, (_) => Random.secure().nextInt(256));
+  b[6] = (b[6] & 15) | 64;
+  b[8] = (b[8] & 63) | 128;
+  final h = b.map((v) => v.toRadixString(16).padLeft(2, '0')).join();
+  return h.substring(0, 8) +
+      '-' +
+      h.substring(8, 12) +
+      '-' +
+      h.substring(12, 16) +
+      '-' +
+      h.substring(16, 20) +
+      '-' +
+      h.substring(20);
+}
+
+class PostAuthor {
+  const PostAuthor({
+    required this.id,
+    required this.username,
+    required this.displayName,
+    required this.avatarPreset,
+  });
+  final String id, username, displayName, avatarPreset;
+  factory PostAuthor.fromJson(Map<String, dynamic> d) => PostAuthor(
+    id: d['id'] as String,
+    username: d['username'] as String,
+    displayName: d['displayName'] as String,
+    avatarPreset: d['avatarPreset'] as String,
+  );
+  AccountUser get avatarUser => AccountUser(
+    id: id,
+    username: username,
+    displayName: displayName,
+    bio: '',
+    avatarPreset: avatarPreset,
+    followersCount: 0,
+    followingCount: 0,
+  );
+}
+
+class PostImage {
+  const PostImage({this.url, required this.width, required this.height});
+  final String? url;
+  final int width, height;
+  factory PostImage.fromJson(Map<String, dynamic> d) => PostImage(
+    url: d['url'] as String?,
+    width: (d['width'] as num).toInt(),
+    height: (d['height'] as num).toInt(),
+  );
+}
+
+class SocialPost {
+  const SocialPost({
+    required this.id,
+    required this.text,
+    required this.createdAt,
+    required this.author,
+    this.image,
+    required this.likesCount,
+    required this.commentsCount,
+    required this.liked,
+    required this.isMine,
+  });
+  final String id, text;
+  final DateTime createdAt;
+  final PostAuthor author;
+  final PostImage? image;
+  final int likesCount, commentsCount;
+  final bool liked, isMine;
+  factory SocialPost.fromJson(Map<String, dynamic> d) => SocialPost(
+    id: d['id'] as String,
+    text: d['text'] as String,
+    createdAt: DateTime.parse(d['createdAt'] as String),
+    author: PostAuthor.fromJson(d['author'] as Map<String, dynamic>),
+    image: d['image'] == null
+        ? null
+        : PostImage.fromJson(d['image'] as Map<String, dynamic>),
+    likesCount: (d['likesCount'] as num).toInt(),
+    commentsCount: (d['commentsCount'] as num).toInt(),
+    liked: d['liked'] as bool,
+    isMine: d['isMine'] as bool,
+  );
+}
+
+class SocialComment {
+  const SocialComment({
+    required this.id,
+    required this.text,
+    required this.createdAt,
+    required this.author,
+    required this.isMine,
+  });
+  final String id, text;
+  final DateTime createdAt;
+  final PostAuthor author;
+  final bool isMine;
+  factory SocialComment.fromJson(Map<String, dynamic> d) => SocialComment(
+    id: d['id'] as String,
+    text: d['text'] as String,
+    createdAt: DateTime.parse(d['createdAt'] as String),
+    author: PostAuthor.fromJson(d['author'] as Map<String, dynamic>),
+    isMine: d['isMine'] as bool,
+  );
+}
+
+class FeedPage {
+  const FeedPage({
+    required this.posts,
+    this.nextCursor,
+    this.imageUploadEnabled = false,
+  });
+  final List<SocialPost> posts;
+  final String? nextCursor;
+  final bool imageUploadEnabled;
+  factory FeedPage.fromJson(Map<String, dynamic> d) => FeedPage(
+    posts: (d['posts'] as List)
+        .map((p) => SocialPost.fromJson(p as Map<String, dynamic>))
+        .toList(),
+    nextCursor: d['nextCursor'] as String?,
+    imageUploadEnabled: d['imageUploadEnabled'] as bool? ?? false,
+  );
+}
+
+class CommentPage {
+  const CommentPage({required this.comments, this.nextCursor});
+  final List<SocialComment> comments;
+  final String? nextCursor;
+  factory CommentPage.fromJson(Map<String, dynamic> d) => CommentPage(
+    comments: (d['comments'] as List)
+        .map((p) => SocialComment.fromJson(p as Map<String, dynamic>))
+        .toList(),
+    nextCursor: d['nextCursor'] as String?,
+  );
+}
+
+class PublishResult {
+  const PublishResult({required this.post, required this.user});
+  final SocialPost post;
+  final AccountUser user;
+}
+
+class CommentResult {
+  const CommentResult({required this.comment, required this.post});
+  final SocialComment comment;
+  final SocialPost post;
+}
+
+class ImageDraft {
+  ImageDraft(this.bytes, this.contentType);
+  final Uint8List bytes;
+  final String contentType;
+  late final String contentMd5 = base64Encode(md5.convert(bytes).bytes);
+}
+
+class ImageUpload {
+  const ImageUpload({
+    required this.id,
+    required this.url,
+    required this.headers,
+  });
+  final String id;
+  final Uri url;
+  final Map<String, String> headers;
+  factory ImageUpload.fromJson(Map<String, dynamic> d) => ImageUpload(
+    id: d['uploadId'] as String,
+    url: Uri.parse(d['uploadUrl'] as String),
+    headers: (d['headers'] as Map<String, dynamic>).map(
+      (k, v) => MapEntry(k, v as String),
+    ),
+  );
+}

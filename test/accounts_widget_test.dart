@@ -69,6 +69,7 @@ void main() {
     final accounts = AccountController(vault: vault,
       api: AccountApi('https://accounts.example', client: MockClient((request) async {
         if (request.url.path == '/health') return response({'status': 'ok'});
+        if (request.url.path == '/v1/posts') return response({'posts': [], 'nextCursor': null, 'imageUploadEnabled': false});
         expect(request.url.path, '/v1/auth/register');
         final body = jsonDecode(request.body);
         expect(body['username'], 'new_user');

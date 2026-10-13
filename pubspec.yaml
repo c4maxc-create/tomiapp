@@ -1,7 +1,7 @@
 name: tomi_app
-description: TOMI Arabic mobile app with accounts, profiles and user search.
+description: TOMI Arabic mobile app with accounts, posts, images and social interactions.
 publish_to: none
-version: 0.2.0+2
+version: 0.3.0+3
 
 environment:
   sdk: '>=3.8.0 <4.0.0'
@@ -12,6 +12,8 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   http: ^1.6.0
+  crypto: ^3.0.7
+  image_picker: ^1.2.3
   flutter_secure_storage: ^11.2.0
 
 dev_dependencies:

@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { createSocial } from './social.mjs';
 import {
   ApiError, digest, hashPassword, verifyPassword, newToken, newRecoveryCode,
   normalizeRecoveryCode, validateUsername, validatePassword, validateProfile, isUniqueConflict,
@@ -40,6 +41,7 @@ function json(response, status, data, headers = {}) {
 const userSelect = `SELECT u.id, u.username, u.display_name, u.bio, u.avatar_preset, u.created_at,
   (SELECT COUNT(*) FROM tomi_follows f WHERE f.following_id = u.id) AS followers_count,
   (SELECT COUNT(*) FROM tomi_follows f WHERE f.follower_id = u.id) AS following_count,
+  (SELECT COUNT(*) FROM tomi_posts p WHERE p.user_id = u.id) AS posts_count,
   (SELECT COUNT(*) FROM tomi_follows f WHERE f.follower_id = ? AND f.following_id = u.id) AS is_following
   FROM tomi_users u`;
 
@@ -48,11 +50,11 @@ function publicUser(row) {
     id: row.id, username: row.username, displayName: row.display_name, bio: row.bio,
     avatarPreset: row.avatar_preset, createdAt: row.created_at,
     followersCount: Number(row.followers_count), followingCount: Number(row.following_count),
-    postsCount: 0, isFollowing: Number(row.is_following) > 0,
+    postsCount: Number(row.posts_count), isFollowing: Number(row.is_following) > 0,
   };
 }
 
-export async function createApp({ database, trustProxy = false, origins = [], rateLimitMultiplier = 1 }) {
+export async function createApp({ database, trustProxy = false, origins = [], rateLimitMultiplier = 1, storage = null }) {
   // Equal-cost verification for unknown users avoids a cheap username timing oracle.
   const dummyHash = await hashPassword(newToken());
   const userById = async (id, viewer, db = database) => {
@@ -94,6 +96,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
     return { token, expiresAt: expires };
   }
 
+  const social = createSocial({database, storage, readJson, respond: json, limit, userById});
   const server = createServer(async (request, response) => {
     try {
       const origin = request.headers.origin;
@@ -104,7 +107,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       }
       if (request.method === 'OPTIONS') {
         response.writeHead(204, {
-          'access-control-allow-methods': 'GET, POST, PATCH, PUT, OPTIONS',
+          'access-control-allow-methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
           'access-control-allow-headers': 'Content-Type, Authorization',
           'access-control-max-age': '600',
         });
@@ -120,7 +123,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       }
       if (method === 'GET' && (path === '/health' || path === '/')) {
         await database.query('SELECT 1 AS ready');
-        json(response, 200, { status: 'ok', service: 'TOMI Accounts', version: '0.2.0' });
+        json(response, 200, { status: 'ok', service: 'TOMI API', version: '0.3.0' });
         return;
       }
 
@@ -194,6 +197,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
 
       const current = await session(request);
       await limit(`requests:user:${current.id}`, 120);
+      if (await social.handle(request,response,url,current)) return;
 
       if (method === 'POST' && path === '/v1/auth/logout') {
         await database.query('DELETE FROM tomi_sessions WHERE token_hash = ?', [current.tokenHash]);
@@ -295,6 +299,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       }
     }
   });
+  server.cleanupMedia = social.cleanup;
   server.requestTimeout = 15000;
   server.headersTimeout = 10000;
   server.keepAliveTimeout = 5000;

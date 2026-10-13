@@ -1,103 +1,108 @@
-# TOMI 0.2 — accounts, profiles and people search
+# TOMI 0.3 — posts, images and interactions
 
-Flutter Arabic RTL app plus a Node 24 accounts API. The established dark design,
-five tabs and the small-screen fixes from 0.1 are retained.
+Updated from the user-provided TOMI-0.2-fixed.zip. Flutter Arabic RTL app and
+Node 24 API, with the existing accounts and five-tab design retained.
 
-This package contains **source code**. It does not contain a compiled 0.2 APK or
-a deployed server. Follow [START_HERE_AR.md](START_HERE_AR.md) using a browser.
+This is a **source package**, not a compiled APK or a deployed update.
+Follow [START_HERE_AR.md](START_HERE_AR.md) to update the existing Northflank
+service and build TOMI-0.3.0.apk in the existing GitHub repository.
 
-## Implemented accounts milestone
+## New behavior
 
-- Username/password registration, login, logout and secure session restoration.
-- Unique, case-insensitive usernames (3–20 ASCII letters, digits or underscore).
-- Passphrases of 15–128 Unicode code points; no email or phone requirement.
-- Single-use recovery code, with a replacement after recovery/password changes.
-- Persisted display name, username, bio and a selectable built-in avatar.
-- Authenticated people search, public profiles, follow/unfollow and real counts.
-- Immutable user IDs, server-side validation and per-user access enforcement.
-- PostgreSQL persistence, salted scrypt password hashes, hashed session tokens,
-  bounded hashing concurrency and database-backed request limits.
-- Password changes/recovery revoke prior sessions on every device.
+- Persisted text posts (up to 2,000 Unicode code points) and optional images.
+- All, following (including your own posts), and own feeds; author profile feeds.
+- Real author information, post counts, likes and comments across devices.
+- Explicit idempotent like/unlike, one like per user/post.
+- Persisted comments (500 code points), pagination and deletion permissions.
+- Owners can delete their posts; comment authors and post owners can delete comments.
+- Cursor pagination ordered by creation time and ID, including timestamp ties.
+- Stable per-draft request IDs prevent duplicate posts/comments after retries.
+- Composer preserves the draft after a failed request and blocks duplicate taps.
+- Gallery picker, image preview and Android lost-selection recovery.
+- Direct upload to R2: server-issued PUT URL valid for 15 minutes, exact content
+  type and Content-MD5, and signed If-None-Match to prohibit overwrites.
+- Before publishing, the server verifies ownership, byte length, checksum,
+  supported image signature and bounded dimensions. It streams verification
+  with a 256 KiB header buffer and at most two simultaneous verifications.
+- JPEG, PNG, WebP and GIF; 10 MiB file limit, 36 million pixel limit.
+- Stored object keys, not client-provided URLs. R2 credentials stay on the server.
+- Private buckets work using signed GET URLs, without a public bucket/domain.
+- Expired unattached uploads and deleted-post images are removed periodically.
+  Deletion waits at least 20 minutes so an issued PUT URL cannot resurrect data.
+- Text posting, likes and comments work without R2 configuration.
 
-Media uploads (including custom profile photos), messaging between accounts,
-posts/stories, live calls/rooms, multiplayer, XP, charisma, coins and payments are
-later milestones. Existing sample interactions remain explicitly marked as
-previews and do not affect stored account counts or real balances.
+The 0.2 authentication, recovery, profiles, search, follows and secure session
+behavior is retained. Schema changes only add tables and indexes. Keep the
+existing DATABASE_URL to retain the existing accounts and sessions.
+Stories, private messaging, voice rooms/calls, multiplayer and real currency
+remain future milestones; their existing sections continue as labeled previews.
+Custom profile photo uploads and video publishing are outside this update.
 
-## Hosting and APK build
+## Server configuration
 
-1. Upload the complete contents of this package to the existing GitHub project.
-2. Create a persistent PostgreSQL database, e.g. a Neon Free project.
-3. Deploy `server/` as a Node Web Service on Render. `render.yaml` also provides
-   an optional Blueprint. Supply the database connection in server environment
-   variable `DATABASE_URL`; never add it to Flutter, GitHub variables or source.
-4. Set the **public HTTPS app server URL** in GitHub variable `TOMI_API_URL`.
-5. Run **TOMI 0.2 Android**, mode **accounts**, on **main**.
-
-GitHub first tests the backend with SQLite and an isolated PostgreSQL 17 service.
-It then bootstraps Android, installs dependencies, runs `flutter analyze` and
-all Flutter tests, and compiles **TOMI-0.2.0.apk** only if the checks pass.
-The default mode **preview** builds the design without a live server; it cannot create real
-accounts. Accounts builds refuse missing, non-HTTPS or credential-bearing URLs.
-
-This repaired package scrolls the compact recovery screen before looking for
-its code, checks successful registration/session persistence before checking the
-screen, and keeps the recovery acknowledgement and five-tab checks enabled.
-The workflow prints its checked-out source revision to make future runs traceable.
-
-The APK is a debug test build. App-store release signing is not configured.
-The scaffold helper enables Internet access, disables cleartext connections and
-Android backup, and uses at least the SDK level required by secure storage.
-
-## Server
-
-Required hosted environment:
+Keep the existing database and hosting settings. Required hosted environment:
 
 ```text
 NODE_ENV=production
-NODE_VERSION=24
-DATABASE_URL=<PostgreSQL connection string>
+DATABASE_URL=<existing PostgreSQL connection string>
 TRUST_PROXY=1
 ```
 
-`TRUST_PROXY=1` is for the trusted Render reverse proxy. Disable it when serving
-direct HTTP traffic. Native apps do not need CORS; web clients require an explicit
-comma-separated HTTPS `CORS_ORIGINS` allowlist. The server binds Render's `PORT`.
-Hosted mode refuses an ephemeral SQLite fallback. Schema creation is additive
-and uses `tomi_` table names. Health check: `GET /health`.
+Use TRUST_PROXY=1 only behind the trusted hosting reverse proxy. Optional web
+clients need an explicit HTTPS CORS_ORIGINS allowlist; native apps do not.
 
-Local server development/test (Node 24):
+Optional image configuration — set all four or leave all four unset:
+
+```text
+R2_ACCOUNT_ID=<Cloudflare account ID, 32 hexadecimal characters>
+R2_BUCKET_NAME=<bucket name>
+R2_ACCESS_KEY_ID=<bucket-scoped object read/write access key ID>
+R2_SECRET_ACCESS_KEY=<secret access key>
+```
+
+R2_PUBLIC_BASE_URL is optional. Without it, published images use temporary
+signed GET URLs valid for 24 hours; refresh the feed to obtain new URLs.
+Never apply a bucket lifecycle rule that deletes the whole tomi/posts/ prefix,
+because it includes attached images. The API tracks abandoned uploads itself.
+Partial/invalid R2 settings fail startup instead of silently claiming uploads work.
+The supplied server/.env.example is documentation: hosting env variables must
+be configured in Northflank; Node is not configured to auto-load this file.
+
+Local backend checks with Node 24:
 
 ```sh
 cd server
-npm ci --ignore-scripts
+npm ci --ignore-scripts --no-audit --no-fund
 npm test
 ```
 
-For a local API process, explicitly set `TOMI_SQLITE_FILE` to a writable file.
-Local integration tests use temporary files and loopback HTTP. The separate CI
-PostgreSQL run accepts only a local database named `tomi_test`.
+For local development set TOMI_SQLITE_FILE to an explicit writable file.
+Production requires PostgreSQL and refuses temporary SQLite storage.
+The GitHub workflow tests SQLite and an isolated PostgreSQL 17 service, then
+runs Dart analysis and Flutter tests before building the debug APK.
+Tests run sequentially to isolate the shared CI database.
 
-## Validation at delivery
+## API additions
 
-- Six backend integration tests passed locally, covering persistence after
-  restart, second-device login, authorization, uniqueness, follows, recovery,
-  revocation, expiry, body limits and persisted request limits.
-- A PostgreSQL WASM engine independently passed the schema/SQL and account-flow
-  smoke check; this does not validate the live `pg` TCP/TLS connection adapter.
-- Android scaffold/source-preservation and branding/network settings passed.
-- New Dart files received a structural grammar/import/icon review. This is not
-  Dart analysis or Flutter compilation.
-- Flutter tests/analyze, the full PostgreSQL service test and APK compilation
-  still require the included GitHub workflow. Local Flutter execution was blocked
-  by automatic approval review because its setup attempted a metadata endpoint.
-- The latest user-supplied GitHub run passed Dart analysis and 21 of 22 Flutter
-  tests using the older registration test. The corrected registration test and
-  updated workflow still need a fresh GitHub run; this ZIP contains source only.
-- No hosted database, server deployment or cross-phone acceptance test has been
-  completed in this authoring session.
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | /v1/posts | all/following/mine, optional userId/cursor/limit |
+| POST | /v1/posts | text, optional imageUploadId, requestId |
+| GET/DELETE | /v1/posts/:id | read / owner deletion |
+| PUT | /v1/posts/:id/like | explicit liked boolean |
+| GET/POST | /v1/posts/:id/comments | paginated comments / idempotent creation |
+| DELETE | /v1/comments/:id | author or post-owner deletion |
+| GET | /v1/media/status | image capability and upload limits |
+| POST | /v1/media/images | prepare a signed direct upload |
 
-References: [Flutter architecture](https://docs.flutter.dev/app-architecture/guide),
-[secure storage](https://pub.dev/packages/flutter_secure_storage),
-[OWASP password storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html),
-[Render Free](https://render.com/docs/free), [Neon plans](https://neon.com/pricing).
+All additions require an authenticated account. /health now identifies 0.3.0.
+
+Validation results are recorded in VALIDATION.md. Physical-phone gallery access,
+live Northflank/R2 configuration and Android release signing require their
+respective environments. No changes are deployed by extracting this ZIP.
+
+Primary references: [R2 presigned URLs](https://developers.cloudflare.com/r2/api/s3/presigned-urls/),
+[R2 S3 compatibility](https://developers.cloudflare.com/r2/api/s3/api/),
+[R2 CORS](https://developers.cloudflare.com/r2/buckets/cors/),
+[AWS SigV4 test vector](https://docs.aws.amazon.com/AmazonS3/latest/developerguide/sigv4-query-string-auth.html),
+[Flutter image picker](https://pub.dev/packages/image_picker).

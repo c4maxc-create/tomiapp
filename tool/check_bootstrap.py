@@ -18,7 +18,8 @@ def main() -> None:
     assert flow["instance_type"] == "mac_mini_m2"
     assert flow["environment"]["flutter"] == "stable"
     assert len(flow["scripts"]) == 5
-    assert flow["artifacts"] == ["output/TOMI-0.2.0.apk"]
+    version = yaml.safe_load((ROOT / "pubspec.yaml").read_text())["version"].split("+")[0]
+    assert flow["artifacts"] == [f"output/TOMI-{version}.apk"]
 
     with tempfile.TemporaryDirectory(prefix="tomi-check-") as temp:
         temp = Path(temp)
