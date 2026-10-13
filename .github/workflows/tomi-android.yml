@@ -1,10 +1,10 @@
-name: TOMI 0.2 Android
+name: TOMI 0.3 Android
 
 "on":
   workflow_dispatch:
     inputs:
       mode:
-        description: 'accounts = real accounts; preview = design only'
+        description: 'accounts = real accounts and posts; preview = design only'
         type: choice
         options: [accounts, preview]
         default: preview
@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   accounts-api:
-    name: Test accounts API and database
+    name: Test accounts, posts and database
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     services:
@@ -62,7 +62,7 @@ jobs:
         run: npm test
 
   android:
-    name: Build TOMI 0.2 APK
+    name: Build TOMI 0.3 APK
     needs: accounts-api
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -91,6 +91,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.47.7'
           cache: true
 
       - name: Show Flutter version
@@ -105,7 +106,7 @@ jobs:
       - name: Analyze Dart source
         run: flutter analyze
 
-      - name: Test accounts, interactions and compact screens
+      - name: Test accounts, posts and compact screens
         run: flutter test --reporter expanded
 
       - name: Build preview APK
@@ -114,12 +115,12 @@ jobs:
             --dart-define="TOMI_API_URL=$TOMI_API_URL" \
             --dart-define="TOMI_PREVIEW_MODE=$TOMI_PREVIEW_MODE"
           mkdir -p output
-          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-0.2.0.apk
+          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-0.3.0.apk
 
       - name: Upload preview APK
         uses: actions/upload-artifact@v7
         with:
-          path: output/TOMI-0.2.0.apk
+          path: output/TOMI-0.3.0.apk
           archive: false
           if-no-files-found: error
           retention-days: 7
