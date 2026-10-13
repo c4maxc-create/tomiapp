@@ -1,13 +1,13 @@
-name: TOMI 0.3 Android
+name: TOMI 0.4 Android
 
 "on":
   workflow_dispatch:
     inputs:
       mode:
-        description: 'accounts = real accounts and posts; preview = design only'
+        description: 'accounts = real accounts, posts and private chats; preview = design only'
         type: choice
         options: [accounts, preview]
-        default: preview
+        default: accounts
       api_url:
         description: 'HTTPS server URL (or set repository variable TOMI_API_URL)'
         type: string
@@ -62,7 +62,7 @@ jobs:
         run: npm test
 
   android:
-    name: Build TOMI 0.3 APK
+    name: Build TOMI 0.4 APK
     needs: accounts-api
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -115,12 +115,12 @@ jobs:
             --dart-define="TOMI_API_URL=$TOMI_API_URL" \
             --dart-define="TOMI_PREVIEW_MODE=$TOMI_PREVIEW_MODE"
           mkdir -p output
-          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-0.3.0.apk
+          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-0.4.0.apk
 
       - name: Upload preview APK
         uses: actions/upload-artifact@v7
         with:
-          path: output/TOMI-0.3.0.apk
+          path: output/TOMI-0.4.0.apk
           archive: false
           if-no-files-found: error
           retention-days: 7
