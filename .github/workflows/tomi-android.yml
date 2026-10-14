@@ -1,10 +1,10 @@
-name: TOMI 0.4 Android
+name: TOMI 0.5 Android
 
 "on":
   workflow_dispatch:
     inputs:
       mode:
-        description: 'accounts = real accounts, posts and private chats; preview = design only'
+        description: 'accounts = accounts, posts, private chats, voice and avatars; preview = design only'
         type: choice
         options: [accounts, preview]
         default: accounts
@@ -62,7 +62,7 @@ jobs:
         run: npm test
 
   android:
-    name: Build TOMI 0.4 APK
+    name: Build TOMI 0.5 APK
     needs: accounts-api
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -100,27 +100,38 @@ jobs:
       - name: Generate Android scaffold
         run: bash tool/bootstrap_android.sh
 
+      - name: Optional Firebase client setup
+        env:
+          TOMI_GOOGLE_SERVICES_JSON: ${{ secrets.TOMI_GOOGLE_SERVICES_JSON }}
+        run: python3 tool/configure_firebase.py
+
       - name: Install Flutter dependencies
         run: flutter pub get
 
       - name: Analyze Dart source
         run: flutter analyze
 
+      - name: Verify Android and Firebase configuration
+        run: |
+          python3 tool/check_bootstrap.py
+          python3 tool/check_firebase.py
+
       - name: Test accounts, posts and compact screens
         run: flutter test --reporter expanded
 
-      - name: Build preview APK
+      - name: Build TOMI APK
         run: |
           flutter build apk --debug --no-pub \
             --dart-define="TOMI_API_URL=$TOMI_API_URL" \
-            --dart-define="TOMI_PREVIEW_MODE=$TOMI_PREVIEW_MODE"
+            --dart-define="TOMI_PREVIEW_MODE=$TOMI_PREVIEW_MODE" \
+            --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED"
           mkdir -p output
-          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-0.4.0.apk
+          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-0.5.0.apk
 
-      - name: Upload preview APK
+      - name: Upload TOMI APK
         uses: actions/upload-artifact@v7
         with:
-          path: output/TOMI-0.4.0.apk
+          path: output/TOMI-0.5.0.apk
           archive: false
           if-no-files-found: error
           retention-days: 7
