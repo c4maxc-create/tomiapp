@@ -1,3 +1,4 @@
+import '../calling/call_screens.dart';
 import '../messaging/chat_screens.dart';
 
 import 'package:flutter/material.dart';
@@ -153,6 +154,18 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  OutlinedButton.icon(
+                    key: const Key('call-history'),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            CallHistoryPage(calls: widget.accounts.calls),
+                      ),
+                    ),
+                    icon: const Icon(Icons.history),
+                    label: const Text('سجل المكالمات'),
+                  ),
                   OutlinedButton.icon(
                     key: const Key('notification-settings'),
                     onPressed: () => Navigator.push(

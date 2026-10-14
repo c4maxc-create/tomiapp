@@ -129,5 +129,5 @@ export function createChat({database,storage,avatarStorage=storage,readJson,resp
  function attach(server,options){realtime=createRealtime({...options,server,limit,typing:async(viewer,tid,active)=>{const r=await thread(viewer,id(tid));sending(r);realtime.emit([r.low_user_id===viewer?r.high_user_id:r.low_user_id],{type:'chat.typing',conversationId:tid,active,expiresAt:Date.now()+5000});}});}
  let cleaning=false;
  async function cleanup(){if(!storage||cleaning)return;cleaning=true;try{const{rows}=await database.query("SELECT id,object_key FROM tomi_audio_uploads WHERE state<>'attached' AND expires_at<=? ORDER BY expires_at LIMIT 20",[now()]);for(const u of rows)try{await storage.delete(u.object_key);await database.query("DELETE FROM tomi_audio_uploads WHERE id=? AND state<>'attached' AND expires_at<=?",[u.id,now()]);}catch{console.error('Audio cleanup deferred');}}finally{cleaning=false;}}
- return{handle,attach,cleanup,invalidateSession:hash=>realtime?.invalidateSession(hash),invalidateUser:viewer=>realtime?.invalidateUser(viewer)};
+ return{handle,attach,cleanup,emit:(ids,event)=>realtime?.emit(ids,event),invalidateSession:hash=>realtime?.invalidateSession(hash),invalidateUser:viewer=>realtime?.invalidateUser(viewer)};
 }

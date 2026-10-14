@@ -97,6 +97,7 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
   StreamSubscription<String>? tokens;
   StreamSubscription<Map<String, dynamic>>? opened;
   Future<void> Function(String threadId, String accountId)? onOpen;
+  Future<void> Function(String callId, String accountId)? onOpenCall;
   void notify() {
     if (!disposed) notifyListeners();
   }
@@ -253,6 +254,30 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void handleOpen(Map<String, dynamic> data) {
+    if (!disposed &&
+        identity != null &&
+        data['type'] == 'call' &&
+        data['accountId'] == accounts.user?.id) {
+      final id = data['callId'], account = data['accountId'];
+      if (id is String &&
+          account is String &&
+          RegExp(
+            r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$',
+          ).hasMatch(id)) {
+        final work = onOpenCall?.call(id, account);
+        if (work != null)
+          unawaited(
+            work.catchError((Object _) {
+              if (!disposed) {
+                error = 'تعذّر فتح المكالمة.';
+                notify();
+              }
+            }),
+          );
+      }
+      return;
+    }
+
     if (disposed ||
         identity == null ||
         data['type'] != 'chat' ||

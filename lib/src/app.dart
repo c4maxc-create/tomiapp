@@ -1,5 +1,7 @@
 import 'messaging/chat_screens.dart';
 import 'messaging/chat_models.dart';
+import 'calling/call_models.dart';
+import 'calling/call_screens.dart';
 
 import 'dart:async';
 
@@ -45,6 +47,7 @@ class _TomiAppState extends State<TomiApp> {
   AccountController? accounts;
   String? previousUserId;
   String? previousRecoveryCode;
+  String? shownCallId;
   bool previewSelected = false;
 
   @override
@@ -60,9 +63,46 @@ class _TomiAppState extends State<TomiApp> {
     previousUserId = accounts?.user?.id;
     previousRecoveryCode = accounts?.pendingRecoveryCode;
     accounts?.addListener(accountChanged);
-    if (accounts != null) accounts!.push.onOpen = openPushChat;
+    if (accounts != null) {
+      accounts!.calls.onShow = showCall;
+      accounts!.push.onOpen = openPushChat;
+      accounts!.push.onOpenCall = openPushCall;
+    }
     if (accounts?.phase == AccountPhase.restoring)
       unawaited(accounts!.restore());
+  }
+
+  void showCall(DirectCall call) {
+    final controller = accounts;
+    if (controller == null || shownCallId == call.id) return;
+    final revision = controller.sessionRevision, userId = controller.user?.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          userId == null ||
+          controller.user?.id != userId ||
+          controller.sessionRevision != revision ||
+          shownCallId == call.id)
+        return;
+      final nav = navigator.currentState;
+      if (nav == null) return;
+      shownCallId = call.id;
+      unawaited(
+        nav
+            .push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) =>
+                    CallPage(calls: controller.calls, initialCall: call),
+              ),
+            )
+            .whenComplete(() {
+              if (shownCallId == call.id) shownCallId = null;
+            }),
+      );
+    });
+  }
+
+  Future<void> openPushCall(String callId, String accountId) async {
+    if (accounts?.user?.id == accountId) await accounts!.calls.open(callId);
   }
 
   Future<void> openPushChat(String threadId, String accountId) async {
@@ -224,7 +264,11 @@ class _TomiAppState extends State<TomiApp> {
   @override
   void dispose() {
     accounts?.removeListener(accountChanged);
-    if (accounts != null) accounts!.push.onOpen = null;
+    if (accounts != null) {
+      accounts!.push.onOpen = null;
+      accounts!.push.onOpenCall = null;
+      accounts!.calls.onShow = null;
+    }
     if (widget.accounts == null) accounts?.dispose();
     if (widget.store == null) store.dispose();
     super.dispose();

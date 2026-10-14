@@ -57,7 +57,7 @@ Path("README.md").write_text("template readme")
         assert app.get(ns + "usesCleartextTraffic") == "false"
         assert any(item.get(ns + "name") == "android.permission.INTERNET"
                    for item in manifest.getroot().findall("uses-permission"))
-        for permission in ['android.permission.RECORD_AUDIO','android.permission.POST_NOTIFICATIONS']:
+        for permission in ['android.permission.RECORD_AUDIO','android.permission.POST_NOTIFICATIONS','android.permission.CAMERA','android.permission.MODIFY_AUDIO_SETTINGS','android.permission.ACCESS_NETWORK_STATE']:
             assert any(item.get(ns+'name')==permission for item in manifest.getroot().findall('uses-permission'))
         assert any(item.get(ns+'name')=='firebase_messaging_auto_init_enabled' and item.get(ns+'value')=='false' for item in app.findall('meta-data'))
         ET.parse(project / "android/app/src/main/res/drawable/tomi_launcher.xml")

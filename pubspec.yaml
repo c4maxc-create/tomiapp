@@ -1,12 +1,13 @@
 name: tomi_app
-description: TOMI Arabic mobile app with accounts, chats, voice notes, avatars and optional push.
+description: TOMI Arabic native app with private chats, voice and video calls, avatars and optional push.
 publish_to: none
-version: 0.5.0+5
+version: 0.6.0+6
 
 environment:
   sdk: '>=3.8.0 <4.0.0'
 
 dependencies:
+  flutter_webrtc: ^1.6.2+hotfix.4
   record: ^7.1.2
   just_audio: ^0.10.6
   path_provider: ^2.1.5

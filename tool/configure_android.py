@@ -25,9 +25,14 @@ def configure_android(root: Path = ROOT) -> None:
     if not any(item.get(f"{{{ANDROID_NS}}}name") == "android.permission.INTERNET"
                for item in tree.getroot().findall("uses-permission")):
         ET.SubElement(tree.getroot(), "uses-permission", {f"{{{ANDROID_NS}}}name": "android.permission.INTERNET"})
-    for permission in ['android.permission.RECORD_AUDIO','android.permission.POST_NOTIFICATIONS']:
+    for permission in ['android.permission.RECORD_AUDIO','android.permission.POST_NOTIFICATIONS','android.permission.CAMERA','android.permission.ACCESS_NETWORK_STATE','android.permission.CHANGE_NETWORK_STATE','android.permission.MODIFY_AUDIO_SETTINGS','android.permission.BLUETOOTH_CONNECT']:
         if not any(item.get(f'{{{ANDROID_NS}}}name')==permission for item in tree.getroot().findall('uses-permission')):
             ET.SubElement(tree.getroot(),'uses-permission',{f'{{{ANDROID_NS}}}name':permission})
+    for permission in ['android.permission.BLUETOOTH','android.permission.BLUETOOTH_ADMIN']:
+        if not any(item.get(f'{{{ANDROID_NS}}}name')==permission for item in tree.getroot().findall('uses-permission')):
+            ET.SubElement(tree.getroot(),'uses-permission',{f'{{{ANDROID_NS}}}name':permission,f'{{{ANDROID_NS}}}maxSdkVersion':'30'})
+    if not any(item.get(f'{{{ANDROID_NS}}}name')=='android.hardware.camera.any' for item in tree.getroot().findall('uses-feature')):
+        ET.SubElement(tree.getroot(),'uses-feature',{f'{{{ANDROID_NS}}}name':'android.hardware.camera.any',f'{{{ANDROID_NS}}}required':'false'})
     if not any(item.get(f'{{{ANDROID_NS}}}name')=='android.hardware.microphone' for item in tree.getroot().findall('uses-feature')):
         ET.SubElement(tree.getroot(),'uses-feature',{f'{{{ANDROID_NS}}}name':'android.hardware.microphone',f'{{{ANDROID_NS}}}required':'false'})
     for name,value in [('firebase_messaging_auto_init_enabled','false'),('com.google.firebase.messaging.default_notification_icon','@drawable/tomi_notification')]:

@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import '../widgets.dart';
 import 'chat_models.dart';
+import 'audio_focus.dart';
 
 String voiceTime(int ms) {
   final seconds = ms ~/ 1000;
@@ -15,6 +16,7 @@ String voiceTime(int ms) {
 /// Lazily allocates the native player. A page has only one active voice note.
 class VoicePlayback extends ChangeNotifier with WidgetsBindingObserver {
   VoicePlayback() {
+    voiceMediaStops[this] = stop;
     WidgetsBinding.instance.addObserver(this);
   }
   AudioPlayer? player;
@@ -110,6 +112,7 @@ class VoicePlayback extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     disposed = true;
+    voiceMediaStops.remove(this);
     generation++;
     WidgetsBinding.instance.removeObserver(this);
     unawaited(stateSub?.cancel());
@@ -209,13 +212,40 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
   String? path, error;
   bool recording = false, busy = false;
   int durationMs = 0, generation = 0;
+  bool starting = false;
+  Future<void>? startWork, stopWork, callStop;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    voiceMediaStops[this] = stopForCall;
   }
 
-  Future<void> start() async {
+  Future<void> stopForCall() => callStop ??= _stopForCall();
+  Future<void> _stopForCall() async {
+    final wasStarting = starting;
+    generation++;
+    try {
+      await startWork;
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() => busy = false);
+    await playback.stop();
+    if (recording)
+      await stop();
+    else if (wasStarting)
+      await removeFile();
+  }
+
+  Future<void> start() {
+    if (busy || recording) return Future.value();
+    callStop = null;
+    stopWork = null;
+    starting = true;
+    return startWork = _start().whenComplete(() => starting = false);
+  }
+
+  Future<void> _start() async {
     if (busy || recording) return;
     final gen = ++generation;
     setState(() {
@@ -266,7 +296,8 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
     }
   }
 
-  Future<void> stop() async {
+  Future<void> stop() => stopWork ??= _stop();
+  Future<void> _stop() async {
     if (!recording || busy) return;
     setState(() => busy = true);
     timer?.cancel();
@@ -327,6 +358,7 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
 
   @override
   void dispose() {
+    voiceMediaStops.remove(this);
     generation++;
     timer?.cancel();
     clock.stop();

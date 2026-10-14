@@ -1,6 +1,7 @@
 import '../messaging/chat_controller.dart';
 import '../messaging/chat_connection.dart';
 import '../notifications/push_controller.dart';
+import '../calling/call_controller.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -37,6 +38,9 @@ class AccountController extends ChangeNotifier {
   }) : _vault = vault ?? SecureTokenVault(api.baseUrl);
   final AccountApi api;
   final bool realtimeEnabled;
+  CallController? _calls;
+  CallController get calls =>
+      _calls ??= CallController(accounts: this, autoPoll: realtimeEnabled);
   PushController? _push;
   PushController get push => _push ??= PushController(accounts: this);
   ChatController? _chats;
@@ -301,6 +305,7 @@ class AccountController extends ChangeNotifier {
     final token = _token;
     if (token == null) return;
     try {
+      await _calls?.hangup();
       await _push?.unregister();
       await api.logout(token);
     } on AccountFailure catch (failure) {
@@ -315,6 +320,7 @@ class AccountController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     ++_revision;
+    _calls?.dispose();
     _chats?.dispose();
     _push?.dispose();
     api.close();

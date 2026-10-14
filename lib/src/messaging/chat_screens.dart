@@ -616,6 +616,28 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
             overflow: TextOverflow.ellipsis,
           ),
           actions: [
+            AnimatedBuilder(
+              animation: widget.chats.accounts.calls,
+              builder: (context, _) => PopupMenuButton<bool>(
+                key: const Key('chat-call-menu'),
+                tooltip: 'اتصال',
+                icon: const Icon(Icons.call_outlined),
+                enabled: c.canSend && !widget.chats.accounts.calls.busy,
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: false,
+                    child: Text('مكالمة صوتية'),
+                  ),
+                  const PopupMenuItem(value: true, child: Text('مكالمة فيديو')),
+                ],
+                onSelected: (video) async {
+                  await playback.stop();
+                  await widget.chats.accounts.calls.start(c.id, video: video);
+                  if (mounted && widget.chats.accounts.calls.error != null)
+                    showNote(context, widget.chats.accounts.calls.error!);
+                },
+              ),
+            ),
             if (thread.historyWindow)
               IconButton(
                 key: const Key('chat-show-latest'),

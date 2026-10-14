@@ -15,6 +15,7 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     accountChanged();
   }
+  final realtimeEvents = StreamController<Map<String, dynamic>>.broadcast();
   final AccountController accounts;
   final bool realtimeEnabled;
   List<DirectConversation> conversations = [];
@@ -125,6 +126,7 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
       subscription = socket.events.listen(
         (event) {
           if (disposed || revision != socketRevision) return;
+          realtimeEvents.add(event);
           if (event['type'] == 'chat.ready') {
             connected = true;
             attempts = 0;
@@ -134,7 +136,7 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
             for (final t in threads.values) {
               if (t.visible) unawaited(t.sync(reconcile: true));
             }
-          } else {
+          } else if (event['type'] != 'call.changed') {
             final id = event['conversationId'];
             if (id is String) threads[id]?.event(event);
             if (event['type'] != 'chat.typing' && event['type'] != 'chat.error')
@@ -280,6 +282,7 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     disposed = true;
+    unawaited(realtimeEvents.close());
     generation++;
     disconnect();
     poll?.cancel();

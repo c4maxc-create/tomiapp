@@ -10,6 +10,8 @@ import {createApp} from '../src/app.mjs';
 import {R2Images} from '../src/r2.mjs';
 import {audioMetadata} from '../src/audio.mjs';
 import {fcmFromEnvironment} from '../src/push.mjs';
+const connectionString=process.env.TEST_DATABASE_URL;
+if(connectionString){const u=new URL(connectionString);assert.ok(['localhost','127.0.0.1'].includes(u.hostname)&&u.pathname==='/tomi_test','Tests require a local tomi_test database');}
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jftkAAAAASUVORK5CYII=','base64');
 const md5=b=>createHash('md5').update(b).digest('base64');
 function box(type,...children){const data=Buffer.concat(children),head=Buffer.alloc(8);head.writeUInt32BE(data.length+8);head.write(type,4);return Buffer.concat([head,data]);}

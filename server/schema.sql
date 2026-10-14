@@ -136,3 +136,43 @@ CREATE TABLE IF NOT EXISTS tomi_push_receipts (
  message_id TEXT NOT NULL REFERENCES tomi_push_outbox(message_id) ON DELETE CASCADE,
  token_hash TEXT NOT NULL,PRIMARY KEY(message_id,token_hash)
 );
+
+-- Additive 0.6: call metadata persists; SDP/ICE is removed when a call ends.
+CREATE TABLE IF NOT EXISTS tomi_calls (
+ id TEXT PRIMARY KEY,thread_id TEXT NOT NULL REFERENCES tomi_chat_threads(id) ON DELETE CASCADE,
+ caller_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ callee_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ caller_session TEXT NOT NULL,callee_session TEXT,
+ request_id TEXT NOT NULL,kind TEXT NOT NULL CHECK(kind IN ('audio','video')),
+ state TEXT NOT NULL CHECK(state IN ('ringing','connecting','connected','ended')),reason TEXT,
+ created_at TEXT NOT NULL,updated_at TEXT NOT NULL,ring_deadline TEXT NOT NULL,
+ connect_deadline TEXT,accepted_at TEXT,connected_at TEXT,ended_at TEXT,
+ caller_seen TEXT NOT NULL,callee_seen TEXT,
+ caller_connected INTEGER NOT NULL DEFAULT 0,callee_connected INTEGER NOT NULL DEFAULT 0,
+ next_seq BIGINT NOT NULL DEFAULT 0,UNIQUE(caller_id,request_id),CHECK(caller_id<>callee_id)
+);
+CREATE INDEX IF NOT EXISTS tomi_calls_caller_idx ON tomi_calls(caller_id,created_at,id);
+CREATE INDEX IF NOT EXISTS tomi_calls_callee_idx ON tomi_calls(callee_id,created_at,id);
+CREATE INDEX IF NOT EXISTS tomi_calls_active_idx ON tomi_calls(state,caller_seen);
+CREATE TABLE IF NOT EXISTS tomi_active_calls (
+ user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,
+ call_id TEXT NOT NULL REFERENCES tomi_calls(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS tomi_active_call_idx ON tomi_active_calls(call_id);
+CREATE TABLE IF NOT EXISTS tomi_call_signals (
+ call_id TEXT NOT NULL REFERENCES tomi_calls(id) ON DELETE CASCADE,sequence BIGINT NOT NULL,
+ sender_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ request_id TEXT NOT NULL,signal_type TEXT NOT NULL,payload TEXT NOT NULL,payload_hash TEXT NOT NULL,
+ created_at TEXT NOT NULL,PRIMARY KEY(call_id,sequence),UNIQUE(call_id,sender_id,request_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_call_push_outbox (
+ call_id TEXT PRIMARY KEY REFERENCES tomi_calls(id) ON DELETE CASCADE,
+ recipient_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,thread_id TEXT NOT NULL,
+ state TEXT NOT NULL DEFAULT 'pending',attempts INTEGER NOT NULL DEFAULT 0,next_at TEXT NOT NULL,
+ lease_until TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tomi_call_push_pending_idx ON tomi_call_push_outbox(state,next_at,lease_until);
+CREATE TABLE IF NOT EXISTS tomi_call_push_receipts (
+ call_id TEXT NOT NULL REFERENCES tomi_call_push_outbox(call_id) ON DELETE CASCADE,
+ token_hash TEXT NOT NULL,PRIMARY KEY(call_id,token_hash)
+);
