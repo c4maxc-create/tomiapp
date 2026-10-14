@@ -1,4 +1,5 @@
 import 'messaging/chat_screens.dart';
+import 'messaging/chat_models.dart';
 
 import 'dart:async';
 
@@ -59,8 +60,35 @@ class _TomiAppState extends State<TomiApp> {
     previousUserId = accounts?.user?.id;
     previousRecoveryCode = accounts?.pendingRecoveryCode;
     accounts?.addListener(accountChanged);
+    if (accounts != null) accounts!.push.onOpen = openPushChat;
     if (accounts?.phase == AccountPhase.restoring)
       unawaited(accounts!.restore());
+  }
+
+  Future<void> openPushChat(String threadId, String accountId) async {
+    final controller = accounts;
+    if (controller == null || controller.user?.id != accountId) return;
+    final revision = controller.sessionRevision;
+    final d = await controller.chatRequest('GET', '/v1/chats/$threadId');
+    if (!mounted ||
+        controller.user?.id != accountId ||
+        controller.sessionRevision != revision)
+      return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          controller.user?.id == accountId &&
+          controller.sessionRevision == revision)
+        navigator.currentState?.push(
+          MaterialPageRoute<void>(
+            builder: (_) => PrivateChatPage(
+              chats: controller.chats,
+              conversation: DirectConversation.fromJson(
+                d['conversation'] as Map<String, dynamic>,
+              ),
+            ),
+          ),
+        );
+    });
   }
 
   void accountChanged() {
@@ -196,6 +224,7 @@ class _TomiAppState extends State<TomiApp> {
   @override
   void dispose() {
     accounts?.removeListener(accountChanged);
+    if (accounts != null) accounts!.push.onOpen = null;
     if (widget.accounts == null) accounts?.dispose();
     if (widget.store == null) store.dispose();
     super.dispose();
@@ -213,8 +242,9 @@ class _TomiAppState extends State<TomiApp> {
     builder: (context, child) => widget.textScaler == null
         ? child!
         : MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(textScaler: widget.textScaler),
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: widget.textScaler),
             child: child!,
           ),
     theme: ThemeData(

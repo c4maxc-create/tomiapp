@@ -275,7 +275,7 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
   int get pendingBytes => threads.values.fold(
     0,
     (sum, t) =>
-        sum + t.pending.fold(0, (n, p) => n + (p.image?.bytes.length ?? 0)),
+        sum + t.pending.fold(0, (n, p) => n + (p.media?.bytes.length ?? 0)),
   );
   @override
   void dispose() {
@@ -353,13 +353,17 @@ class ChatThreadController extends ChangeNotifier {
       var m = ChatMessage.fromJson(row as Map<String, dynamic>);
       final old = cache[m.id];
       if (old?.deleted == true && !m.deleted) continue;
-      if (!m.deleted && m.image?.url != null) {
+      if (!m.deleted && (m.image?.url != null || m.audio?.url != null)) {
         final time = imageUpdatedAt[m.id];
         if (!refreshImages &&
-            old?.image?.url != null &&
+            (old?.image?.url != null || old?.audio?.url != null) &&
             time != null &&
             DateTime.now().difference(time).inMinutes < 4) {
-          m = ChatMessage({...m.data, 'image': old!.data['image']});
+          m = ChatMessage({
+            ...m.data,
+            'image': old!.data['image'],
+            'audio': old.data['audio'],
+          });
         } else {
           imageUpdatedAt[m.id] = DateTime.now();
         }
@@ -629,17 +633,20 @@ class ChatThreadController extends ChangeNotifier {
     notify();
   }
 
-  void enqueue(String text, ImageDraft? image) {
+  void enqueue(String text, ImageDraft? image, {AudioDraft? audio}) {
     if (disposed || sending || !conversation.canSend) return;
-    if (text.trim().isEmpty && image == null) return;
+    if (text.trim().isEmpty && image == null && audio == null) return;
     if (chats.pendingCount >= 20 ||
-        chats.pendingBytes + (image?.bytes.length ?? 0) > 20 * 1024 * 1024) {
+        chats.pendingBytes + ((image ?? audio)?.bytes.length ?? 0) >
+            20 * 1024 * 1024) {
       throw const AccountFailure(
         'DRAFT_LIMIT',
         'عندك رسائل كثيرة قيد الإرسال؛ أكملها أولًا.',
       );
     }
-    final p = PendingChatMessage(text.trim(), image);
+    if (image != null && audio != null)
+      throw const AccountFailure('MEDIA_TYPE', 'اختَر صورة أو تسجيلًا صوتيًا.');
+    final p = PendingChatMessage(text.trim(), image, audio: audio);
     pending.add(p);
     if (historyWindow) unawaited(showLatest());
     notify();
@@ -655,25 +662,26 @@ class ChatThreadController extends ChangeNotifier {
     notify();
     stopTyping();
     try {
-      if (p.image != null && !p.uploaded) {
+      if (p.media != null && !p.uploaded) {
         if (p.upload != null &&
             DateTime.now().difference(p.preparedAt!).inMinutes >= 14)
           p.upload = null;
         if (p.upload == null) {
           final d = await request(
             'POST',
-            '/images',
+            p.audio != null ? '/audio' : '/images',
             body: {
-              'contentType': p.image!.contentType,
-              'byteLength': p.image!.bytes.length,
-              'contentMd5': p.image!.contentMd5,
+              'contentType': p.media!.contentType,
+              'byteLength': p.media!.bytes.length,
+              'contentMd5': p.media!.contentMd5,
+              if (p.audio != null) 'durationMs': p.audio!.durationMs,
             },
           );
           if (disposed) return;
           p.upload = ImageUpload.fromJson(d);
           p.preparedAt = DateTime.now();
         }
-        await chats.accounts.uploadImage(p.upload!, p.image!);
+        await chats.accounts.uploadImage(p.upload!, p.media!);
         if (disposed) return;
         p.uploaded = true;
       }
@@ -684,7 +692,9 @@ class ChatThreadController extends ChangeNotifier {
             body: {
               'text': p.text,
               'requestId': p.requestId,
-              if (p.upload != null) 'imageUploadId': p.upload!.id,
+              if (p.upload != null)
+                (p.audio != null ? 'audioUploadId' : 'imageUploadId'):
+                    p.upload!.id,
             },
           );
       if (disposed) return;

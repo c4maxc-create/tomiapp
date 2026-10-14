@@ -9,6 +9,8 @@ workflows:
     scripts:
       - name: Generate Android scaffold without changing TOMI source
         script: bash tool/bootstrap_android.sh
+      - name: Optional Firebase configuration
+        script: python3 tool/configure_firebase.py
       - name: Install Flutter dependencies
         script: flutter pub get
       - name: Analyze Dart source
@@ -17,8 +19,9 @@ workflows:
         script: flutter test --reporter expanded
       - name: Build preview APK
         script: |
+          if [ -f android/app/google-services.json ]; then tomi_push_ready=true; else tomi_push_ready=false; fi
           flutter build apk --debug --dart-define="TOMI_API_URL=${TOMI_API_URL:-}" --dart-define="TOMI_PREVIEW_MODE=${TOMI_PREVIEW_MODE:-true}"
           mkdir -p output
-          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-0.4.0.apk
+          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-0.5.0.apk
     artifacts:
-      - output/TOMI-0.4.0.apk
+      - output/TOMI-0.5.0.apk

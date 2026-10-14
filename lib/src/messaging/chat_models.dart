@@ -1,4 +1,5 @@
 import '../social/social_models.dart';
+import 'dart:typed_data';
 
 class DirectConversation {
   const DirectConversation(this.data);
@@ -16,6 +17,7 @@ class DirectConversation {
   bool get blockedByPeer => data['blockedByPeer'] == true;
   bool get canSend => !blockedByMe && !blockedByPeer;
   bool get imageUploadEnabled => data['imageUploadEnabled'] == true;
+  bool get audioUploadEnabled => data['audioUploadEnabled'] == true;
   String get lastMessage => data['lastMessage'] as String? ?? '';
   String get updatedAt => data['updatedAt'] as String;
   DirectConversation preserveReads(DirectConversation old) =>
@@ -40,17 +42,38 @@ class ChatMessage {
   String get text => data['text'] as String;
   bool get deleted => data['deleted'] == true;
   bool get isMine => data['isMine'] == true;
+  ChatAudio? get audio => data['audio'] == null
+      ? null
+      : ChatAudio.fromJson(data['audio'] as Map<String, dynamic>);
   PostImage? get image => data['image'] == null
       ? null
       : PostImage.fromJson(data['image'] as Map<String, dynamic>);
 }
 
 class PendingChatMessage {
-  PendingChatMessage(this.text, this.image) : requestId = newRequestId();
+  PendingChatMessage(this.text, this.image, {this.audio})
+    : requestId = newRequestId();
   final String text, requestId;
   final ImageDraft? image;
+  final AudioDraft? audio;
+  ImageDraft? get media => image ?? audio;
   ImageUpload? upload;
   DateTime? preparedAt;
   bool uploaded = false, busy = false;
   String? error;
+}
+
+class AudioDraft extends ImageDraft {
+  AudioDraft(Uint8List bytes, this.durationMs) : super(bytes, 'audio/mp4');
+  final int durationMs;
+}
+
+class ChatAudio {
+  const ChatAudio({this.url, required this.durationMs});
+  final String? url;
+  final int durationMs;
+  factory ChatAudio.fromJson(Map<String, dynamic> d) => ChatAudio(
+    url: d['url'] as String?,
+    durationMs: (d['durationMs'] as num).toInt(),
+  );
 }

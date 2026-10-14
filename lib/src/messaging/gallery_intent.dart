@@ -9,12 +9,14 @@ class GalleryIntent {
     String baseUrl,
     String userId, {
     String? conversationId,
+    String purpose = 'feed',
   }) => storage.write(
     key: key,
     value: jsonEncode({
       'baseUrl': baseUrl,
       'userId': userId,
       'conversationId': conversationId,
+      'purpose': purpose,
       'time': DateTime.now().millisecondsSinceEpoch,
     }),
   );

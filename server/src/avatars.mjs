@@ -1,0 +1,22 @@
+import {randomUUID} from 'node:crypto';
+import {ApiError} from './security.mjs';
+import {imageTypes,maxImageBytes} from './images.mjs';
+const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+const now=()=>new Date().toISOString();
+const fail=(status,code,message)=>{throw new ApiError(status,code,message);};
+export const avatarJoins=' LEFT JOIN tomi_user_avatars av ON av.user_id=u.id LEFT JOIN tomi_image_uploads ai ON ai.id=av.upload_id ';
+export const avatarColumns=',ai.object_key AS avatar_key,av.upload_id AS avatar_id ';
+export function avatarFields(row,storage){return{avatarId:row.avatar_id??null,avatarUrl:row.avatar_key?storage?.avatarUrl?.(row.avatar_key)??storage?.readUrl(row.avatar_key)??null:null};}
+export function createAvatars({database,storage,readJson,respond,limit,userById}){
+ async function handle(request,response,url,current){const viewer=current.id;
+  if(request.method==='POST'&&url.pathname==='/v1/me/avatar/uploads'){
+   if(!storage)fail(503,'IMAGES_DISABLED','رفع الصورة الشخصية غير متاح.');await limit('avatar:'+viewer,6);const d=await readJson(request);
+   if(Object.keys(d).some(k=>!['contentType','byteLength','contentMd5'].includes(k))||!Object.hasOwn(imageTypes,d.contentType)||!Number.isInteger(d.byteLength)||d.byteLength<13||d.byteLength>maxImageBytes||typeof d.contentMd5!=='string'||!/^[A-Za-z0-9+/]{22}==$/.test(d.contentMd5))fail(400,'INVALID_IMAGE','اختَر صورة بحجم لا يتجاوز 10 MB.');
+   const pending=await database.query("SELECT COUNT(*) AS total FROM tomi_image_uploads WHERE user_id=? AND state='pending' AND expires_at>?",[viewer,now()]);if(Number(pending.rows[0].total)>=10)fail(429,'RATE_LIMITED','عندك صور قيد الرفع.');const id=randomUUID(),u={id,user_id:viewer,object_key:`tomi/avatars/${viewer}/${id}.${imageTypes[d.contentType]}`,content_type:d.contentType,byte_length:d.byteLength,content_md5:d.contentMd5};await database.query('INSERT INTO tomi_image_uploads(id,user_id,object_key,content_type,byte_length,content_md5,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?)',[id,viewer,u.object_key,u.content_type,u.byte_length,u.content_md5,now(),new Date(Date.now()+86400000).toISOString()]);respond(response,201,{uploadId:id,...storage.prepare(u)});return true;
+  }
+  if(request.method!=='PUT'||url.pathname!=='/v1/me/avatar')return false;await limit('avatar-save:'+viewer,20);const d=await readJson(request),upload=d.imageUploadId??null;if(Object.keys(d).some(k=>!['imageUploadId','requestId'].includes(k))||!uuid.test(d.requestId??'')||(upload!==null&&!uuid.test(upload)))fail(400,'VALIDATION','طلب الصورة غير صحيح.');
+  async function replay(db){const{rows}=await db.query('SELECT upload_id FROM tomi_avatar_requests WHERE user_id=? AND request_id=?',[viewer,d.requestId]);if(!rows[0])return false;if((rows[0].upload_id??null)!==upload)fail(409,'REQUEST_CHANGED','الصورة تغيّرت؛ استخدم طلبًا جديدًا.');return true;}
+  let dimensions;if(!(await replay(database))&&upload){if(!storage)fail(503,'IMAGES_DISABLED','رفع الصورة غير متاح.');const{rows}=await database.query('SELECT * FROM tomi_image_uploads WHERE id=? AND user_id=?',[upload,viewer]),u=rows[0];if(!u||u.state!=='pending'||u.expires_at<=now()||!u.object_key.startsWith(`tomi/avatars/${viewer}/`))fail(400,'UPLOAD_INVALID','الصورة انتهت أو استُخدمت.');dimensions=await storage.verify(u);}
+  await database.transaction(async db=>{await db.query('UPDATE tomi_users SET updated_at=updated_at WHERE id=? RETURNING id',[viewer]);if(await replay(db))return;const{rows}=await db.query('SELECT upload_id FROM tomi_user_avatars WHERE user_id=?',[viewer]);await db.query('DELETE FROM tomi_user_avatars WHERE user_id=?',[viewer]);if(upload){const changed=await db.query("UPDATE tomi_image_uploads SET state='attached',width=?,height=? WHERE id=? AND user_id=? AND state='pending' AND expires_at>?",[dimensions.width,dimensions.height,upload,viewer,now()]);if(changed.changes!==1)fail(409,'UPLOAD_INVALID','الصورة استُخدمت؛ جهّزها مرة ثانية.');await db.query('INSERT INTO tomi_user_avatars(user_id,upload_id) VALUES(?,?)',[viewer,upload]);}if(rows[0])await db.query("UPDATE tomi_image_uploads SET state='deleting',expires_at=? WHERE id=?",[new Date(Date.now()+1200000).toISOString(),rows[0].upload_id]);await db.query('INSERT INTO tomi_avatar_requests(user_id,request_id,upload_id,created_at) VALUES(?,?,?,?)',[viewer,d.requestId,upload,now()]);});respond(response,200,{user:await userById(viewer,viewer)});return true;
+ }return{handle};
+}

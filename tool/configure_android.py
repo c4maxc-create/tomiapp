@@ -25,6 +25,17 @@ def configure_android(root: Path = ROOT) -> None:
     if not any(item.get(f"{{{ANDROID_NS}}}name") == "android.permission.INTERNET"
                for item in tree.getroot().findall("uses-permission")):
         ET.SubElement(tree.getroot(), "uses-permission", {f"{{{ANDROID_NS}}}name": "android.permission.INTERNET"})
+    for permission in ['android.permission.RECORD_AUDIO','android.permission.POST_NOTIFICATIONS']:
+        if not any(item.get(f'{{{ANDROID_NS}}}name')==permission for item in tree.getroot().findall('uses-permission')):
+            ET.SubElement(tree.getroot(),'uses-permission',{f'{{{ANDROID_NS}}}name':permission})
+    if not any(item.get(f'{{{ANDROID_NS}}}name')=='android.hardware.microphone' for item in tree.getroot().findall('uses-feature')):
+        ET.SubElement(tree.getroot(),'uses-feature',{f'{{{ANDROID_NS}}}name':'android.hardware.microphone',f'{{{ANDROID_NS}}}required':'false'})
+    for name,value in [('firebase_messaging_auto_init_enabled','false'),('com.google.firebase.messaging.default_notification_icon','@drawable/tomi_notification')]:
+        if not any(item.get(f'{{{ANDROID_NS}}}name')==name for item in application.findall('meta-data')):
+            ET.SubElement(application,'meta-data',{f'{{{ANDROID_NS}}}name':name,f'{{{ANDROID_NS}}}'+('resource' if value.startswith('@') else 'value'):value})
+    notification=root/'android/app/src/main/res/drawable/tomi_notification.xml'
+    notification.parent.mkdir(parents=True,exist_ok=True)
+    notification.write_text('<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24"><path android:fillColor="#FFFFFFFF" android:pathData="M3,4H21V8H14V21H10V8H3Z"/></vector>')
     tree.write(manifest, encoding="utf-8", xml_declaration=True)
     # Secure storage requires Android 6.0+; Flutter's generated default varies.
     for filename in ["android/app/build.gradle.kts", "android/app/build.gradle"]:

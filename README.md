@@ -1,121 +1,104 @@
-# TOMI 0.4 — private chats
+# TOMI 0.5 — voice notes, avatars and optional push
 
-Flutter Arabic RTL app and Node 24 API, updated from TOMI-0.3-posts-r2.zip.
-Existing accounts, recovery, profiles, follows, posts, likes and comments remain.
-The database migration adds tables and indexes. Keep the existing DATABASE_URL.
+Native Flutter Arabic RTL app and Node 24 API, upgraded from the final 0.4 source.
+Keep the existing PostgreSQL DATABASE_URL and hosting service. The schema adds
+tables while preserving accounts, recovery, follows, posts and private chats.
+This archive contains source, not an APK. Follow START_HERE_AR.md to update
+Northflank and build TOMI-0.5.0.apk in GitHub Actions.
 
-This is source code. Follow START_HERE_AR.md to update your existing Northflank
-service and build TOMI-0.4.0.apk in GitHub Actions.
+## Added features
 
-## Features
+- Voice notes: AAC/M4A, mono, requested 160 kbps and 44.1 kHz. Record, stop,
+  review, record again and explicitly send. Play/pause/seek, one active note per
+  chat page. Maximum five minutes and 6 MiB. Recording and playback stop when
+  leaving the foreground. Devices may adjust requested encoding settings.
+- Voice uploads use the private R2 chat bucket. Verification checks checksum,
+  type, length, bounded M4A box structure, sound-track metadata and duration;
+  it does not decode or transcode audio. Owner/thread binding is rechecked in the
+  message transaction. Stable nonces and upload IDs prevent duplicate retry saves.
+- Audio links last five minutes and renew before playback. Sender deletion leaves
+  a tombstone and queues cleanup after at least 20 minutes. Abandoned uploads
+  expire after a day. The client bounds all pending media to 20 MiB and 20 drafts
+  per signed-in session. Unsent drafts are not persisted across app shutdown.
+- Profile photos: gallery, preview, save, replace and remove. They appear in
+  profiles, search, conversation peers, posts and comments. Interrupted Android
+  selection returns to the correct editor/account/API for explicit confirmation.
+- Optional FCM HTTP v1 background notifications and account notification settings.
+  Permission is requested by an explicit enable action. Notifications contain
+  generic text without message content or media URLs. Taps match the signed-in
+  account and fetch participant-authorized conversation metadata.
+- Device registration binds to valid sessions. Token refresh replaces the
+  session device; logout/password/recovery revoke registrations. Switching
+  accounts transfers the device and prevents old-account dispatch.
+- A transactional persistent outbox has leases, bounded retries and per-device
+  receipts. Read/deleted/blocked/opted-out messages are suppressed before
+  dispatch. Invalid FCM tokens are removed. Delivery depends on FCM and OS/network
+  settings; already queued system notifications cannot be recalled.
 
-- Start private chats from a profile, search result or the messages tab.
-- Persisted text and images; one conversation per user pair.
-- Authenticated WebSocket updates, typing, reconnect with backoff and foreground
-  HTTP catch-up every 30 seconds. There are no push notifications in this version.
-- Global/per-chat unread counts and sent/read markers. Sent means saved on the
-  server. Read means viewed at the latest messages while the app is in the foreground.
-- Paginated history and a virtualized list. The client holds up to 500 messages
-  per window; older history stays accessible with a return-to-latest action.
-- Failed sends have explicit retry controls. A frozen nonce and payload prevent
-  duplication after a successful save with a lost reply.
-- Sender-only deletion for both participants, preserving a tombstone and nonce.
-- Block/unblock private messaging in both directions while preserving history.
-  Blocking does not alter follows, profiles or feed visibility.
-- Gallery preview and Android interrupted-selection recovery into the correct
-  chat, still requiring an explicit send.
+Profile photos are visible to other signed-in users, using feed storage and
+immutable keys; they are not private chat attachments. Saved messages persist in
+PostgreSQL. The account notification preference applies across linked devices.
 
-Text supports 2,000 Unicode code points. Images support JPEG, PNG, WebP and GIF,
-up to 10 MiB and 36 million pixels. Verified direct R2 uploads check owner, thread,
-signature, size, dimensions and checksum. PUT signs a create-only precondition.
-Chat image GET URLs expire after five minutes and can refresh. Cleanup waits at
-least 20 minutes after deletion; abandoned uploads expire after a day.
+## Configuration
 
-Saved messages survive app/service restarts. Unsent/failed drafts are held in
-memory for the signed-in session; closing the app or logging out may discard them.
-The client limits pending drafts to 20 and pending image bytes to 20 MiB.
+Retain Node 24, production mode, PostgreSQL, the current PORT and trusted proxy.
+The existing four R2 variables serve posts and avatars. A private bucket may
+also serve chat images/audio. Disable public r2.dev and public custom domains.
+If R2_PUBLIC_BASE_URL is configured, chats need all four R2_CHAT_ACCOUNT_ID,
+R2_CHAT_BUCKET_NAME, R2_CHAT_ACCESS_KEY_ID and R2_CHAT_SECRET_ACCESS_KEY settings
+for a separate private bucket. Partial configs fail startup. The API cannot
+inspect dashboard access policies. Signed URLs do not privatize a public bucket.
+Retain the chosen bucket; existing object data is not migrated between buckets.
 
-## Hosting and private image storage
+Push is optional. Northflank FCM_SERVICE_ACCOUNT_JSON is the full server-side
+service-account JSON. GitHub TOMI_GOOGLE_SERVICES_JSON is Android client
+google-services.json for com.tomi.tomi_app from that same Firebase project.
+Never embed the service-account private key in an APK or client-config secret.
+The setup script rejects server keys/wrong package names and sets the build flag.
+Missing Firebase config disables push while other features continue to work.
 
-Retain NODE_ENV=production, PostgreSQL DATABASE_URL, the current PORT and
-TRUST_PROXY=1 behind the trusted hosting reverse proxy. Production refuses
-SQLite fallback. For local development use an explicit TOMI_SQLITE_FILE.
+The delivery workflow builds Android. Native Android R2 uploads do not need
+browser CORS. iOS additionally needs an iOS scaffold, NSMicrophoneUsageDescription,
+its Firebase configuration, push capabilities and APNs credentials. A web client
+needs browser CORS and a separate recorder implementation.
 
-A private existing R2 bucket can serve posts and chats using the existing four
-R2_ACCOUNT_ID, R2_BUCKET_NAME, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY settings.
-The chat bucket must have public r2.dev access and public custom domains disabled.
-Signed URLs alone do not make a public bucket private.
+Use one API instance for immediate chat WebSocket fanout. Multiple replicas
+need an event broker for instant cross-instance updates. Functional checks do
+not establish production capacity. Calls, rooms, stories, games, currency,
+end-to-end encryption and release/store signing remain outside this update.
 
-If your existing feed bucket is public, keep it for posts and use a separate
-private chat bucket with all four settings:
+## New authenticated API
 
-```text
-R2_CHAT_ACCOUNT_ID
-R2_CHAT_BUCKET_NAME
-R2_CHAT_ACCESS_KEY_ID
-R2_CHAT_SECRET_ACCESS_KEY
-```
-
-With R2_PUBLIC_BASE_URL configured, chat images stay disabled until a separate
-bucket is configured; text chats work. Partial R2 configuration fails startup.
-The API cannot discover public-access settings in the Cloudflare dashboard;
-check them before enabling images. Choose and retain the chat bucket before
-sending photos: object keys are not automatically migrated between buckets.
-Do not apply lifecycle deletion rules to attached image prefixes.
-
-Native Android needs no browser CORS policy. A web client needs CORS_ORIGINS and
-an R2 policy for its origin on each bucket; see server/r2-cors.example.json.
-server/.env.example documents hosting variables and is not auto-loaded by Node.
-
-WebSocket authentication uses the first frame, never a URL token. Revoking a
-session closes its sockets. Events carry invalidations; authenticated REST reads
-message contents after transaction commit. Only participants access a chat.
-Messages are stored on the server; end-to-end encryption is outside this version.
-
-Use one API instance for immediate realtime updates. Multiple replicas share
-PostgreSQL history but require a future event broker for instant cross-instance
-fanout; foreground HTTP catch-up still works. No production load capacity is
-established by functional tests. Calls, rooms, stories, multiplayer and currency
-continue as labeled previews.
-
-## Chat API
-
-Every route requires a signed-in account. Existing account/social APIs remain.
-
-| Method | Path | Purpose |
+| Method | Route | Purpose |
 | --- | --- | --- |
-| GET / POST | /v1/chats | List and total unread / open by userId |
-| GET | /v1/chats/:id | Participant-only metadata |
-| GET / POST | /v1/chats/:id/messages | Sequence pagination / idempotent send |
-| GET / DELETE | /v1/chats/:id/messages/:messageId | Refresh / sender deletion |
-| PUT | /v1/chats/:id/read | Monotonic bounded read marker |
-| POST | /v1/chats/:id/images | Prepare scoped image upload |
-| GET | /v1/chat/blocks | Blocked users |
-| PUT | /v1/chat/blocks/:userId | Explicit blocked boolean |
-| WebSocket | /v1/chat/socket | Authentication, invalidations and typing |
+| POST | /v1/chats/:id/audio | Prepare a scoped voice upload |
+| POST | /v1/chats/:id/messages | Optional audioUploadId, exclusive with imageUploadId |
+| POST | /v1/me/avatar/uploads | Prepare an owned profile photo |
+| PUT | /v1/me/avatar | Save/remove via imageUploadId and requestId |
+| GET / PUT | /v1/push/settings | Account preference and server config status |
+| PUT / DELETE | /v1/push/device | Register/retire this session device |
 
-/health identifies 0.4.0. See VALIDATION.md for checks and their limits.
-GitHub Actions tests SQLite and PostgreSQL 17, analyzes Dart, runs Flutter tests
-and builds a debug APK. Release signing and store publication are separate work.
+Health reports 0.5.0. Existing routes remain compatible. See VALIDATION.md.
+GitHub runs backend tests against SQLite/PostgreSQL 17, Flutter analysis/tests,
+configuration checks, and debug APK compilation.
 
-Local checks:
+## Development and continuation
 
-```sh
-cd server
-npm ci --ignore-scripts --no-audit --no-fund
-npm test
-```
+TOMI-PROGRESS.md records completed work, checks, source identities and the next
+step. Save it and working source after material steps and before long operations.
+Resume from the latest saved working archive without redoing completed stages.
+An interruption can still lose work since the last checkpoint; no background
+execution is promised when the session ends.
 
-From the project root:
+Checks: npm ci --ignore-scripts --no-audit --no-fund and npm test in server;
+flutter pub get, flutter analyze, flutter test, python3 tool/check_bootstrap.py
+and python3 tool/check_firebase.py from the project root.
 
-```sh
-flutter pub get
-flutter analyze
-flutter test
-python3 tool/check_bootstrap.py
-```
-
-References: [Flutter WebSockets](https://docs.flutter.dev/cookbook/networking/web-sockets),
-[ws](https://github.com/websockets/ws),
-[R2 presigned URLs](https://developers.cloudflare.com/r2/api/s3/presigned-urls/),
-[R2 public access](https://developers.cloudflare.com/r2/buckets/public-buckets/).
+Primary references: [record](https://pub.dev/packages/record),
+[just_audio](https://pub.dev/packages/just_audio),
+[Firebase setup](https://firebase.google.com/docs/flutter/setup),
+[FCM Flutter](https://firebase.google.com/docs/cloud-messaging/flutter/get-started),
+[notification handling](https://firebase.google.com/docs/cloud-messaging/flutter/receive-messages),
+[Google services plugin](https://firebase.google.com/docs/android/google-services-plugin-and-file),
+[FCM HTTP v1](https://firebase.google.com/docs/cloud-messaging/send/v1-api),
+[R2 settings](https://developers.cloudflare.com/r2/buckets/public-buckets/).

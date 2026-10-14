@@ -8,6 +8,8 @@ import 'account_api.dart';
 import 'account_controller.dart';
 import 'account_models.dart';
 import 'account_widgets.dart';
+import 'avatar_editor.dart';
+import '../notifications/notification_settings.dart';
 
 class AccountProfileScreen extends StatefulWidget {
   const AccountProfileScreen({super.key, required this.accounts});
@@ -72,6 +74,18 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Center(child: AccountAvatar(user, size: 90)),
+                  TextButton.icon(
+                    key: const Key('edit-avatar'),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            AvatarEditorPage(accounts: widget.accounts),
+                      ),
+                    ),
+                    icon: const Icon(Icons.photo_camera_outlined),
+                    label: const Text('تغيير الصورة الشخصية'),
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     user.displayName,
@@ -139,6 +153,20 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  OutlinedButton.icon(
+                    key: const Key('notification-settings'),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => NotificationSettingsPage(
+                          controller: widget.accounts.push,
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.notifications_outlined),
+                    label: const Text('إعدادات الإشعارات'),
+                  ),
+                  const SizedBox(height: 10),
                   const Text(
                     'أمان الحساب',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),

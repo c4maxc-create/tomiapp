@@ -2,6 +2,8 @@ import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { createSocial } from './social.mjs';
 import { createChat } from './chat.mjs';
+import {createAvatars,avatarJoins,avatarColumns,avatarFields} from './avatars.mjs';
+import {createPush} from './push.mjs';
 import {
   ApiError, digest, hashPassword, verifyPassword, newToken, newRecoveryCode,
   normalizeRecoveryCode, validateUsername, validatePassword, validateProfile, isUniqueConflict,
@@ -39,29 +41,29 @@ function json(response, status, data, headers = {}) {
   response.end(JSON.stringify(data));
 }
 
-const userSelect = `SELECT u.id, u.username, u.display_name, u.bio, u.avatar_preset, u.created_at,
+const userSelect = `SELECT u.id, u.username, u.display_name, u.bio, u.avatar_preset, u.created_at${avatarColumns},
   (SELECT COUNT(*) FROM tomi_follows f WHERE f.following_id = u.id) AS followers_count,
   (SELECT COUNT(*) FROM tomi_follows f WHERE f.follower_id = u.id) AS following_count,
   (SELECT COUNT(*) FROM tomi_posts p WHERE p.user_id = u.id) AS posts_count,
   (SELECT COUNT(*) FROM tomi_follows f WHERE f.follower_id = ? AND f.following_id = u.id) AS is_following
-  FROM tomi_users u`;
+  FROM tomi_users u ${avatarJoins}`;
 
-function publicUser(row) {
+function publicUser(row,storage) {
   return {
     id: row.id, username: row.username, displayName: row.display_name, bio: row.bio,
-    avatarPreset: row.avatar_preset, createdAt: row.created_at,
+    avatarPreset: row.avatar_preset, ...avatarFields(row,storage), createdAt: row.created_at,
     followersCount: Number(row.followers_count), followingCount: Number(row.following_count),
     postsCount: Number(row.posts_count), isFollowing: Number(row.is_following) > 0,
   };
 }
 
-export async function createApp({ database, trustProxy = false, origins = [], rateLimitMultiplier = 1, storage = null, chatStorage = storage }) {
+export async function createApp({ database, trustProxy = false, origins = [], rateLimitMultiplier = 1, storage = null, chatStorage = storage, pushSender=null, pushAutoFlush=true }) {
   // Equal-cost verification for unknown users avoids a cheap username timing oracle.
   const dummyHash = await hashPassword(newToken());
   const userById = async (id, viewer, db = database) => {
     const result = await db.query(`${userSelect} WHERE u.id = ?`, [viewer, id]);
     if (!result.rows[0]) throw new ApiError(404, 'NOT_FOUND', 'الحساب غير موجود.');
-    return publicUser(result.rows[0]);
+    return publicUser(result.rows[0],storage);
   };
 
   async function limit(key, maximum, period = 60000) {
@@ -99,7 +101,10 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
 
   const social = createSocial({database, storage, readJson, respond: json, limit, userById, cleanupPrefix:chatStorage===storage?'tomi/':'tomi/posts/'});
   const chatMedia=chatStorage===storage?null:createSocial({database,storage:chatStorage,readJson,respond:json,limit,userById,cleanupPrefix:'tomi/chat-images/'});
-  const chat=createChat({database,storage:chatStorage,readJson,respond:json,limit,userById});
+  const avatars=createAvatars({database,storage,readJson,respond:json,limit,userById});
+  const avatarMedia=chatStorage===storage?null:createSocial({database,storage,readJson,respond:json,limit,userById,cleanupPrefix:'tomi/avatars/'});
+  const push=createPush({database,sender:pushSender,autoFlush:pushAutoFlush,readJson,respond:json,limit});
+  const chat=createChat({database,storage:chatStorage,avatarStorage:storage,readJson,respond:json,limit,userById,enqueuePush:push.enqueue});
   const server = createServer(async (request, response) => {
     try {
       const origin = request.headers.origin;
@@ -126,7 +131,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       }
       if (method === 'GET' && (path === '/health' || path === '/')) {
         await database.query('SELECT 1 AS ready');
-        json(response, 200, { status: 'ok', service: 'TOMI API', version: '0.4.0' });
+        json(response, 200, { status: 'ok', service: 'TOMI API', version: '0.5.0' });
         return;
       }
 
@@ -201,6 +206,8 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
 
       const current = await session(request);
       await limit(`requests:user:${current.id}`, 300);
+      if (await avatars.handle(request,response,url,current)) return;
+      if (await push.handle(request,response,url,current)) return;
       if (await chat.handle(request,response,url,current)) return;
       if (await social.handle(request,response,url,current)) return;
 
@@ -266,7 +273,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
         const result = await database.query(`${userSelect}
           WHERE (u.username LIKE ? ESCAPE '\\' OR LOWER(u.display_name) LIKE ? ESCAPE '\\')
           AND u.id <> ? ORDER BY u.username LIMIT 20`, [current.id, pattern, pattern, current.id]);
-        json(response, 200, { users: result.rows.map(publicUser) });
+        json(response, 200, { users: result.rows.map(row=>publicUser(row,storage)) });
         return;
       }
 
@@ -306,7 +313,9 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       }
     }
   });
-  server.cleanupMedia = async()=>{await social.cleanup();if(chatMedia)await chatMedia.cleanup();};
+  server.cleanupMedia = async()=>{await social.cleanup();if(chatMedia)await chatMedia.cleanup();if(avatarMedia)await avatarMedia.cleanup();await chat.cleanup();await push.cleanup();};
+  server.flushPush=push.flush;
+  server.on('close',()=>push.close());
   chat.attach(server,{origins,authenticate:token=>session({headers:{authorization:'Bearer '+token}}),validSessions:async hashes=>{
     if(!hashes.length)return new Set();
     const{rows}=await database.query(`SELECT s.token_hash FROM tomi_sessions s JOIN tomi_users u ON u.id=s.user_id AND u.auth_version=s.auth_version WHERE s.expires_at>? AND s.token_hash IN (${hashes.map(()=>'?').join(',')})`,[nowText(),...hashes]);return new Set(rows.map(r=>r.token_hash));

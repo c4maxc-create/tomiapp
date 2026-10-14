@@ -93,3 +93,46 @@ CREATE TABLE IF NOT EXISTS tomi_user_blocks (
  blocked_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,created_at TEXT NOT NULL,
  PRIMARY KEY(blocker_id,blocked_id),CHECK(blocker_id<>blocked_id)
 );
+
+-- Additive 0.5 tables: preserve the complete 0.4 schema.
+CREATE TABLE IF NOT EXISTS tomi_audio_uploads (
+ id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ thread_id TEXT NOT NULL REFERENCES tomi_chat_threads(id) ON DELETE CASCADE,
+ object_key TEXT NOT NULL UNIQUE,content_type TEXT NOT NULL,byte_length INTEGER NOT NULL,
+ content_md5 TEXT NOT NULL,duration_ms INTEGER NOT NULL,
+ state TEXT NOT NULL DEFAULT 'pending' CHECK(state IN ('pending','attached','deleting')),
+ created_at TEXT NOT NULL,expires_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tomi_audio_expiry_idx ON tomi_audio_uploads(state,expires_at);
+CREATE TABLE IF NOT EXISTS tomi_chat_audio (
+ message_id TEXT PRIMARY KEY REFERENCES tomi_chat_messages(id) ON DELETE CASCADE,
+ upload_id TEXT NOT NULL UNIQUE REFERENCES tomi_audio_uploads(id)
+);
+CREATE TABLE IF NOT EXISTS tomi_user_avatars (
+ user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,
+ upload_id TEXT NOT NULL UNIQUE REFERENCES tomi_image_uploads(id)
+);
+CREATE TABLE IF NOT EXISTS tomi_avatar_requests (
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,request_id TEXT NOT NULL,
+ upload_id TEXT,created_at TEXT NOT NULL,PRIMARY KEY(user_id,request_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_push_settings (
+ user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1))
+);
+CREATE TABLE IF NOT EXISTS tomi_push_devices (
+ token_hash TEXT PRIMARY KEY,token TEXT NOT NULL,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ session_hash TEXT NOT NULL REFERENCES tomi_sessions(token_hash) ON DELETE CASCADE,
+ platform TEXT NOT NULL CHECK(platform IN ('android','ios')),updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tomi_push_user_idx ON tomi_push_devices(user_id);
+CREATE TABLE IF NOT EXISTS tomi_push_outbox (
+ message_id TEXT PRIMARY KEY REFERENCES tomi_chat_messages(id) ON DELETE CASCADE,
+ recipient_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,thread_id TEXT NOT NULL,
+ state TEXT NOT NULL DEFAULT 'pending',attempts INTEGER NOT NULL DEFAULT 0,next_at TEXT NOT NULL,
+ lease_until TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tomi_push_pending_idx ON tomi_push_outbox(state,next_at,lease_until);
+CREATE TABLE IF NOT EXISTS tomi_push_receipts (
+ message_id TEXT NOT NULL REFERENCES tomi_push_outbox(message_id) ON DELETE CASCADE,
+ token_hash TEXT NOT NULL,PRIMARY KEY(message_id,token_hash)
+);

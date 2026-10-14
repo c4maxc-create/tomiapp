@@ -13,6 +13,7 @@ import '../accounts/account_controller.dart';
 import '../accounts/account_profile.dart';
 import '../accounts/account_widgets.dart';
 import '../widgets.dart';
+import '../accounts/avatar_editor.dart';
 import 'feed_controller.dart';
 import 'social_models.dart';
 
@@ -131,7 +132,19 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
               ),
             ),
           );
-      } else {
+      } else if (destination['purpose'] == 'avatar') {
+        if (mounted)
+          await Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => AvatarEditorPage(
+                accounts: widget.accounts,
+                initialImage: lost.files!.first,
+              ),
+            ),
+          );
+      } else if (destination['purpose'] == null ||
+          destination['purpose'] == 'feed') {
         await compose(initialImage: lost.files!.first);
       }
     } catch (_) {

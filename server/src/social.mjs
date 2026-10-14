@@ -1,24 +1,25 @@
 import {randomUUID} from 'node:crypto';
 import {ApiError,isUniqueConflict} from './security.mjs';
 import {imageTypes,maxImageBytes} from './images.mjs';
+import {avatarFields,avatarJoins,avatarColumns} from './avatars.mjs';
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const now=()=>new Date().toISOString();
-const posts='SELECT p.*,u.username,u.display_name,u.avatar_preset,m.object_key,m.width,m.height,'+
+const posts='SELECT p.*,u.username,u.display_name,u.avatar_preset'+avatarColumns+',m.object_key,m.width,m.height,'+
  '(SELECT COUNT(*) FROM tomi_post_likes l WHERE l.post_id=p.id) AS likes_count,'+
  '(SELECT COUNT(*) FROM tomi_comments c WHERE c.post_id=p.id) AS comments_count,'+
  '(SELECT COUNT(*) FROM tomi_post_likes l WHERE l.post_id=p.id AND l.user_id=?) AS is_liked '+
- 'FROM tomi_posts p JOIN tomi_users u ON u.id=p.user_id LEFT JOIN tomi_image_uploads m ON m.id=p.image_upload_id ';
-const comments='SELECT c.*,u.username,u.display_name,u.avatar_preset FROM tomi_comments c JOIN tomi_users u ON u.id=c.user_id ';
+ 'FROM tomi_posts p JOIN tomi_users u ON u.id=p.user_id LEFT JOIN tomi_image_uploads m ON m.id=p.image_upload_id '+avatarJoins;
+const comments='SELECT c.*,u.username,u.display_name,u.avatar_preset'+avatarColumns+' FROM tomi_comments c JOIN tomi_users u ON u.id=c.user_id '+avatarJoins;
 function fields(data,allowed){if(Object.keys(data).some(k=>!allowed.includes(k)))throw new ApiError(400,'VALIDATION','هذا التعديل غير مسموح.');}
 function reqId(v){if(typeof v!=='string'||!uuid.test(v))throw new ApiError(400,'VALIDATION','معرّف الطلب غير صحيح.');return v;}
 function textBody(v,max){if(v!==undefined&&typeof v!=='string')throw new ApiError(400,'VALIDATION','النص غير صحيح.');const s=(v||'').trim();if([...s].length>max)throw new ApiError(400,'VALIDATION','النص أطول من المسموح.');return s;}
 function page(url){const v=url.searchParams.get('limit')||'20';if(!/^\d{1,2}$/.test(v)||Number(v)<1||Number(v)>30)throw new ApiError(400,'VALIDATION','حجم الصفحة غير صحيح.');let cursor;const raw=url.searchParams.get('cursor');
  if(raw)try{if(raw.length>200)throw new Error();cursor=JSON.parse(Buffer.from(raw,'base64url').toString());if(!uuid.test(cursor.id)||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(cursor.time)||!Number.isFinite(Date.parse(cursor.time)))throw new Error();}catch{throw new ApiError(400,'VALIDATION','الصفحة غير صحيحة؛ حدّث القائمة.');}return{size:Number(v),cursor};}
 const cursorFor=r=>Buffer.from(JSON.stringify({time:r.created_at,id:r.id})).toString('base64url');
-const author=r=>({id:r.user_id,username:r.username,displayName:r.display_name,avatarPreset:r.avatar_preset});
+const author=(r,storage)=>({id:r.user_id,username:r.username,displayName:r.display_name,avatarPreset:r.avatar_preset,...avatarFields(r,storage)});
 export function createSocial({database,storage,readJson,respond,limit,userById,cleanupPrefix='tomi/'}){
- const postJson=(r,viewer)=>({id:r.id,text:r.body,createdAt:r.created_at,author:author(r),image:r.object_key?{url:storage?.readUrl(r.object_key)??null,width:Number(r.width),height:Number(r.height)}:null,likesCount:Number(r.likes_count),commentsCount:Number(r.comments_count),liked:Number(r.is_liked)>0,isMine:r.user_id===viewer});
- const commentJson=(r,viewer)=>({id:r.id,text:r.body,createdAt:r.created_at,author:author(r),isMine:r.user_id===viewer});
+ const postJson=(r,viewer)=>({id:r.id,text:r.body,createdAt:r.created_at,author:author(r,storage),image:r.object_key?{url:storage?.readUrl(r.object_key)??null,width:Number(r.width),height:Number(r.height)}:null,likesCount:Number(r.likes_count),commentsCount:Number(r.comments_count),liked:Number(r.is_liked)>0,isMine:r.user_id===viewer});
+ const commentJson=(r,viewer)=>({id:r.id,text:r.body,createdAt:r.created_at,author:author(r,storage),isMine:r.user_id===viewer});
  async function getPost(id,viewer,db=database){const{rows}=await db.query(posts+'WHERE p.id=?',[viewer,id]);if(!rows[0])throw new ApiError(404,'POST_NOT_FOUND','المنشور غير موجود أو انحذف.');return postJson(rows[0],viewer);}
  async function existing(viewer,key,text,image){const{rows}=await database.query('SELECT * FROM tomi_posts WHERE user_id=? AND request_id=?',[viewer,key]);if(!rows[0])return null;if(rows[0].body!==text||(rows[0].image_upload_id||null)!==image)throw new ApiError(409,'REQUEST_CHANGED','محتوى الطلب تغيّر؛ استخدم طلب جديد.');return rows[0].id;}
  async function handle(request,response,url,current){const path=url.pathname,method=request.method,viewer=current.id;

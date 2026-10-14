@@ -1,5 +1,6 @@
 import '../messaging/chat_controller.dart';
 import '../messaging/chat_connection.dart';
+import '../notifications/push_controller.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -36,6 +37,8 @@ class AccountController extends ChangeNotifier {
   }) : _vault = vault ?? SecureTokenVault(api.baseUrl);
   final AccountApi api;
   final bool realtimeEnabled;
+  PushController? _push;
+  PushController get push => _push ??= PushController(accounts: this);
   ChatController? _chats;
   ChatController get chats => _chats ??= ChatController(
     accounts: this,
@@ -50,6 +53,16 @@ class AccountController extends ChangeNotifier {
   }) => _authenticated(
     (token) => api.chatRequest(token, method, path, body: body, query: query),
   );
+  Future<void> saveAvatar(String? uploadId, String requestId) async {
+    final d = await chatRequest(
+      'PUT',
+      '/v1/me/avatar',
+      body: {'imageUploadId': uploadId, 'requestId': requestId},
+    );
+    _user = AccountUser.fromJson(d['user'] as Map<String, dynamic>);
+    _notify();
+  }
+
   Future<ChatConnection> openChatConnection() async {
     final token = _token;
     if (token == null)
@@ -148,7 +161,8 @@ class AccountController extends ChangeNotifier {
     try {
       await _vault.write(grant.token);
     } catch (_) {
-      storageWarning = 'دخلت لحسابك، لكن تعذّر حفظ الجلسة على الجهاز؛ قد تحتاج تسجّل دخولك لاحقًا.';
+      storageWarning =
+          'دخلت لحسابك، لكن تعذّر حفظ الجلسة على الجهاز؛ قد تحتاج تسجّل دخولك لاحقًا.';
     }
     _token = grant.token;
     _user = grant.user;
@@ -287,6 +301,7 @@ class AccountController extends ChangeNotifier {
     final token = _token;
     if (token == null) return;
     try {
+      await _push?.unregister();
       await api.logout(token);
     } on AccountFailure catch (failure) {
       if (failure.status != 401) rethrow;
@@ -301,6 +316,7 @@ class AccountController extends ChangeNotifier {
     _disposed = true;
     ++_revision;
     _chats?.dispose();
+    _push?.dispose();
     api.close();
     super.dispose();
   }

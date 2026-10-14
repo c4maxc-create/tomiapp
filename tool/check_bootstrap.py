@@ -17,7 +17,7 @@ def main() -> None:
     flow = config["workflows"]["tomi-android-preview"]
     assert flow["instance_type"] == "mac_mini_m2"
     assert flow["environment"]["flutter"] == "stable"
-    assert len(flow["scripts"]) == 5
+    assert len(flow["scripts"]) == 6
     version = yaml.safe_load((ROOT / "pubspec.yaml").read_text())["version"].split("+")[0]
     assert flow["artifacts"] == [f"output/TOMI-{version}.apk"]
 
@@ -26,7 +26,7 @@ def main() -> None:
         project = temp / "project"
         shutil.copytree(ROOT, project, ignore=shutil.ignore_patterns("__pycache__", "build", ".dart_tool", "node_modules"))
         original = {path.relative_to(project): path.read_bytes()
-                    for path in project.rglob("*") if path.is_file()}
+                    for path in project.rglob("*") if path.is_file() and "android" not in path.relative_to(project).parts}
         bin_dir = temp / "bin"
         bin_dir.mkdir()
         fake_flutter = bin_dir / "flutter"
@@ -57,7 +57,11 @@ Path("README.md").write_text("template readme")
         assert app.get(ns + "usesCleartextTraffic") == "false"
         assert any(item.get(ns + "name") == "android.permission.INTERNET"
                    for item in manifest.getroot().findall("uses-permission"))
+        for permission in ['android.permission.RECORD_AUDIO','android.permission.POST_NOTIFICATIONS']:
+            assert any(item.get(ns+'name')==permission for item in manifest.getroot().findall('uses-permission'))
+        assert any(item.get(ns+'name')=='firebase_messaging_auto_init_enabled' and item.get(ns+'value')=='false' for item in app.findall('meta-data'))
         ET.parse(project / "android/app/src/main/res/drawable/tomi_launcher.xml")
+        ET.parse(project / "android/app/src/main/res/drawable/tomi_notification.xml")
     print("PASS: YAML, original source preservation, template-test removal, Android label and vector icon.")
     print("Flutter analyze, widget tests, PostgreSQL integration and APK compilation run in GitHub Actions.")
 

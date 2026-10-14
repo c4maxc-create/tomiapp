@@ -1,0 +1,12 @@
+import {ApiError} from './security.mjs';
+export const maxAudioBytes=6*1024*1024,maxAudioDurationMs=300000;
+const invalid=()=>{throw new ApiError(400,'INVALID_AUDIO','التسجيل يجب أن يكون AAC بصيغة M4A، حتى 5 دقائق و6 MB.');};
+function boxes(b,start=0,end=b.length){const out=[];for(let at=start;at<end;){if(end-at<8||out.length>=10000)invalid();let size=b.readUInt32BE(at),head=8;if(size===1){if(end-at<16)invalid();const n=b.readBigUInt64BE(at+8);if(n>BigInt(maxAudioBytes))invalid();size=Number(n);head=16;}if(size===0)size=end-at;if(size<head||at+size>end)invalid();out.push({type:b.toString('ascii',at+4,at+8),start:at+head,end:at+size});at+=size;}return out;}
+export function audioMetadata(b){
+ if(b.length<32||b.length>maxAudioBytes)invalid();const root=boxes(b),moov=root.find(x=>x.type==='moov');if(!moov||!root.some(x=>x.type==='ftyp'&&x.end-x.start>=8)||!root.some(x=>x.type==='mdat'&&x.end>x.start))invalid();let result;
+ for(const trak of boxes(b,moov.start,moov.end).filter(x=>x.type==='trak')){const mdia=boxes(b,trak.start,trak.end).find(x=>x.type==='mdia');if(!mdia)invalid();const parts=boxes(b,mdia.start,mdia.end),hdlr=parts.find(x=>x.type==='hdlr'),mdhd=parts.find(x=>x.type==='mdhd'),minf=parts.find(x=>x.type==='minf');if(result||!hdlr||hdlr.end-hdlr.start<12||b.toString('ascii',hdlr.start+8,hdlr.start+12)!=='soun'||!mdhd||!minf)invalid();let scale,duration;
+  if(b[mdhd.start]===0&&mdhd.end-mdhd.start>=24){scale=b.readUInt32BE(mdhd.start+12);duration=b.readUInt32BE(mdhd.start+16);}else if(b[mdhd.start]===1&&mdhd.end-mdhd.start>=36){scale=b.readUInt32BE(mdhd.start+20);const d=b.readBigUInt64BE(mdhd.start+24);if(d>BigInt(Number.MAX_SAFE_INTEGER))invalid();duration=Number(d);}else invalid();
+  const stbl=boxes(b,minf.start,minf.end).find(x=>x.type==='stbl');if(!stbl)invalid();const stsd=boxes(b,stbl.start,stbl.end).find(x=>x.type==='stsd');if(!stsd||stsd.end-stsd.start<8||b.readUInt32BE(stsd.start+4)!==1)invalid();const entry=boxes(b,stsd.start+8,stsd.end);if(entry.length!==1||entry[0].type!=='mp4a'||entry[0].end-entry[0].start<28)invalid();const channels=b.readUInt16BE(entry[0].start+16);if(channels<1||channels>2||!boxes(b,entry[0].start+28,entry[0].end).some(x=>x.type==='esds'))invalid();
+  const durationMs=Math.round(duration/scale*1000);if(!scale||!Number.isSafeInteger(durationMs)||durationMs<100||durationMs>maxAudioDurationMs+500)invalid();result={durationMs};
+ }if(!result)invalid();return result;
+}

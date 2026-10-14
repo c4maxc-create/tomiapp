@@ -12,6 +12,7 @@ import '../social/social_screens.dart';
 import '../widgets.dart';
 import 'chat_controller.dart';
 import 'chat_models.dart';
+import 'voice_note.dart';
 import 'gallery_intent.dart';
 
 final chatRouteObserver = RouteObserver<ModalRoute<void>>();
@@ -234,9 +235,10 @@ class PrivateChatPage extends StatefulWidget {
 class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
   late final thread = widget.chats.thread(widget.conversation);
   final input = TextEditingController(), scroll = ScrollController();
+  final playback = VoicePlayback();
   ModalRoute<void>? route;
   ImageDraft? image;
-  bool picking = false, mutating = false;
+  bool picking = false, mutating = false, capturing = false;
   int renderedSequence = 0;
   @override
   void initState() {
@@ -271,12 +273,14 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
 
   @override
   void didPushNext() {
+    unawaited(playback.stop());
     thread.visible = false;
     thread.stopTyping();
   }
 
   @override
   void didPop() {
+    unawaited(playback.stop());
     thread.visible = false;
     thread.stopTyping();
   }
@@ -296,7 +300,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
   }
 
   Future<void> pick() async {
-    if (picking || thread.sending) return;
+    if (picking || capturing || thread.sending) return;
     setState(() => picking = true);
     try {
       await GalleryIntent.remember(
@@ -320,8 +324,34 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
     }
   }
 
+  Future<void> recordVoice() async {
+    if (capturing || picking || thread.sending || image != null) return;
+    setState(() => capturing = true);
+    await playback.stop();
+    if (!mounted) return;
+    final draft = await showModalBottomSheet<AudioDraft>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (_) => const VoiceRecorderSheet(),
+    );
+    if (!mounted) return;
+    setState(() => capturing = false);
+    if (draft == null) return;
+    try {
+      thread.enqueue(input.text, null, audio: draft);
+      input.clear();
+      thread.atLatest = true;
+      if (scroll.hasClients) scroll.jumpTo(0);
+    } on AccountFailure catch (f) {
+      showNote(context, f.message);
+    }
+  }
+
   void send() {
-    if (picking || thread.sending) return;
+    if (picking || capturing || thread.sending) return;
     try {
       thread.enqueue(input.text, image);
       if (input.text.trim().isEmpty && image == null) return;
@@ -442,6 +472,17 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                   ),
                 ),
               ),
+            if (m.audio != null)
+              VoicePlayer(
+                playback: playback,
+                id: m.id,
+                durationMs: m.audio!.durationMs,
+                source: () async {
+                  await thread.refreshMessage(m.id);
+                  final url = thread.cache[m.id]?.audio?.url;
+                  return url == null ? null : Uri.parse(url);
+                },
+              ),
             if (m.text.isNotEmpty) Text(m.text),
           ],
           if (m.isMine && !m.deleted)
@@ -491,6 +532,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (p.audio != null)
+            Text('🎤 تسجيل صوتي ${voiceTime(p.audio!.durationMs)}'),
           if (p.image != null) const Text('📷 صورة'),
           if (p.text.isNotEmpty) Text(p.text),
           Text(
@@ -518,6 +561,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
   );
   @override
   void dispose() {
+    playback.dispose();
     thread.visible = false;
     thread.stopTyping();
     chatRouteObserver.unsubscribe(this);
@@ -711,6 +755,19 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                           isLabelVisible: image != null,
                           child: const Icon(Icons.add_photo_alternate_outlined),
                         ),
+                      ),
+                      IconButton(
+                        key: const Key('private-chat-voice'),
+                        tooltip: 'تسجيل رسالة صوتية',
+                        onPressed:
+                            picking ||
+                                capturing ||
+                                thread.sending ||
+                                image != null ||
+                                !c.audioUploadEnabled
+                            ? null
+                            : recordVoice,
+                        icon: const Icon(Icons.mic_none),
                       ),
                       Expanded(
                         child: TextField(

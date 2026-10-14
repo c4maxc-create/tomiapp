@@ -26,13 +26,18 @@ class PostAuthor {
     required this.username,
     required this.displayName,
     required this.avatarPreset,
+    this.avatarUrl,
+    this.avatarId,
   });
   final String id, username, displayName, avatarPreset;
+  final String? avatarUrl, avatarId;
   factory PostAuthor.fromJson(Map<String, dynamic> d) => PostAuthor(
     id: d['id'] as String,
     username: d['username'] as String,
     displayName: d['displayName'] as String,
     avatarPreset: d['avatarPreset'] as String,
+    avatarUrl: d['avatarUrl'] as String?,
+    avatarId: d['avatarId'] as String?,
   );
   AccountUser get avatarUser => AccountUser(
     id: id,
@@ -40,6 +45,8 @@ class PostAuthor {
     displayName: displayName,
     bio: '',
     avatarPreset: avatarPreset,
+    avatarUrl: avatarUrl,
+    avatarId: avatarId,
     followersCount: 0,
     followingCount: 0,
   );
