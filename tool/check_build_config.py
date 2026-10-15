@@ -18,4 +18,4 @@ if os.environ.get("GITHUB_ENV"):
     with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as handle:
         for key, value in values.items():
             handle.write(f"{key}={value}\n")
-print(f"Validated TOMI 0.8.0 {mode} build configuration.")
+print(f"Validated TOMI 0.9.0 {mode} build configuration.")

@@ -8,6 +8,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 import yaml
+from configure_android import configure_android
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -35,6 +36,9 @@ from pathlib import Path
 Path("android/app/src/main").mkdir(parents=True, exist_ok=True)
 Path("android/app/src/main/AndroidManifest.xml").write_text(
  '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:label="tomi_app" android:icon="@mipmap/ic_launcher"/></manifest>')
+Path("android/app/build.gradle.kts").write_text("plugins {}")
+Path("android/app/src/main/kotlin/com/tomi/tomi_app").mkdir(parents=True,exist_ok=True)
+Path("android/app/src/main/kotlin/com/tomi/tomi_app/MainActivity.kt").write_text("template activity")
 Path("lib/main.dart").write_text("template main")
 Path("test/widget_test.dart").write_text("template test")
 Path("pubspec.yaml").write_text("template pubspec")
@@ -48,6 +52,11 @@ Path("README.md").write_text("template readme")
         for relative, contents in original.items():
             assert (project / relative).read_bytes() == contents, f"Source overwritten: {relative}"
         assert not (project / "test/widget_test.dart").exists()
+        configure_android(project)
+        assert not (project/'android/app/src/main/kotlin/com/tomi/tomi_app/MainActivity.kt').exists()
+        generated_gradle=(project/'android/app/build.gradle.kts').read_text()
+        assert generated_gradle.count('com.google.firebase:firebase-messaging')==1
+        assert generated_gradle.count('firebase-bom:34.19.0')==1
         manifest = ET.parse(project / "android/app/src/main/AndroidManifest.xml")
         app = manifest.getroot().find("application")
         ns = "{http://schemas.android.com/apk/res/android}"
@@ -60,6 +69,16 @@ Path("README.md").write_text("template readme")
         for permission in ['android.permission.RECORD_AUDIO','android.permission.POST_NOTIFICATIONS','android.permission.CAMERA','android.permission.MODIFY_AUDIO_SETTINGS','android.permission.ACCESS_NETWORK_STATE']:
             assert any(item.get(ns+'name')==permission for item in manifest.getroot().findall('uses-permission'))
         assert any(item.get(ns+'name')=='firebase_messaging_auto_init_enabled' and item.get(ns+'value')=='false' for item in app.findall('meta-data'))
+        services={e.get(ns+'name'):e for e in app.findall('service')}
+        assert services['.TomiAudioService'].get(ns+'foregroundServiceType') == 'microphone|mediaPlayback'
+        assert services['.TomiMessagingService'].find('intent-filter').get(ns+'priority') == '10'
+        assert services['.TomiMessagingService'].get(ns+'exported') == 'false'
+        for receiver in ['.TomiActionReceiver','.TomiRingExpiryReceiver']:
+            assert any(e.get(ns+'name')==receiver and e.get(ns+'exported')=='false' for e in app.findall('receiver'))
+        for permission in ['FOREGROUND_SERVICE','FOREGROUND_SERVICE_MICROPHONE','FOREGROUND_SERVICE_MEDIA_PLAYBACK','WAKE_LOCK']:
+            assert any(e.get(ns+'name')=='android.permission.'+permission for e in manifest.getroot().findall('uses-permission'))
+        for source in (ROOT/'native/mobile').glob('*.java'):
+            assert (project/'android/app/src/main/java/com/tomi/tomi_app'/source.name).read_bytes()==source.read_bytes()
         ET.parse(project / "android/app/src/main/res/drawable/tomi_launcher.xml")
         ET.parse(project / "android/app/src/main/res/drawable/tomi_notification.xml")
     print("PASS: YAML, original source preservation, template-test removal, Android label and vector icon.")

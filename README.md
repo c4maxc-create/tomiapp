@@ -1,13 +1,20 @@
-# TOMI 0.8.0 — Native Flutter voice rooms
+# TOMI 0.9.0 — Android mobile calls and background audio
 
 Arabic Android social app, Node 24 API and persistent PostgreSQL. The user accepted
-0.7 on their devices before authorizing this release. Start with
+0.7 on their devices; 0.8 phone acceptance has not been reported. The user
+authorized the 0.9 implementation. Start with
 [START_HERE_AR.md](START_HERE_AR.md) for the existing GitHub/Northflank deployment.
 This ZIP contains source; it is not an APK or a deployed service.
 
 ## Included
 
-- All 0.7 accounts/recovery, profiles, follows, posts, private chats, private
+- Android incoming call cards with answer/decline, session-bound FCM delivery,
+  deadline expiry and durable cancellation on all receiving devices.
+- User-started Android microphone/media playback foreground service, retained
+  Flutter engine, ongoing end/leave controls, and screen-off heartbeats. Video
+  capture stops on minimizing and requires a user tap to resume.
+- Continuous ICE gathering and bounded candidate retries for network handoffs.
+- All 0.8 room gifts/levels/settings and 0.7 accounts/recovery, profiles, follows, posts, private chats, private
   images/voice notes, avatars, optional FCM, call history and voice/video calls.
 - LiveKit Cloud audio rooms: named rooms, up to 30 members, a permanently reserved owner seat, an optional companion seat and 8 regular mic seats,
   listener joins, explicit mic enable, requests, approval/refusal, owner and
@@ -26,7 +33,7 @@ This ZIP contains source; it is not an APK or a deployed service.
 
 ## Runtime setup
 
-Flutter **3.47.7** / Dart **3.13.5**; app **0.8.0+9**. Dependencies are locked.
+Flutter **3.47.7** / Dart **3.13.5**; app **0.9.0+9**. Dependencies are locked.
 `livekit_client 2.13.1` shares the existing `flutter_webrtc 1.6.2+hotfix.4` version.
 API `livekit-server-sdk 2.19.1`, Node **24**, PostgreSQL **17** in CI.
 
@@ -46,8 +53,8 @@ fail startup. Cloud-only validation is deliberate: this release relies on
 Cloud token revocation to enforce moderation against stale join tokens.
 `server/.env.example` documents names and is not loaded automatically.
 
-Use the same database. `schema.sql` keeps the exact accepted 0.7 schema prefix
-and appends room tables and indexes. No reset or new database is required.
+Use the same database. `schema.sql` keeps the exact verified 0.8 schema prefix
+and appends call-device capability and cancellation tables. No reset or new database is required.
 
 ## Build and check
 
@@ -64,21 +71,36 @@ flutter test
 TOMI_CALL_INTEGRATION=1 flutter test test/call_api_integration_test.dart test/room_api_integration_test.dart
 ```
 
-Run GitHub Actions **TOMI 0.8.0 Android** in `accounts` mode. The workflow also
-checks PostgreSQL and produces **TOMI-0.8.0.apk**. The API health version is 0.8.0.
+Run GitHub Actions **TOMI 0.9.0 Android** in `accounts` mode. The workflow also
+checks PostgreSQL and produces **TOMI-0.9.0.apk**. The API health version is 0.9.0.
 Local loopback contract tests use real Node HTTP/SQLite and explicit fake media
 adapters; they do not prove real RTP or LiveKit connectivity. See
 [VALIDATION.md](VALIDATION.md) for the checks actually run and their limits.
 
 ## Scope and recovery
 
-Rooms and calls operate while the app is in the foreground. Leaving the app or
-pressing back from a room ends participation. Room mic permission is requested
-only when the user presses enable; granting a seat never captures audio.
-A brief native gallery handoff first mutes capture and has a bounded attendance
-grace; returning never unmutes automatically.
-Camera, screen share, recording, background audio, E2EE and push room invites
-are outside this release. Existing direct-call video consent remains unchanged.
+On Android, an established call or room continues while minimized or locked
+when the user-started foreground service succeeds. Its ongoing notification has
+an end/leave control that does not need to open the UI. Back from a room still
+leaves it. Joins, seat approvals and invitations never start a microphone.
+Only a visible, explicit start/answer/mic action can acquire capture. Native
+Bluetooth permission is requested once during that action; refusal keeps normal
+phone audio available. Speaker preference respects connected headsets.
+Minimizing a video call stops video tracks while preserving audio; returning
+keeps the camera off until the user enables it. Gallery selection mutes the
+room microphone and never automatically unmutes it.
+
+Incoming Android call notifications require the existing optional Firebase
+client/server configuration and granted notification permission. An immutable
+notification answer opens the app, waits for restored session registration,
+fetches the current call, and only then accepts. Decline also checks the server.
+Native code stores presentation identifiers/bindings, never account credentials.
+Force-stop, revoked permissions, unavailable FCM or a disconnected network can
+prevent delivery. iOS remains foreground-only in this source; CallKit/PushKit,
+iOS background audio entitlements, signing and device validation need a separate
+implementation. See [MOBILE_CALLS_AR.md](MOBILE_CALLS_AR.md).
+
+Room video, recording, E2EE and push room invites remain outside this release.
 
 The client polls room state every two seconds, heartbeats every ten, closes
 participation after 25 seconds without API sync and bounds SFU reconnects. The
@@ -117,4 +139,4 @@ existing verified media pipeline; replacements mark previous covers for cleanup.
 Owner seat -1 and companion -2 avoid collisions with every legacy0.7 seat0..7.
 Owner placement migrates lazily without changing an active SFU identity. Owner
 capacity is reserved too; an already-full legacy room makes space by removing the
-most recent guest on the owner's return. Provider and call features are unchanged.
+most recent guest on the owner's return. The 0.8 room ledger and moderation policy remain in place.
