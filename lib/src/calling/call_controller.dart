@@ -39,6 +39,8 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
       localConnected = false,
       remoteVideoReady = false,
       reconnecting = false;
+  bool backgroundAudio = false;
+  String? audioLease;
   bool mediaReady = false,
       localDescriptionSent = false,
       remoteDescriptionSet = false;
@@ -112,7 +114,20 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.inactive) return;
     foreground = state == AppLifecycleState.resumed;
-    if (!foreground) {
+    if (!foreground &&
+        backgroundAudio &&
+        mediaReady &&
+        active?.ended == false) {
+      // Stop capture itself, not just the rendered preview. Audio remains.
+      final engine = media;
+      cameraOn = false;
+      if (engine != null)
+        unawaited(
+          engine
+              .setVideo(false)
+              .catchError((Object _) => unawaited(hangup(reason: 'failed'))),
+        );
+    } else if (!foreground) {
       if (active?.ended == false && !active!.incoming)
         unawaited(hangup(reason: 'background'));
       else if (busy || media != null) {
@@ -160,6 +175,8 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
     }
     final previous = active?.id;
     active = call;
+    if (!call.incoming)
+      unawaited(accounts.mobile.clearCall(call.id).catchError((Object _) {}));
     if (call.ended) {
       release();
       busy = false;
@@ -175,28 +192,37 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<void> open(String id) async {
+  Future<bool> open(String id) async {
     final gen = generation;
-    if (identity == null) return;
+    if (identity == null || !foreground) return false;
     try {
       final d = await request('GET', '/v1/calls/$id');
-      if (!valid(gen)) return;
-      if (active?.ended == false && active!.id != id) return;
+      if (!valid(gen)) return false;
+      if (active?.ended == false && active!.id != id) return false;
       apply(parse(d), show: true);
       lastSync = DateTime.now();
+      error = null;
+      return true;
     } on AccountFailure catch (e) {
       if (valid(gen)) {
         error = e.message;
         notify();
       }
     }
+    return false;
   }
 
   Future<void> tick() async {
-    if (disposed || identity == null || !foreground || syncing || busy) return;
+    if (disposed ||
+        identity == null ||
+        (!foreground && !backgroundAudio) ||
+        syncing ||
+        busy)
+      return;
     syncing = true;
     final gen = generation;
     try {
+      if (audioLease != null) await accounts.mobile.renewAudio(audioLease!);
       final call = active;
       if (call == null || call.ended) {
         final d = await request('GET', '/v1/calls/active');
@@ -264,7 +290,12 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> start(String conversationId, {bool video = false}) async {
-    if (disposed || identity == null || busy || active?.ended == false) return;
+    if (disposed ||
+        identity == null ||
+        !foreground ||
+        busy ||
+        active?.ended == false)
+      return;
     if (accounts.voiceRoomActive) {
       error = 'غادر الغرفة الصوتية قبل بدء المكالمة.';
       notify();
@@ -306,6 +337,8 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
       }
       apply(parse(d), show: true);
       if (active!.ended) return;
+      await keepAudio(gen);
+      if (!valid(gen) || active?.ended != false) return;
       await beginMedia(gen, caller: true);
     } on AccountFailure catch (e) {
       if (valid(gen)) {
@@ -329,7 +362,12 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> accept() async {
     final call = active;
-    if (busy || call == null || !call.incoming || !call.canControl) return;
+    if (!foreground ||
+        busy ||
+        call == null ||
+        !call.incoming ||
+        !call.canControl)
+      return;
     if (accounts.voiceRoomActive) {
       error = 'غادر الغرفة الصوتية قبل قبول المكالمة.';
       notify();
@@ -357,6 +395,8 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
       }
       apply(parse(d));
       if (active!.ended) return;
+      await keepAudio(gen);
+      if (!valid(gen) || active?.ended != false) return;
       await beginMedia(gen, caller: false);
       await syncSignals(gen);
     } on AccountFailure catch (e) {
@@ -380,6 +420,22 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
         notify();
       }
     }
+  }
+
+  Future<void> keepAudio(int gen) async {
+    final id = active!.id;
+    audioLease = id;
+    final ready = await accounts.mobile.startAudio(
+      id,
+      'call',
+      microphone: true,
+    );
+    if (!valid(gen) || active?.ended != false || !foreground) {
+      await accounts.mobile.stopAudio(id);
+      return;
+    }
+    backgroundAudio = ready;
+    audioLease = ready ? id : null;
   }
 
   Future<void> beginMedia(int gen, {required bool caller}) async {
@@ -458,7 +514,7 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
         reconnecting = true;
         notify();
         disconnectDeadline?.cancel();
-        disconnectDeadline = Timer(const Duration(seconds: 12), () {
+        disconnectDeadline = Timer(const Duration(seconds: 20), () {
           if (valid(gen)) unawaited(hangup(reason: 'failed'));
         });
       case 'failed':
@@ -491,12 +547,30 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
     signalTail = signalTail
         .then((_) async {
           if (!valid(gen) || active?.id != call.id || active!.ended) return;
-          await post('/v1/calls/${call.id}/signals', {
-            'type': 'candidate',
-            'requestId': requestId,
-            'revision': revision,
-            ...candidate,
-          }, gen);
+          for (var attempt = 0; ; attempt++) {
+            if (revision != signalRevision) return;
+            try {
+              await post('/v1/calls/${call.id}/signals', {
+                'type': 'candidate',
+                'requestId': requestId,
+                'revision': revision,
+                ...candidate,
+              }, gen);
+              break;
+            } on AccountFailure catch (e) {
+              if (e.code != 'NETWORK' || attempt >= 4) rethrow;
+              if (!valid(gen) || active?.ended != false) return;
+              reconnecting = true;
+              notify();
+              await Future<void>.delayed(
+                Duration(milliseconds: 500 * (1 << attempt)),
+              );
+              if (!valid(gen) ||
+                  active?.id != call.id ||
+                  active?.ended != false)
+                return;
+            }
+          }
         })
         .catchError((Object _) {
           if (valid(gen) && active?.id == call.id && active?.ended == false) {
@@ -572,6 +646,7 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> changeKind(bool video) async {
+    if (!foreground) return;
     final c = active;
     if (busy ||
         modeSyncing ||
@@ -606,6 +681,7 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> respondToVideo(bool accept) async {
+    if (!foreground && accept) return;
     final c = active, change = active?.mediaChange;
     if (busy ||
         c == null ||
@@ -700,9 +776,15 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
         notify();
         return;
       }
-      if (!change.video || !change.preparing) return;
+      if (!change.video || !change.preparing || !foreground) return;
       if (preparedRevision != revision) {
         await engine.setVideo(true);
+        if (!foreground) {
+          await engine.setVideo(false);
+          cameraOn = false;
+          await abortVideoChange(gen);
+          return;
+        }
         if (!sameChange(gen, c.id, revision) || media != engine) {
           if (valid(gen) && media == engine && active?.video != true) {
             await engine.setVideo(false);
@@ -915,11 +997,25 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
   });
   Future<void> toggleCamera() => control((m) async {
     final gen = generation;
+    if (!foreground) return;
     await m.camera(!cameraOn);
+    if (!foreground) {
+      await m.setVideo(false);
+      return;
+    }
     if (valid(gen) && media == m) cameraOn = !cameraOn;
   });
   Future<void> switchCamera() => control((m) => m.switchCamera());
   void release() {
+    final lease = audioLease;
+    audioLease = null;
+    backgroundAudio = false;
+    if (lease != null)
+      unawaited(accounts.mobile.stopAudio(lease).catchError((Object _) {}));
+    if (active != null)
+      unawaited(
+        accounts.mobile.clearCall(active!.id).catchError((Object _) {}),
+      );
     modeDriveToken++;
     modeSyncing = false;
     disconnectDeadline?.cancel();

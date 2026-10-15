@@ -69,7 +69,10 @@ class NativeCallMedia implements CallMedia {
     if (disposed) return;
     local.srcObject = localStream;
     if (WebRTC.platformIsIOS) await Helper.ensureAudioSession();
-    await Helper.setSpeakerphoneOn(video);
+    if (video)
+      await Helper.setSpeakerphoneOnButPreferBluetooth();
+    else
+      await Helper.setSpeakerphoneOn(false);
   }
 
   @override
@@ -80,6 +83,7 @@ class NativeCallMedia implements CallMedia {
     peer = await createPeerConnection({
       ...configuration,
       'sdpSemantics': 'unified-plan',
+      'continualGatheringPolicy': 'gather_continually',
     });
     if (disposed) return;
     peer!.onIceCandidate = (c) {
@@ -158,9 +162,15 @@ class NativeCallMedia implements CallMedia {
   }
 
   @override
-  Future<void> speaker(bool value) => Helper.setSpeakerphoneOn(value);
+  Future<void> speaker(bool value) => value
+      ? Helper.setSpeakerphoneOnButPreferBluetooth()
+      : Helper.setSpeakerphoneOn(false);
   @override
   Future<void> camera(bool value) async {
+    if (value && localStream?.getVideoTracks().isEmpty == true) {
+      await setVideo(true);
+      return;
+    }
     for (final t in localStream?.getVideoTracks() ?? <MediaStreamTrack>[])
       t.enabled = value;
   }

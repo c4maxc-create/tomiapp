@@ -1,7 +1,9 @@
 import '../messaging/chat_controller.dart';
 import '../messaging/chat_connection.dart';
 import '../notifications/push_controller.dart';
+import '../notifications/mobile_runtime.dart';
 import '../calling/call_controller.dart';
+import '../calling/call_media.dart';
 import '../voice_rooms/room_controller.dart';
 import '../voice_rooms/room_audio.dart';
 
@@ -38,10 +40,15 @@ class AccountController extends ChangeNotifier {
     TokenVault? vault,
     this.realtimeEnabled = true,
     this.roomAudioFactory,
-  }) : _vault = vault ?? SecureTokenVault(api.baseUrl);
+    this.callMediaFactory,
+    MobileRuntime? mobile,
+  }) : mobile = mobile ?? NativeMobileRuntime(),
+       _vault = vault ?? SecureTokenVault(api.baseUrl);
   final AccountApi api;
+  final MobileRuntime mobile;
   final bool realtimeEnabled;
   final RoomAudio Function()? roomAudioFactory;
+  final CallMedia Function()? callMediaFactory;
   VoiceRoomsController? _voiceRooms;
   VoiceRoomsController get voiceRooms => _voiceRooms ??= VoiceRoomsController(
     accounts: this,
@@ -52,8 +59,11 @@ class AccountController extends ChangeNotifier {
   Future<void> get roomAudioReleased =>
       _voiceRooms?.releaseTail ?? Future.value();
   CallController? _calls;
-  CallController get calls =>
-      _calls ??= CallController(accounts: this, autoPoll: realtimeEnabled);
+  CallController get calls => _calls ??= CallController(
+    accounts: this,
+    mediaFactory: callMediaFactory,
+    autoPoll: realtimeEnabled,
+  );
   PushController? _push;
   PushController get push => _push ??= PushController(accounts: this);
   ChatController? _chats;

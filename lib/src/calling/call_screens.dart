@@ -441,10 +441,12 @@ class _CallPageState extends State<CallPage> {
               ),
             if (!c.ended && height >= 450) ...[
               const SizedBox(height: 12),
-              const Text(
-                'خلي التطبيق مفتوح أثناء المكالمة.',
+              Text(
+                m.backgroundAudio
+                    ? 'تگدر تقفل الشاشة؛ الصوت مستمر. الكاميرا تتوقف عند التصغير.'
+                    : 'خلي التطبيق مفتوح أثناء المكالمة.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white54, fontSize: 11),
+                style: const TextStyle(color: Colors.white54, fontSize: 11),
               ),
             ],
           ],

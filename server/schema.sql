@@ -286,3 +286,26 @@ CREATE TABLE IF NOT EXISTS tomi_room_audit (
  action TEXT NOT NULL,detail TEXT NOT NULL,created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS tomi_room_audit_recent ON tomi_room_audit(room_id,created_at,id);
+
+-- 0.9: device capability negotiation and durable ring cancellation. No reset.
+CREATE TABLE IF NOT EXISTS tomi_call_push_protocol (
+ token_hash TEXT PRIMARY KEY REFERENCES tomi_push_devices(token_hash) ON DELETE CASCADE,
+ protocol INTEGER NOT NULL DEFAULT 2
+);
+CREATE TABLE IF NOT EXISTS tomi_call_push_cancel (
+ call_id TEXT PRIMARY KEY REFERENCES tomi_calls(id) ON DELETE CASCADE,
+ recipient_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ thread_id TEXT NOT NULL,
+ state TEXT NOT NULL DEFAULT 'pending',
+ attempts INTEGER NOT NULL DEFAULT 0,
+ next_at TEXT NOT NULL,
+ lease_until TEXT NOT NULL DEFAULT '',
+ created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tomi_call_push_cancel_receipts (
+ call_id TEXT NOT NULL REFERENCES tomi_call_push_cancel(call_id) ON DELETE CASCADE,
+ token_hash TEXT NOT NULL,
+ PRIMARY KEY(call_id,token_hash)
+);
+
+CREATE INDEX IF NOT EXISTS tomi_call_push_cancel_pending ON tomi_call_push_cancel(state,next_at,lease_until);

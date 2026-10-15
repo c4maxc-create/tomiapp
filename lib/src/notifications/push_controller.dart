@@ -82,6 +82,7 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
     : client = client ?? FirebasePushDeviceClient() {
     accounts.addListener(accountChanged);
     WidgetsBinding.instance.addObserver(this);
+    nativeActions = accounts.mobile.actions.listen(nativeEvent);
     accountChanged();
   }
   final AccountController accounts;
@@ -93,7 +94,9 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
       disposed = false;
   String? error, identity, registeredToken;
   int generation = 0;
-  bool initialHandled = false;
+  bool initialHandled = false, draining = false, drainAgain = false;
+  String? registeredBinding;
+  StreamSubscription<Map<String, dynamic>>? nativeActions;
   StreamSubscription<String>? tokens;
   StreamSubscription<Map<String, dynamic>>? opened;
   Future<void> Function(String threadId, String accountId)? onOpen;
@@ -111,6 +114,12 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
     generation++;
     configured = false;
     registeredToken = null;
+    registeredBinding = null;
+    unawaited(
+      accounts.mobile
+          .bind(accounts.user?.id, null, false)
+          .catchError((Object _) {}),
+    );
     permissionGranted = false;
     busy = false;
     error = null;
@@ -122,6 +131,7 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && identity != null && !busy)
       unawaited(connect());
+    if (state == AppLifecycleState.resumed) unawaited(drainActions());
   }
 
   Future<void> connect() async {
@@ -131,13 +141,20 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
     error = null;
     notify();
     try {
-      if (!await client.initialize() || disposed || gen != generation) return;
+      if (!await client.initialize() || disposed || gen != generation) {
+        await drainActions();
+        return;
+      }
       final settings = await accounts.chatRequest('GET', '/v1/push/settings');
       if (disposed || gen != generation) return;
       configured = settings['configured'] == true;
       enabled = settings['enabled'] == true;
       permissionGranted = await client.permission();
       if (disposed || gen != generation) return;
+      if (!configured || !enabled || !permissionGranted) {
+        await unregister();
+        if (disposed || gen != generation) return;
+      }
       tokens ??= client.tokenChanges.listen(
         (t) => unawaited(register(t)),
         onError: (Object _) {
@@ -153,6 +170,7 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
         if (disposed || gen != generation) return;
         if (token != null) await register(token);
       }
+      await drainActions();
       if (!initialHandled) {
         initialHandled = true;
         final data = await client.initialMessage();
@@ -180,12 +198,25 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
       return;
     final gen = generation;
     try {
-      await accounts.chatRequest(
+      final d = await accounts.chatRequest(
         'PUT',
         '/v1/push/device',
-        body: {'token': token, 'platform': client.platform},
+        body: {
+          'token': token,
+          'platform': client.platform,
+          if (client.platform == 'android') 'callProtocol': 2,
+        },
       );
-      if (!disposed && gen == generation) registeredToken = token;
+      if (!disposed && gen == generation) {
+        registeredToken = token;
+        registeredBinding = d['bindingId'] as String?;
+        await accounts.mobile.bind(
+          accounts.user?.id,
+          registeredBinding,
+          enabled && permissionGranted,
+        );
+        if (!disposed && gen == generation) await drainActions();
+      }
     } catch (_) {
       if (!disposed && gen == generation) {
         error = 'تعذّر ربط هذا الجهاز بالإشعارات.';
@@ -238,6 +269,8 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> unregister() async {
     final token = registeredToken;
     registeredToken = null;
+    registeredBinding = null;
+    await accounts.mobile.bind(accounts.user?.id, null, false);
     if (token != null && identity != null) {
       try {
         await accounts.chatRequest(
@@ -251,6 +284,86 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
       try {
         await client.deleteToken().timeout(const Duration(seconds: 10));
       } catch (_) {}
+  }
+
+  void nativeEvent(Map<String, dynamic> data) {
+    if (disposed || identity == null) return;
+    final id = data['callId'];
+    if (data['type'] == 'audioStopped' || data['type'] == 'control') {
+      if (data['type'] == 'control' && data['accountId'] != accounts.user?.id)
+        return;
+      if (id != null && accounts.calls.audioLease == id)
+        unawaited(accounts.calls.hangup());
+      if (id != null && accounts.voiceRooms.audioLease == id)
+        unawaited(accounts.voiceRooms.leave());
+    } else {
+      unawaited(drainActions());
+    }
+  }
+
+  Future<void> drainActions() async {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (disposed ||
+        identity == null ||
+        lifecycle != null && lifecycle != AppLifecycleState.resumed)
+      return;
+    if (draining) {
+      drainAgain = true;
+      return;
+    }
+    draining = true;
+    final gen = generation;
+    try {
+      final data = await accounts.mobile.takeAction();
+      if (data == null ||
+          disposed ||
+          gen != generation ||
+          data['accountId'] != accounts.user?.id)
+        return;
+      final id = data['callId'];
+      if (id is! String ||
+          !RegExp(
+            r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$',
+          ).hasMatch(id))
+        return;
+      final action = data['action'];
+      if (action == 'end') {
+        if (accounts.calls.active?.id == id && accounts.calls.backgroundAudio)
+          await accounts.calls.hangup();
+        return;
+      }
+      if (action == 'leave') {
+        if (accounts.voiceRooms.identity == id &&
+            accounts.voiceRooms.backgroundAudio)
+          await accounts.voiceRooms.leave();
+        return;
+      }
+      if (registeredBinding == null ||
+          data['bindingId'] != registeredBinding ||
+          !['open', 'answer', 'decline'].contains(action))
+        return;
+      final calls = accounts.calls;
+      if (!await calls.open(id) ||
+          disposed ||
+          gen != generation ||
+          calls.active?.id != id)
+        return;
+      await accounts.mobile.clearCall(id);
+      if (!calls.active!.incoming || !calls.active!.canControl) return;
+      if (action == 'answer') await calls.accept();
+      if (action == 'decline') await calls.decline();
+    } catch (_) {
+      if (!disposed && gen == generation) {
+        error = 'تعذّر تنفيذ زر المكالمة؛ افتح التطبيق وتحقق من الاتصال.';
+        notify();
+      }
+    } finally {
+      draining = false;
+      if (drainAgain) {
+        drainAgain = false;
+        unawaited(drainActions());
+      }
+    }
   }
 
   void handleOpen(Map<String, dynamic> data) {
@@ -310,6 +423,10 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(tokens?.cancel());
     unawaited(opened?.cancel());
+    unawaited(nativeActions?.cancel());
+    unawaited(
+      accounts.mobile.bind(null, null, false).catchError((Object _) {}),
+    );
     super.dispose();
   }
 }

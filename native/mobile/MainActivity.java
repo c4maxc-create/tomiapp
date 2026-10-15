@@ -1,0 +1,113 @@
+package com.tomi.tomi_app;
+
+import android.content.Intent;
+import android.os.Bundle;
+import androidx.annotation.NonNull;
+import io.flutter.embedding.android.FlutterActivity;
+import io.flutter.embedding.engine.FlutterEngine;
+import io.flutter.plugin.common.MethodChannel;
+import java.util.HashMap;
+import java.util.Map;
+import org.json.JSONObject;
+
+public class MainActivity extends FlutterActivity {
+    // The foreground service owns lifetime while the UI is detached. Never
+    // create another isolate/another media session on activity recreation.
+    private static FlutterEngine retained;
+    private MethodChannel channel;
+    private static MethodChannel events;
+    public static void dispatch(Map<String,Object> data) { if (events!=null) events.invokeMethod("action",data); }
+    private Intent pendingAudio;
+    private MethodChannel.Result pendingAudioResult;
+    private boolean waitingForBluetooth;
+    @Override public FlutterEngine provideFlutterEngine(@NonNull android.content.Context context) { return retained; }
+    @Override public boolean shouldDestroyEngineWithHost() { return false; }
+    @Override public void configureFlutterEngine(@NonNull FlutterEngine engine) {
+        super.configureFlutterEngine(engine);
+        retained = engine;
+        channel = new MethodChannel(engine.getDartExecutor().getBinaryMessenger(), "tomi/mobile");
+        events=channel;
+        channel.setMethodCallHandler((call, result) -> {
+            try {
+                String id = call.argument("id");
+                switch (call.method) {
+                    case "startAudio":
+                        if (!TomiCallNotifications.visible || id == null) { result.success(false); break; }
+                        Intent service = new Intent(this, TomiAudioService.class)
+                            .putExtra("id", id).putExtra("kind", (String) call.argument("kind"))
+                            .putExtra("microphone", Boolean.TRUE.equals(call.argument("microphone")));
+                        if (pendingAudioResult!=null) { result.success(false);break; }
+                        pendingAudio=service;pendingAudioResult=result;
+                        android.content.SharedPreferences options=getSharedPreferences("tomi.actions",0);
+                        if (android.os.Build.VERSION.SDK_INT>=31 && checkSelfPermission("android.permission.BLUETOOTH_CONNECT")!=android.content.pm.PackageManager.PERMISSION_GRANTED && !options.getBoolean("bluetoothAsked",false)) {
+                            options.edit().putBoolean("bluetoothAsked",true).apply();waitingForBluetooth=true;
+                            requestPermissions(new String[]{"android.permission.BLUETOOTH_CONNECT"},4711);
+                        } else resumeAudioStart();
+                        break;
+                    case "renewAudio":
+                        if (!TomiAudioService.renew(id)) result.error("AUDIO_STOPPED","توقفت خدمة الصوت.",null);
+                        else result.success(null);
+                        break;
+                    case "stopAudio":
+                        if (pendingAudio!=null && java.util.Objects.equals(id,pendingAudio.getStringExtra("id"))) cancelAudioStart();
+                        TomiAudioService.stop(this, id); result.success(null); break;
+                    case "bind":
+                        TomiCallNotifications.bind(this, call.argument("accountId"), call.argument("bindingId"), Boolean.TRUE.equals(call.argument("enabled")));
+                        result.success(null); break;
+                    case "clearCall": TomiCallNotifications.clear(this, id); result.success(null); break;
+                    case "takeAction":
+                        String raw = getPreferences(0).getString("pendingAction", null);
+                        Map<String,Object> data = null;
+                        if (raw != null) {
+                            data = new HashMap<>(); JSONObject json = new JSONObject(raw);
+                            for (java.util.Iterator<String> keys=json.keys();keys.hasNext();) { String k=keys.next();data.put(k,json.get(k)); }
+                            String action=(String)data.get("action");
+                            // A cold-start answer waits for Dart's successful
+                            // device/session registration. Keep the action if
+                            // restoration temporarily has no network.
+                            if (!"end".equals(action) && !"leave".equals(action) && getSharedPreferences("tomi.mobile",0).getString("bindingId",null)==null) {
+                                result.success(null); break;
+                            }
+                            getPreferences(0).edit().remove("pendingAction").apply();
+                        }
+                        result.success(data); break;
+                    default: result.notImplemented();
+                }
+            } catch (Exception e) { result.error("MOBILE_UNAVAILABLE", "تعذّر تفعيل خدمة الصوت أو الإشعار.", null); }
+        });
+    }
+    @Override protected void onCreate(Bundle state) { super.onCreate(state); capture(getIntent()); }
+    @Override protected void onNewIntent(@NonNull Intent intent) { super.onNewIntent(intent); setIntent(intent); capture(intent); }
+    @Override protected void onResume() { super.onResume(); TomiCallNotifications.visible=true;resumeAudioStart(); }
+    @Override protected void onPause() { TomiCallNotifications.visible=false; super.onPause(); }
+    @Override public void onRequestPermissionsResult(int code,@NonNull String[] permissions,@NonNull int[] grants) {
+        super.onRequestPermissionsResult(code,permissions,grants);
+        if (code==4711) { waitingForBluetooth=false;resumeAudioStart(); }
+    }
+    private void resumeAudioStart() {
+        if (!TomiCallNotifications.visible || waitingForBluetooth || pendingAudioResult==null) return;
+        Intent intent=pendingAudio;MethodChannel.Result result=pendingAudioResult;
+        pendingAudio=null;pendingAudioResult=null;
+        // Bluetooth refusal does not prevent microphone/receiver audio.
+        TomiAudioService.start(this,intent,result);
+    }
+    private void cancelAudioStart() {
+        MethodChannel.Result result=pendingAudioResult;pendingAudio=null;pendingAudioResult=null;
+        if (result!=null) result.success(false);
+    }
+    @Override protected void onDestroy() { cancelAudioStart();super.onDestroy(); }
+    private void capture(Intent intent) {
+        String action=intent.getStringExtra("tomiAction"), id=intent.getStringExtra("callId"), account=intent.getStringExtra("accountId");
+        if (action == null || id == null || account == null) return;
+        String nonce=getSharedPreferences("tomi.actions",0).getString("secret",null);
+        if (!MobilePolicy.action(intent.getStringExtra("tomiNonce"),nonce)) return;
+        if ("answer".equals(action)||"decline".equals(action)) TomiCallNotifications.clear(this,id);
+        Map<String,Object> data=new HashMap<>(); data.put("action",action);data.put("callId",id);data.put("accountId",account);
+        data.put("bindingId",intent.getStringExtra("bindingId"));data.put("type","call");
+        // Persist until Dart has restored and validated the account; do not
+        // issue unauthenticated accept/decline requests from a receiver.
+        getPreferences(0).edit().putString("pendingAction",new JSONObject(data).toString()).apply();
+        intent.removeExtra("tomiAction");
+        if (channel != null) channel.invokeMethod("action",data);
+    }
+}

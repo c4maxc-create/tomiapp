@@ -140,7 +140,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       }
       if (method === 'GET' && (path === '/health' || path === '/')) {
         await database.query('SELECT 1 AS ready');
-        json(response, 200, { status: 'ok', service: 'TOMI API', version: '0.8.0' });
+        json(response, 200, { status: 'ok', service: 'TOMI API', version: '0.9.0' });
         return;
       }
 

@@ -131,7 +131,7 @@ export function createVoiceRooms({database,provider,readJson,respond,limit,users
     const path=url.pathname,method=request.method;
     if(!path.startsWith('/v1/rooms'))return false;
     if(path==='/v1/rooms/settings'&&method==='GET'){
-      respond(response,200,{configured:!!provider,maxMembers:30,maxSeats:8,specialSeats:2,ownerSeat:-1,emptyTimeoutSeconds:null,persistentRooms:true,foregroundOnly:true});return true;
+      respond(response,200,{configured:!!provider,maxMembers:30,maxSeats:8,specialSeats:2,ownerSeat:-1,emptyTimeoutSeconds:null,persistentRooms:true,foregroundOnly:false,backgroundAudio:'android_foreground_service'});return true;
     }
     if(path==='/v1/rooms/gifts'&&method==='GET'){respond(response,200,features.catalog);return true;}
     if(path==='/v1/rooms/wallet'&&method==='GET'){respond(response,200,{wallet:await features.wallet(current)});return true;}

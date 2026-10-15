@@ -174,3 +174,28 @@ test('SDP rounds reject unbounded revisions and media commands reject unknown fi
 test('0.6 is an additive migration of the verified 0.5 schema',async()=>{
  const old=await readFile(new URL('fixtures/schema-0.5.sql',import.meta.url),'utf8'),current=await readFile(new URL('../schema.sql',import.meta.url),'utf8');assert.ok(current.startsWith(old));
 });
+
+test('0.9 call devices negotiate session bindings and cancel every ringing device durably',async t=>{
+ const api=await fixture(t,{push:true}),a=await api.register('mobile09_a'),b=await api.register('mobile09_b'),b2=await api.login(b),c=await thread(api,a,b);
+ const token1='mobile09_device_token_123456789',token2='mobile09_device_token_987654321';
+ const first=await api.request('PUT','/v1/push/device',{token:token1,platform:'android',callProtocol:2},b.token),second=await api.request('PUT','/v1/push/device',{token:token2,platform:'android',callProtocol:2},b2.token);
+ assert.match(first.data.bindingId,/^[a-f0-9]{64}$/);assert.notEqual(first.data.bindingId,second.data.bindingId);
+ assert.equal((await api.request('PUT','/v1/push/device',{token:token1,platform:'ios',callProtocol:2},b.token)).status,400);
+ const call=(await start(api,a,c)).data.call;await api.server.flushPush();
+ assert.equal(api.sent.length,2);assert.ok(api.sent.every(x=>x.callProtocol===2&&!x.cancel&&x.expiresAt===Date.parse(call.ringDeadline)));
+ assert.deepEqual(new Set(api.sent.map(x=>x.bindingId)),new Set([first.data.bindingId,second.data.bindingId]));
+ await action(api,b,call,'accept');await api.restart();await api.server.flushPush();await api.server.flushPush();
+ const cancels=api.sent.filter(x=>x.cancel);assert.equal(cancels.length,2);assert.ok(cancels.every(x=>x.callId===call.id));
+ assert.equal(Number((await api.db.query('SELECT COUNT(*) AS n FROM tomi_call_push_cancel_receipts')).rows[0].n),2);
+});
+test('0.9 a cancelled unsent call sends no stale ring and logout detaches cancellation',async t=>{
+ const api=await fixture(t,{push:true}),a=await api.register('cancel09_a'),b=await api.register('cancel09_b'),c=await thread(api,a,b),token='cancel09_device_token_123456789';
+ await api.request('PUT','/v1/push/device',{token,platform:'android',callProtocol:2},b.token);
+ const call=(await start(api,a,c)).data.call;await action(api,a,call,'end');await api.server.flushPush();
+ assert.equal(api.sent.length,1);assert.equal(api.sent[0].cancel,true);
+ const next=(await start(api,a,c)).data.call;await api.request('POST','/v1/auth/logout',{},b.token);await action(api,a,next,'end');await api.server.flushPush();assert.equal(api.sent.length,1);
+});
+test('0.9 migration appends to the exact verified 0.8 database schema',async()=>{
+ const old=(await readFile(new URL('fixtures/schema-0.8.sql',import.meta.url),'utf8')).trim();
+ const current=await readFile(new URL('../schema.sql',import.meta.url),'utf8');assert.ok(current.startsWith(old));
+});

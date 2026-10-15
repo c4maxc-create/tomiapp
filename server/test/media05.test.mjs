@@ -81,3 +81,14 @@ test('token refresh replaces the session device and ownership transfer isolates 
  await device(api,z,token);await api.request('DELETE','/v1/push/device',{token},b.token);await send(api,a,c,{text:'old account'});await api.server.flushPush();assert.equal(api.sent.length,0);await send(api,a,d,{text:'new owner'});await api.server.flushPush();assert.equal(api.sent.length,1);assert.equal(api.sent[0].recipientId,z.user.id);
  await api.db.query('UPDATE tomi_sessions SET expires_at=? WHERE user_id=?',['2000-01-01T00:00:00.000Z',z.user.id]);await send(api,a,d,{text:'expired'});await api.server.flushPush();assert.equal(api.sent.length,1);
 });
+
+test('0.9 FCM call data carries a deadline and cancellation without duplicate system notifications',async()=>{
+ const {privateKey}=generateKeyPairSync('rsa',{modulusLength:2048}),posts=[];
+ const sender=fcmFromEnvironment({FCM_SERVICE_ACCOUNT_JSON:JSON.stringify({type:'service_account',project_id:'tomi-test-project',client_email:'service@tomi-test-project.iam.gserviceaccount.com',private_key:privateKey.export({type:'pkcs8',format:'pem'})})},{fetcher:async(url,opts)=>{
+  if(url.includes('oauth2'))return Response.json({access_token:'fake-oauth',expires_in:3600});posts.push(JSON.parse(opts.body).message);return Response.json({name:'sent'});
+ }});
+ const data={token:'test',threadId:randomUUID(),recipientId:randomUUID(),callId:randomUUID(),callProtocol:2,kind:'video',bindingId:'test-session-binding',expiresAt:Date.now()+25000};
+ await sender(data);await sender({...data,cancel:true});await sender({...data,callProtocol:1});
+ assert.equal(posts[0].notification,undefined);assert.equal(posts[0].android.notification,undefined);assert.equal(posts[0].data.expiresAt,String(data.expiresAt));assert.equal(posts[0].data.bindingId,data.bindingId);assert.equal(posts[0].data.type,'call');assert.equal(posts[0].data.kind,'video');assert.equal(posts[0].android.priority,'HIGH');
+ assert.equal(posts[1].data.type,'call_cancel');assert.equal(posts[1].notification,undefined);assert.equal(posts[2].notification.body,'مكالمة واردة في TOMI');
+});

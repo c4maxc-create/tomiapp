@@ -15,9 +15,9 @@ class NotificationSettingsPage extends StatelessWidget {
         children: [
           SwitchListTile(
             key: const Key('push-enabled'),
-            title: const Text('إشعارات المحادثات'),
+            title: const Text('إشعارات المحادثات والمكالمات'),
             subtitle: const Text(
-              'تنبيه بالرسائل الجديدة عندما يكون التطبيق بالخلفية.',
+              'تنبيه بالرسائل والمكالمات الواردة عندما يكون التطبيق بالخلفية.',
             ),
             value:
                 controller.enabled &&

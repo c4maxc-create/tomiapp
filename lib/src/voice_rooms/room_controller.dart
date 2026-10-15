@@ -61,13 +61,15 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
   DateTime lastSync = DateTime.now(),
       lastHeartbeat = DateTime.fromMillisecondsSinceEpoch(0);
   Future<void> releaseTail = Future.value();
+  bool backgroundAudio = false;
+  String? audioLease;
   bool get inRoom => active != null || joining;
   VoiceMember? get me => active?.member(accounts.user?.id);
   bool get manage => me?.role == 'owner' || me?.role == 'moderator';
   bool get microphoneOn => audio?.micEnabled == true;
   bool get canUseMic =>
       connected &&
-      foreground &&
+      (foreground || backgroundAudio) &&
       !pickingMedia &&
       me?.seat != null &&
       me?.micAllowed == true &&
@@ -130,7 +132,7 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.inactive) return;
     foreground = state == AppLifecycleState.resumed;
-    if (!foreground && inRoom) {
+    if (!foreground && inRoom && !backgroundAudio) {
       if (pickingMedia) {
         unawaited(audio?.microphone(false));
       } else {
@@ -316,6 +318,15 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
           unawaited(engine.microphone(false).catchError((Object _) {}));
         notify();
       });
+      final lease = identity!;
+      audioLease = lease;
+      final ready = await accounts.mobile.startAudio(lease, 'room');
+      if (!valid(gen) || !foreground) {
+        await accounts.mobile.stopAudio(lease);
+        return false;
+      }
+      backgroundAudio = ready;
+      audioLease = ready ? lease : null;
       await engine.connect(connection);
       if (!valid(gen) || !foreground) return false;
       connected = true;
@@ -384,11 +395,16 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> tick() async {
-    if (disposed || !foreground || active == null || !connected || syncing)
+    if (disposed ||
+        (!foreground && !backgroundAudio) ||
+        active == null ||
+        !connected ||
+        syncing)
       return;
     final gen = generation, r = active!;
     syncing = true;
     try {
+      if (audioLease != null) await accounts.mobile.renewAudio(audioLease!);
       final beat = DateTime.now().difference(lastHeartbeat).inSeconds >= 10;
       final d = beat
           ? await post('/v1/rooms/${r.id}/heartbeat', {'identity': identity})
@@ -641,7 +657,7 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
     final gen = generation;
     pickingMedia = true;
     final deadline = Timer(const Duration(seconds: 40), () {
-      if (valid(gen) && !foreground)
+      if (valid(gen) && !foreground && !backgroundAudio)
         unawaited(
           leave(message: 'انتهت مهلة اختيار الصورة؛ ادخل للغرفة مرة ثانية.'),
         );
@@ -656,7 +672,7 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
       if (valid(gen)) {
         pickingMedia = false;
         if (identical(pickerDeadline, deadline)) pickerDeadline = null;
-        if (!foreground)
+        if (!foreground && !backgroundAudio)
           await leave(message: 'غادرت الغرفة عند مغادرة التطبيق.');
         if (valid(gen)) notify();
       }
@@ -673,9 +689,9 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
         },
       );
   Future<void> toggleMicrophone() async {
-    if (micBusy || audio == null || !connected) return;
+    if (!foreground || micBusy || audio == null || !connected) return;
     final engine = audio!, gen = generation, enable = !engine.micEnabled;
-    if (enable && !canUseMic) {
+    if (enable && (!canUseMic || !foreground)) {
       error = 'انتظر الموافقة على المايك أو اكتمال تطبيق الصلاحية.';
       notify();
       return;
@@ -687,8 +703,22 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
       if (enable) await stopVoiceForCall();
       if (!valid(gen) || audio != engine) return;
       await engine.microphone(enable);
+      if (enable &&
+          valid(gen) &&
+          foreground &&
+          audio == engine &&
+          audioLease != null) {
+        final ready = await accounts.mobile.startAudio(
+          audioLease!,
+          'room',
+          microphone: true,
+        );
+        if (valid(gen) && audio == engine) backgroundAudio = ready;
+      }
       // Permission dialogs can complete after demotion/background/leave.
-      if (!valid(gen) || audio != engine || enable && !canUseMic)
+      if (!valid(gen) ||
+          audio != engine ||
+          enable && (!canUseMic || !foreground))
         await engine.microphone(false);
     } catch (_) {
       if (valid(gen))
@@ -714,6 +744,11 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> release() {
+    final lease = audioLease;
+    audioLease = null;
+    backgroundAudio = false;
+    if (lease != null)
+      unawaited(accounts.mobile.stopAudio(lease).catchError((Object _) {}));
     final engine = audio;
     audio = null;
     unawaited(subscription?.cancel());
