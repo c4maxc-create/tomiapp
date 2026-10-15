@@ -1,81 +1,102 @@
-# TOMI 0.7.0 validation
+# TOMI 0.8.0 validation
 
-Date: 2026-10-15 (Baghdad). Baseline: accepted final 0.6.1 source
-SHA256 07c4fe90789522041d7f6a7baa8f92a59e0085998db1628fa1f690b10a347e04.
-The user confirmed that release worked on their devices and authorized 0.7.
-Runtime: Node 24.19.0, Flutter 3.47.7, Dart 3.13.5.
+Date: 2026-10-15 (Baghdad). User accepted0.7 on their devices and authorized0.8
+using their96-second voice-room video. Baseline ZIP SHA256:
+26d9c654f7cec63fc4e12870cf69e125f163e28966b11d7cf8ff4c8e1cdec253.
+Source version0.8.0+9; Node24.19.0, Flutter3.47.7, Dart3.13.5.
 
-## Checks actually run locally
+## Local verification
 
-- **58 backend tests passed** with real local SQLite: all 47 previous cases
-  and 11 room cases. New coverage includes authenticated access, stable room
-  creation/join retries, capacity races, session ownership, one room/call at
-  a time, requests, approval, mic-only publishing, moderator/owner boundaries,
-  kicks, stale connection leaves, revoked sessions, heartbeat expiry, ten-minute
-  empty closure, durable SFU retries across restart and full token removal on
-  room close. DeleteRoom does not discard pending participant revocations.
-- **80 Flutter tests passed**, with `TOMI_CALL_INTEGRATION=1`: the previous 70
-  tests plus nine room controller/widget cases and one room HTTP contract.
-  Joins and seat approvals never capture audio; user actions enable the mic.
-  Late permission results after demotion/background, stale snapshots, removal
-  during join, kick cleanup, lazy tab loading and narrow Arabic UI are covered.
-- The new contract runs two actual VoiceRoomsControllers against a real local
-  Node HTTP/SQLite API. It creates/joins a room, requests/approves a mic, mutes,
-  assigns a moderator, kicks and closes. **Both the SFU provider and client
-  media engines are explicit fakes**. No real RTP was exchanged by this test.
-- The real LiveKit server SDK signs join JWTs and the real verifier checks them
-  in tests. Listeners cannot publish; speakers may publish only microphones.
-  Tokens carry no client room-admin, camera, data or server API-secret grants.
-- Existing real flutter_webrtc Dart/plugin-channel regression and direct-call
-  HTTP tests still pass, including the accepted audio fix and video consent.
-- `flutter analyze` completed without issues. Android/bootstrap preservation,
-  optional Firebase/client setup and server-key rejection, accounts/preview
-  HTTPS build configuration, workflow YAML, artifact/version agreement and ZIP
-  integrity/exclusion checks passed.
-- The schema retains the exact 0.6.1 prefix and appends room tables/indexes only.
-  Roster profiles are fetched in one batch query, rather than one network round
-  trip per room member. Earlier account/chat/media persistence checks pass.
-- Inspected real Flutter-rendered member, moderator, landscape and 320px large
-  Arabic text screens with shaped Arabic and Material icons. The control panel
-  wraps and remains reachable; enlarged-text widget checks pass. Preview media
-  and participants are fake, not screenshots from a deployed phone session.
-  Temporary render harnesses and host font paths are excluded from delivery.
+- Backend:69 tests using real SQLite, including all47 pre-room account, chat,
+  media and call cases and22 room cases. The full suite passed; the22 room
+  cases were rerun successfully after the final occupied-seat/moderator fix.
+- Flutter:89 tests with TOMI_CALL_INTEGRATION=1, covering the previous80 tests
+  and9 additional gift/settings/lifecycle/widget cases. No tests are skipped
+  in that run. The9 new feature cases were rerun after the final UI fix.
+  Static analysis has no issues.
+- Real HTTP/SQLite contract:two AccountControllers/VoiceRoomsControllers create
+  and join a room, request/approve/mute a mic, set room options, fetch catalog
+  and wallet, send a gift, observe exact XP/level and a recipient event, send
+  room chat, read contribution ranking, promote/kick/close. The API and database
+  are real. Client audio engines and SFU provider are explicit fakes.
+- Real LiveKit Node SDK signs/verifies mic-only JWTs. Tokens never grant camera,
+  screen share, admin, metadata editing or data publishing. Existing durable
+  SFU moderation/revocation tests still pass, including retaining removal jobs
+  after DeleteRoom and replay after API restart.
+- Owner reservation holds while absent, including reserved capacity; reentry
+  always returns the owner to seat-1. Legacy seat0..7 cannot collide. Migration
+  of an active owner preserves identity. A real0.7 SQLite database upgrades
+  without changing its account, session or room. The exact0.7 schema is retained
+  as a prefix and a test fixture.
+- Gift receipt insertion, conditional debit, XP increment and feed events are
+  atomic. Concurrent sends cannot overspend. Stable request IDs replay the same
+  receipt; changed retries and reuse of a message ID fail. Missing recipients,
+  self-gifts, forged prices, invalid quantities, nonmembers and blocks are denied.
+  Every level boundary1–10 is checked, including exact thresholds and the cap.
+- Room options, hashed passwords, read access to admin data, locked/muted seats,
+  invitations/consent, occupied-seat unmute, protection of fellow moderators,
+  offline moderator removal, blacklist reversal and audit
+  records are covered. Cover/chat image tests check ownership, scope, attachment
+  replay, the image switch and cleanup on cover replacement. Existing R2 image
+  checksum/format and private-chat media tests remain in the complete suite.
+- Client tests check stable IDs after uncertain gift sends, late replies after
+  leaving, gift loading across leave/rejoin, invitation acceptance without
+  capture, and gallery handoff muting without automatic unmute. Normal background
+  still leaves and releases the room.
+- Native Flutter UI was rendered and visually inspected for the main room, gift
+  picker and white settings page. Arabic DejaVu Sans and real Material icon fonts
+  were loaded for local previews; production uses the app's existing fonts.
+  Narrow320px, double text, landscape, recipient/gift selection, request controls
+  and setting toggles are covered. The temporary screenshot harness is excluded
+  from the delivered source. Preview profiles, balances and messages are test data.
+- Android bootstrap/source-preservation, Firebase optional configuration,
+  accounts/preview HTTPS configuration, workflow YAML and version/artifact
+  consistency checks pass. Dependencies remain pinned to the accepted0.7 versions.
 
-## What remains to verify on devices
+## Runtime and deliberate scope
 
-No LiveKit Cloud project credentials were supplied or provisioned by the
-assistant. Real LiveKit WebSocket access, SFU audio, microphone permission
-prompts, audio routing/Bluetooth, network changes and moderation token revocation
-must be checked on at least two phones after setting the three ROOM_LIVEKIT_*
-values on Northflank. A configured flag alone does not verify connectivity.
-Also repeat a direct audio call and consented video upgrade as a device regression.
+Owner seat-1 is permanent, companion-2 is optional, and regular seats0..7 retain
+the existing database CHECKs. Up to30 members include the owner's reserved place.
+An already-full legacy room removes its latest guest to make room for an owner
+returning during the upgrade; subsequent admissions reserve capacity up front.
 
-There is no local Android SDK/emulator or iOS signing environment. **No APK or
-store binary was compiled here.** GitHub Actions is configured to build
-TOMI-0.7.0.apk. PostgreSQL 17 is configured in CI; local backend runs used SQLite.
-The assistant did not deploy to GitHub/Northflank or change PostgreSQL, R2, TURN,
-Firebase or Cloudflare. Keep those working settings.
+1000 trial coins are granted once per account,500 can be claimed every24 hours,
+and all prices/thresholds live in server/src/room_catalog.mjs. Coins have no cash
+value, purchasing, withdrawal or link to the earlier web economy. A recipient gets
+a durable gift entry, not spendable credit. Levels belong to the room and range
+from1 at0XP to10 at25000XP, with no level11. XP persists when the room empties.
 
-## Supported scope and operational limits
+Rooms now stay in the lobby until the owner explicitly closes them. Empty SFU
+media rooms can expire naturally and are recreated by ensure(). Room settings,
+gifts, XP and closed-room records remain in PostgreSQL. Snapshots expose the
+latest40 room events, admin history the latest50, and top contributors the top10.
+The UI exposes supported room functions; the reference app's separate games,
+paid shop, music player and cash envelopes are outside this release.
 
-LiveKit Cloud is required; self-hosted URLs are refused because this implementation
-relies on Cloud token revocation. API keys stay on the server. Initial join tokens
-last 60 seconds; the SDK/SFU manages the connected session. Memberships are tied
-to TOMI sessions, and each new attendance gets an opaque SFU identity.
+Client API poll2s, heartbeat10s, API/SFU reconnect grace25s and stale attendance45s
+are retained. Joins, invitations and approvals never capture audio. A short
+system gallery handoff mutes first and never automatically resumes the mic;
+background without that handoff leaves. High quality96kbps vs speech24kbps applies
+on the next room connection. No new service, payment or credentials are required.
 
-API synchronization is every two seconds, heartbeats every ten, API sync failure
-and SFU reconnect grace 25 seconds, stale server attendance 45 seconds, and empty
-room closure 600 seconds. Closed room metadata is purged after seven days, once
-SFU cleanup has succeeded. Timers are opportunistic and may run slightly later.
+Desired SFU permissions/removals persist. Pending enforcement is visibly marked;
+a database update does not prove a remote participant has already disconnected.
+Existing direct-call audio/video consent, foreground and timeout behavior remains.
 
-Moderation uses persistent desired-permission/removal jobs. An unavailable SFU
-can delay actual enforcement; pending status is shown rather than falsely
-confirming the media change. Kicks deny new tokens, and all old identities are
-revoked even if DeleteRoom already disconnected them. Cleanup retries after an
-API restart. These guarantees still depend on the external provider being reachable.
+## Limits
 
-Only foreground audio rooms, up to 30 participants and eight mic seats. Back or
-backgrounding leaves. No room camera/screen share, recording, E2EE, background
-service, OS call UI or room push invitations. Existing direct calls retain their
-0.6.1 consent, timeout and foreground limitations. Deployment instructions and
-the device acceptance sequence are in START_HERE_AR.md.
+No Android SDK/emulator, APK build, signed mobile build or actual device RTP/SFU
+session was run here. Local PostgreSQL and user LiveKit/R2/Northflank services were
+not contacted. GitHub Actions includes a real PostgreSQL17 test job and Android
+build; those jobs must run in the user's repository. LiveKit publishing, native
+microphone permissions/routes, Bluetooth, gallery lifecycle and network handoffs
+still need device acceptance after installing0.8. The user previously accepted0.7
+on devices; that acceptance does not substitute for trying this new release.
+
+No remote repository, cloud service, subscription or account was changed by the
+assistant. Room chat uses authenticated HTTP and existing image storage; provider
+keys stay server-only. No recording, room video, background service or E2EE is
+claimed. An uncertain send is kept in client memory with a stable ID; after app
+restart, inspect balance/feed before intentionally sending a similar gift again.
+
+Upgrade and device steps:START_HERE_AR.md. Durable continuation:TOMI-PROGRESS.md.
