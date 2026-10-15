@@ -189,3 +189,46 @@ CREATE TABLE IF NOT EXISTS tomi_call_media_changes (
  created_at TEXT NOT NULL,updated_at TEXT NOT NULL,deadline TEXT NOT NULL,
  PRIMARY KEY(call_id,request_id),UNIQUE(call_id,revision)
 );
+
+
+
+-- Voice rooms are additive: existing account/chat/call data stays unchanged.
+CREATE TABLE IF NOT EXISTS tomi_voice_rooms (
+ id TEXT PRIMARY KEY,
+ title TEXT NOT NULL,
+ owner_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ capacity INTEGER NOT NULL CHECK(capacity BETWEEN 2 AND 30),
+ seat_count INTEGER NOT NULL CHECK(seat_count BETWEEN 2 AND 8),
+ state TEXT NOT NULL DEFAULT 'open' CHECK(state IN ('open','closed')),
+ revision INTEGER NOT NULL DEFAULT 1,
+ created_at TEXT NOT NULL,
+ empty_since TEXT,
+ needs_delete INTEGER NOT NULL DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS tomi_one_owned_voice_room ON tomi_voice_rooms(owner_id) WHERE state='open';
+CREATE TABLE IF NOT EXISTS tomi_voice_members (
+ room_id TEXT NOT NULL REFERENCES tomi_voice_rooms(id) ON DELETE CASCADE,
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ identity TEXT NOT NULL UNIQUE,
+ session_hash TEXT NOT NULL,
+ role TEXT NOT NULL CHECK(role IN ('owner','moderator','member')),
+ state TEXT NOT NULL DEFAULT 'active' CHECK(state IN ('active','left','kicked')),
+ seat INTEGER,
+ mic_allowed INTEGER NOT NULL DEFAULT 0,
+ requested_at TEXT,
+ joined_at TEXT NOT NULL,
+ last_seen TEXT NOT NULL,
+ PRIMARY KEY(room_id,user_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS tomi_one_voice_seat ON tomi_voice_members(room_id,seat) WHERE state='active' AND seat IS NOT NULL;
+CREATE TABLE IF NOT EXISTS tomi_voice_presence (
+ user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,
+ room_id TEXT NOT NULL REFERENCES tomi_voice_rooms(id) ON DELETE CASCADE
+);
+-- Durable desired permissions/removals survive API restarts and SFU outages.
+CREATE TABLE IF NOT EXISTS tomi_voice_jobs (
+ identity TEXT PRIMARY KEY,
+ room_id TEXT NOT NULL REFERENCES tomi_voice_rooms(id) ON DELETE CASCADE,
+ publish INTEGER NOT NULL,
+ version INTEGER NOT NULL DEFAULT 1
+);

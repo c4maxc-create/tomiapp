@@ -1,75 +1,81 @@
-# TOMI 0.6.1 validation
+# TOMI 0.7.0 validation
 
-Baseline: saved final TOMI 0.6.0 source. Date: 2026-10-15 (Baghdad).
-Node 24.19.0; Flutter 3.47.7; Dart 3.13.5.
+Date: 2026-10-15 (Baghdad). Baseline: accepted final 0.6.1 source
+SHA256 07c4fe90789522041d7f6a7baa8f92a59e0085998db1628fa1f690b10a347e04.
+The user confirmed that release worked on their devices and authorized 0.7.
+Runtime: Node 24.19.0, Flutter 3.47.7, Dart 3.13.5.
 
-## Verified locally
+## Checks actually run locally
 
-- All 47 backend tests passed on real local SQLite: the 42 existing tests and
-  five new media-change cases. They cover participant and session isolation,
-  consent, both-camera readiness, requester-owned SDP rounds, restarts,
-  duplicate requests, rejection/cancellation/expiry, denied cameras, returning
-  to audio, requiring consent again, payload/revision bounds and end cleanup.
-- All 70 Flutter tests passed with TOMI_CALL_INTEGRATION=1: 50 non-call tests,
-  17 call controller/UI cases, two plugin-channel regression cases and one
-  expanded real Node HTTP contract test. Coverage includes initial calling,
-  buffered ICE, permissions, logout/background, stale responses, voice-note
-  audio release, consent and refusal, camera denial, return to audio, and
-  cancelled/superseded camera-permission results.
-- The plugin regression uses the real flutter_webrtc Dart offer/answer path
-  with a mocked platform channel. It proves that audio requests explicitly
-  suppress the plugin's default video receive option and video requests retain
-  it. It does not run a native WebRTC media engine.
-- The HTTP contract uses two actual CallControllers and a real local Node API.
-  It covers initial audio, callee-initiated video upgrade, consent, readiness,
-  SDP role reversal, successful application, unchanged call duration, return to
-  audio, a fresh upgrade prompt, refusal, hangup and history. Its media engines
-  are fake; no microphone/camera packets are exchanged by this test.
-- Flutter analyze completed with no issues. Android/bootstrap, optional Firebase
-  client configuration and server-key rejection, HTTPS build configuration,
-  workflow YAML, artifact names and version agreement checks passed.
-- The database schema preserves the exact 0.6.0 prefix and appends only the
-  media-change table. Existing accounts, chats, media and recovery checks pass.
-- Inspected real Flutter-rendered voice, video, approval and landscape screens,
-  including Arabic shaping and Material icons. Video fills the surface; the
-  draggable preview remains above controls in portrait and landscape. The
-  enlarged-text 320px widget check also verifies the preview's drag bounds.
+- **58 backend tests passed** with real local SQLite: all 47 previous cases
+  and 11 room cases. New coverage includes authenticated access, stable room
+  creation/join retries, capacity races, session ownership, one room/call at
+  a time, requests, approval, mic-only publishing, moderator/owner boundaries,
+  kicks, stale connection leaves, revoked sessions, heartbeat expiry, ten-minute
+  empty closure, durable SFU retries across restart and full token removal on
+  room close. DeleteRoom does not discard pending participant revocations.
+- **80 Flutter tests passed**, with `TOMI_CALL_INTEGRATION=1`: the previous 70
+  tests plus nine room controller/widget cases and one room HTTP contract.
+  Joins and seat approvals never capture audio; user actions enable the mic.
+  Late permission results after demotion/background, stale snapshots, removal
+  during join, kick cleanup, lazy tab loading and narrow Arabic UI are covered.
+- The new contract runs two actual VoiceRoomsControllers against a real local
+  Node HTTP/SQLite API. It creates/joins a room, requests/approves a mic, mutes,
+  assigns a moderator, kicks and closes. **Both the SFU provider and client
+  media engines are explicit fakes**. No real RTP was exchanged by this test.
+- The real LiveKit server SDK signs join JWTs and the real verifier checks them
+  in tests. Listeners cannot publish; speakers may publish only microphones.
+  Tokens carry no client room-admin, camera, data or server API-secret grants.
+- Existing real flutter_webrtc Dart/plugin-channel regression and direct-call
+  HTTP tests still pass, including the accepted audio fix and video consent.
+- `flutter analyze` completed without issues. Android/bootstrap preservation,
+  optional Firebase/client setup and server-key rejection, accounts/preview
+  HTTPS build configuration, workflow YAML, artifact/version agreement and ZIP
+  integrity/exclusion checks passed.
+- The schema retains the exact 0.6.1 prefix and appends room tables/indexes only.
+  Roster profiles are fetched in one batch query, rather than one network round
+  trip per room member. Earlier account/chat/media persistence checks pass.
+- Inspected real Flutter-rendered member, moderator, landscape and 320px large
+  Arabic text screens with shaped Arabic and Material icons. The control panel
+  wraps and remains reachable; enlarged-text widget checks pass. Preview media
+  and participants are fake, not screenshots from a deployed phone session.
+  Temporary render harnesses and host font paths are excluded from delivery.
 
-## Device acceptance still required
+## What remains to verify on devices
 
-The user reported working video and failing audio on 0.6.0. The verified code
-cause was createOffer/createAnswer using the plugin default video receive
-constraint during audio-only calls, conflicting with the API's audio-only SDP
-validation. This release overrides those constraints explicitly and selects
-Android's communication audio configuration.
+No LiveKit Cloud project credentials were supplied or provisioned by the
+assistant. Real LiveKit WebSocket access, SFU audio, microphone permission
+prompts, audio routing/Bluetooth, network changes and moderation token revocation
+must be checked on at least two phones after setting the three ROOM_LIVEKIT_*
+values on Northflank. A configured flag alone does not verify connectivity.
+Also repeat a direct audio call and consented video upgrade as a device regression.
 
-No Android SDK/emulator or iOS signing environment was available; no APK or iOS
-binary was compiled here. PostgreSQL 17 is configured in GitHub Actions, but
-local tests above used SQLite. The hosted API, GitHub, database, R2, Firebase and
-Cloudflare accounts were not modified by the assistant.
+There is no local Android SDK/emulator or iOS signing environment. **No APK or
+store binary was compiled here.** GitHub Actions is configured to build
+TOMI-0.7.0.apk. PostgreSQL 17 is configured in CI; local backend runs used SQLite.
+The assistant did not deploy to GitHub/Northflank or change PostgreSQL, R2, TURN,
+Firebase or Cloudflare. Keep those working settings.
 
-Deploy this API and install newly built 0.6.1 APKs on BOTH phones before testing.
-Keep the existing database and TURN/FCM/R2 values. Follow START_HERE_AR.md for
-bidirectional voice, earpiece/speaker, mute, camera switching, both initiators,
-accept/refuse/cancel/no response, denied permission, repeat voice/video changes,
-Wi-Fi/mobile data and TURN/FCM checks. Automated transport tests do not prove
-native routing, RTP, permission dialogs, capture indicators or real TURN/FCM.
+## Supported scope and operational limits
 
-## Scope and limits
+LiveKit Cloud is required; self-hosted URLs are refused because this implementation
+relies on Cloud token revocation. API keys stay on the server. Initial join tokens
+last 60 seconds; the SDK/SFU manages the connected session. Memberships are tied
+to TOMI sessions, and each new attendance gets an opaque SFU identity.
 
-Foreground, one-to-one calls. Backgrounding ends media. Incoming FCM is a normal
-alert opening the app for explicit acceptance, not CallKit, ConnectionService
-or full-screen OS ringing. Permanent provider keys remain on the API; the Node
-API stores state/history and temporary signaling, not call recordings. SDP/ICE
-is bounded, not logged and deleted at call end.
+API synchronization is every two seconds, heartbeats every ten, API sync failure
+and SFU reconnect grace 25 seconds, stale server attendance 45 seconds, and empty
+room closure 600 seconds. Closed room metadata is purged after seven days, once
+SFU cleanup has succeeded. Timers are opportunistic and may run slightly later.
 
-Video upgrades require the other participant's approval and readiness from both
-sessions. Approval expires after 30 seconds, camera readiness after 60 seconds,
-and SDP negotiation after 30 seconds. A call allows at most 30 media changes.
-Either participant can stop video and retain the audio peer; a future upgrade
-requires approval again. Declines, cancellations and denied cameras retain audio.
+Moderation uses persistent desired-permission/removal jobs. An unavailable SFU
+can delay actual enforcement; pending status is shown rather than falsely
+confirming the media change. Kicks deny new tokens, and all old identities are
+revoked even if DeleteRoom already disconnected them. Cleanup retries after an
+API restart. These guarantees still depend on the external provider being reachable.
 
-Initial ringing/setup, heartbeats and two-hour call bounds remain unchanged.
-Background calls, ICE restart after changing networks, voice rooms/SFU, groups,
-screen sharing, recording, verified E2EE identity and store signing remain out of
-scope. 0.7 voice rooms must wait for device acceptance of this fix.
+Only foreground audio rooms, up to 30 participants and eight mic seats. Back or
+backgrounding leaves. No room camera/screen share, recording, E2EE, background
+service, OS call UI or room push invitations. Existing direct calls retain their
+0.6.1 consent, timeout and foreground limitations. Deployment instructions and
+the device acceptance sequence are in START_HERE_AR.md.

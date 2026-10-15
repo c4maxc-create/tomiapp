@@ -5,6 +5,7 @@ import { createChat } from './chat.mjs';
 import {createAvatars,avatarJoins,avatarColumns,avatarFields} from './avatars.mjs';
 import {createPush} from './push.mjs';
 import {createCalls} from './calls.mjs';
+import {createVoiceRooms} from './voice_rooms.mjs';
 import {
   ApiError, digest, hashPassword, verifyPassword, newToken, newRecoveryCode,
   normalizeRecoveryCode, validateUsername, validatePassword, validateProfile, isUniqueConflict,
@@ -58,13 +59,18 @@ function publicUser(row,storage) {
   };
 }
 
-export async function createApp({ database, trustProxy = false, origins = [], rateLimitMultiplier = 1, storage = null, chatStorage = storage, pushSender=null, pushAutoFlush=true, iceProvider=null, callAutoSweep=true }) {
+export async function createApp({ database, trustProxy = false, origins = [], rateLimitMultiplier = 1, storage = null, chatStorage = storage, pushSender=null, pushAutoFlush=true, iceProvider=null, callAutoSweep=true, roomProvider=null, roomAutoSweep=true }) {
   // Equal-cost verification for unknown users avoids a cheap username timing oracle.
   const dummyHash = await hashPassword(newToken());
   const userById = async (id, viewer, db = database) => {
     const result = await db.query(`${userSelect} WHERE u.id = ?`, [viewer, id]);
     if (!result.rows[0]) throw new ApiError(404, 'NOT_FOUND', 'الحساب غير موجود.');
     return publicUser(result.rows[0],storage);
+  };
+  const usersByIds=async(ids,viewer,db=database)=>{
+    if(!ids.length)return new Map();
+    const result=await db.query(`${userSelect} WHERE u.id IN (${ids.map(()=>'?').join(',')})`,[viewer,...ids]);
+    return new Map(result.rows.map(row=>[row.id,publicUser(row,storage)]));
   };
 
   async function limit(key, maximum, period = 60000) {
@@ -106,6 +112,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   const avatarMedia=chatStorage===storage?null:createSocial({database,storage,readJson,respond:json,limit,userById,cleanupPrefix:'tomi/avatars/'});
   const push=createPush({database,sender:pushSender,autoFlush:pushAutoFlush,readJson,respond:json,limit});
   const chat=createChat({database,storage:chatStorage,avatarStorage:storage,readJson,respond:json,limit,userById,enqueuePush:push.enqueue});
+  const rooms=createVoiceRooms({database,provider:roomProvider,readJson,respond:json,limit,usersByIds,autoSweep:roomAutoSweep});
   const calls=createCalls({database,iceProvider,readJson,respond:json,limit,userById,emit:chat.emit,enqueuePush:push.enqueueCall,autoSweep:callAutoSweep});
   const server = createServer(async (request, response) => {
     try {
@@ -133,7 +140,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       }
       if (method === 'GET' && (path === '/health' || path === '/')) {
         await database.query('SELECT 1 AS ready');
-        json(response, 200, { status: 'ok', service: 'TOMI API', version: '0.6.1' });
+        json(response, 200, { status: 'ok', service: 'TOMI API', version: '0.7.0' });
         return;
       }
 
@@ -203,12 +210,14 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
         });
         chat.invalidateUser(row.id);
         await calls.sweep();
+        await rooms.sweep();
         json(response, 200, result);
         return;
       }
 
       const current = await session(request);
       await limit(`requests:user:${current.id}`, 300);
+      if (await rooms.handle(request,response,url,current)) return;
       if (await calls.handle(request,response,url,current)) return;
       if (await avatars.handle(request,response,url,current)) return;
       if (await push.handle(request,response,url,current)) return;
@@ -216,9 +225,13 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       if (await social.handle(request,response,url,current)) return;
 
       if (method === 'POST' && path === '/v1/auth/logout') {
-        await database.query('DELETE FROM tomi_sessions WHERE token_hash = ?', [current.tokenHash]);
+        await database.transaction(async db=>{
+          await db.query('UPDATE tomi_users SET updated_at=updated_at WHERE id=? RETURNING id',[current.id]);
+          await db.query('DELETE FROM tomi_sessions WHERE token_hash = ?', [current.tokenHash]);
+        });
         chat.invalidateSession(current.tokenHash);
         await calls.invalidateSession(current.tokenHash);
+        await rooms.invalidateSession(current.tokenHash);
         json(response, 200, { ok: true });
         return;
       }
@@ -266,6 +279,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
         });
         chat.invalidateUser(current.id);
         await calls.sweep();
+        await rooms.sweep();
         json(response, 200, result);
         return;
       }
@@ -322,7 +336,8 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   server.cleanupMedia = async()=>{await social.cleanup();if(chatMedia)await chatMedia.cleanup();if(avatarMedia)await avatarMedia.cleanup();await chat.cleanup();await push.cleanup();await calls.cleanup();};
   server.flushPush=push.flush;
   server.sweepCalls=calls.sweep;
-  server.on('close',()=>{push.close();calls.close();});
+  server.sweepRooms=rooms.sweep;server.flushRooms=rooms.flush;
+  server.on('close',()=>{push.close();calls.close();rooms.close();});
   chat.attach(server,{origins,authenticate:token=>session({headers:{authorization:'Bearer '+token}}),validSessions:async hashes=>{
     if(!hashes.length)return new Set();
     const{rows}=await database.query(`SELECT s.token_hash FROM tomi_sessions s JOIN tomi_users u ON u.id=s.user_id AND u.auth_version=s.auth_version WHERE s.expires_at>? AND s.token_hash IN (${hashes.map(()=>'?').join(',')})`,[nowText(),...hashes]);return new Set(rows.map(r=>r.token_hash));

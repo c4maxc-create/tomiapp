@@ -58,7 +58,14 @@ class AccountApi {
       final response = await _client
           .send(request)
           .then(http.Response.fromStream)
-          .timeout(Duration(seconds: path.startsWith('/v1/calls') ? 12 : 75));
+          .timeout(
+            Duration(
+              seconds:
+                  (path.startsWith('/v1/calls') || path.startsWith('/v1/rooms'))
+                  ? 12
+                  : 75,
+            ),
+          );
       final data =
           jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
       if (response.statusCode < 200 || response.statusCode >= 300) {

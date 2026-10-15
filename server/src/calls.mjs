@@ -95,7 +95,8 @@ export function createCalls({database,iceProvider,readJson,respond,limit,userByI
         const activeById=new Map(activeRows.map(v=>[v.call_id,v.user_id]));
         for(const activeId of [...activeById.keys()].sort())await expire(db,await row(db,activeById.get(activeId),activeId,true));
         if((await db.query('SELECT 1 FROM tomi_active_calls WHERE user_id=?',[current.id])).rows.length)fail(409,'CALL_BUSY','عندك مكالمة جارية؛ أنهِها أولًا.');
-        const busy=(await db.query('SELECT 1 FROM tomi_active_calls WHERE user_id=?',[callee])).rows.length>0;
+        if((await db.query('SELECT 1 FROM tomi_voice_presence WHERE user_id=?',[current.id])).rows.length)fail(409,'ROOM_BUSY','غادر الغرفة الصوتية قبل بدء المكالمة.');
+        const busy=(await db.query('SELECT 1 FROM tomi_active_calls WHERE user_id=?',[callee])).rows.length>0||(await db.query('SELECT 1 FROM tomi_voice_presence WHERE user_id=?',[callee])).rows.length>0;
         const callId=randomUUID(),time=stamp(),ring=stamp(35000);
         await db.query(`INSERT INTO tomi_calls(id,thread_id,caller_id,callee_id,caller_session,request_id,kind,state,reason,created_at,updated_at,ring_deadline,caller_seen,ended_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,[callId,t.id,current.id,callee,current.tokenHash,d.requestId,d.kind,busy?'ended':'ringing',busy?'busy':null,time,time,ring,time,busy?time:null]);
         if(!busy){for(const user of [current.id,callee])await db.query('INSERT INTO tomi_active_calls(user_id,call_id) VALUES(?,?)',[user,callId]);await enqueuePush(db,{callId,recipientId:callee,threadId:t.id});}

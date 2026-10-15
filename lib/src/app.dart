@@ -2,6 +2,7 @@ import 'messaging/chat_screens.dart';
 import 'messaging/chat_models.dart';
 import 'calling/call_models.dart';
 import 'calling/call_screens.dart';
+import 'voice_rooms/room_screens.dart';
 
 import 'dart:async';
 
@@ -411,7 +412,7 @@ class _TomiShellState extends State<TomiShell> {
                 ),
               ),
               const SizedBox(width: 9),
-              TinyLabel(widget.accounts == null ? 'تجريبي' : '0.4'),
+              TinyLabel(widget.accounts == null ? 'تجريبي' : '0.7'),
             ],
           ),
         ),
@@ -452,7 +453,7 @@ class _TomiShellState extends State<TomiShell> {
         bottom: false,
         child: Column(
           children: [
-            if (widget.accounts != null && selected > 1 && selected < 4)
+            if (widget.accounts != null && selected == 3)
               const Padding(
                 padding: EdgeInsets.fromLTRB(18, 4, 18, 0),
                 child: Text(
@@ -474,7 +475,12 @@ class _TomiShellState extends State<TomiShell> {
                   widget.accounts == null
                       ? ChatsScreen(store: widget.store)
                       : PrivateChatsScreen(accounts: widget.accounts!),
-                  RoomsScreen(store: widget.store),
+                  widget.accounts == null
+                      ? RoomsScreen(store: widget.store)
+                      : VoiceRoomsScreen(
+                          accounts: widget.accounts!,
+                          visible: selected == 2,
+                        ),
                   GamesScreen(store: widget.store),
                   widget.accounts == null
                       ? ProfileScreen(store: widget.store)

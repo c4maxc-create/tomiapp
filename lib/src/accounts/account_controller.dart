@@ -2,6 +2,8 @@ import '../messaging/chat_controller.dart';
 import '../messaging/chat_connection.dart';
 import '../notifications/push_controller.dart';
 import '../calling/call_controller.dart';
+import '../voice_rooms/room_controller.dart';
+import '../voice_rooms/room_audio.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -35,9 +37,20 @@ class AccountController extends ChangeNotifier {
     required this.api,
     TokenVault? vault,
     this.realtimeEnabled = true,
+    this.roomAudioFactory,
   }) : _vault = vault ?? SecureTokenVault(api.baseUrl);
   final AccountApi api;
   final bool realtimeEnabled;
+  final RoomAudio Function()? roomAudioFactory;
+  VoiceRoomsController? _voiceRooms;
+  VoiceRoomsController get voiceRooms => _voiceRooms ??= VoiceRoomsController(
+    accounts: this,
+    audioFactory: roomAudioFactory,
+    autoPoll: realtimeEnabled,
+  );
+  bool get voiceRoomActive => _voiceRooms?.inRoom ?? false;
+  Future<void> get roomAudioReleased =>
+      _voiceRooms?.releaseTail ?? Future.value();
   CallController? _calls;
   CallController get calls =>
       _calls ??= CallController(accounts: this, autoPoll: realtimeEnabled);
@@ -305,6 +318,7 @@ class AccountController extends ChangeNotifier {
     final token = _token;
     if (token == null) return;
     try {
+      await _voiceRooms?.leave();
       await _calls?.hangup();
       await _push?.unregister();
       await api.logout(token);
@@ -320,6 +334,7 @@ class AccountController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     ++_revision;
+    _voiceRooms?.dispose();
     _calls?.dispose();
     _chats?.dispose();
     _push?.dispose();

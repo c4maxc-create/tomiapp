@@ -265,6 +265,11 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> start(String conversationId, {bool video = false}) async {
     if (disposed || identity == null || busy || active?.ended == false) return;
+    if (accounts.voiceRoomActive) {
+      error = 'غادر الغرفة الصوتية قبل بدء المكالمة.';
+      notify();
+      return;
+    }
     final gen = ++generation,
         userId = accounts.user!.id,
         revision = accounts.sessionRevision;
@@ -283,6 +288,7 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
           'المكالمات غير متاحة حاليًا؛ جرّب لاحقًا.',
         );
       await releaseTail;
+      await accounts.roomAudioReleased;
       await stopVoiceForCall();
       if (!valid(gen)) return;
       final engine = mediaFactory();
@@ -324,6 +330,11 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> accept() async {
     final call = active;
     if (busy || call == null || !call.incoming || !call.canControl) return;
+    if (accounts.voiceRoomActive) {
+      error = 'غادر الغرفة الصوتية قبل قبول المكالمة.';
+      notify();
+      return;
+    }
     final gen = generation,
         userId = accounts.user!.id,
         revision = accounts.sessionRevision;
@@ -332,6 +343,7 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
     notify();
     try {
       await releaseTail;
+      await accounts.roomAudioReleased;
       await stopVoiceForCall();
       if (!valid(gen)) return;
       final engine = mediaFactory();
