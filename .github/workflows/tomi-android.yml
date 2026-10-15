@@ -1,4 +1,4 @@
-name: TOMI 0.8.0 Android
+name: TOMI 0.9.0 Android
 
 "on":
   workflow_dispatch:
@@ -62,7 +62,7 @@ jobs:
         run: npm test
 
   android:
-    name: Build TOMI 0.8.0 APK
+    name: Build TOMI 0.9.0 APK
     needs: accounts-api
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -122,6 +122,7 @@ jobs:
 
       - name: Verify Android and Firebase configuration
         run: |
+          python3 tool/check_mobile_policy.py
           python3 tool/check_bootstrap.py
           python3 tool/check_firebase.py
 
@@ -140,12 +141,12 @@ jobs:
             --dart-define="TOMI_PREVIEW_MODE=$TOMI_PREVIEW_MODE" \
             --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED"
           mkdir -p output
-          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-0.8.0.apk
+          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-0.9.0.apk
 
       - name: Upload TOMI APK
         uses: actions/upload-artifact@v7
         with:
-          path: output/TOMI-0.8.0.apk
+          path: output/TOMI-0.9.0.apk
           archive: false
           if-no-files-found: error
           retention-days: 7
