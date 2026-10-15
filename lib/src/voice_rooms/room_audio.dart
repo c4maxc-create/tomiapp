@@ -15,17 +15,8 @@ abstract class RoomAudio {
 }
 
 class LiveKitRoomAudio implements RoomAudio {
-  final lk.Room room = lk.Room(
-    roomOptions: const lk.RoomOptions(
-      defaultAudioCaptureOptions: lk.AudioCaptureOptions(
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        stopAudioCaptureOnMute: true,
-      ),
-      stopLocalTrackOnUnpublish: true,
-    ),
-  );
+  lk.Room? _room;
+  lk.Room get room => _room!;
   final bus = StreamController<Map<String, dynamic>>.broadcast();
   lk.EventsListener<lk.RoomEvent>? listener;
   bool disposed = false;
@@ -33,22 +24,23 @@ class LiveKitRoomAudio implements RoomAudio {
   @override
   Stream<Map<String, dynamic>> get events => bus.stream;
   @override
-  bool get canPublish => room.localParticipant?.permissions.canPublish == true;
+  bool get canPublish =>
+      _room?.localParticipant?.permissions.canPublish == true;
   @override
-  bool get micEnabled => room.localParticipant?.isMicrophoneEnabled() == true;
+  bool get micEnabled => _room?.localParticipant?.isMicrophoneEnabled() == true;
   @override
   Set<String> get speakers =>
-      room.activeSpeakers.map((p) => p.identity).toSet();
+      _room?.activeSpeakers.map((p) => p.identity).toSet() ?? {};
   @override
   Set<String> get liveIdentities => {
-    if (room.localParticipant != null) room.localParticipant!.identity,
-    ...room.remoteParticipants.values.map((p) => p.identity),
+    if (_room?.localParticipant != null) room.localParticipant!.identity,
+    ...?_room?.remoteParticipants.values.map((p) => p.identity),
   };
   @override
   Set<String> get openMics => {
-    if (micEnabled && room.localParticipant != null)
+    if (micEnabled && _room?.localParticipant != null)
       room.localParticipant!.identity,
-    ...room.remoteParticipants.values
+    ...?_room?.remoteParticipants.values
         .where((p) => !p.isMuted)
         .map((p) => p.identity),
   };
@@ -60,6 +52,22 @@ class LiveKitRoomAudio implements RoomAudio {
   Future<void> connect(Map<String, dynamic> connection) {
     connectionWork = () async {
       if (disposed) return;
+      _room = lk.Room(
+        roomOptions: lk.RoomOptions(
+          defaultAudioCaptureOptions: const lk.AudioCaptureOptions(
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            stopAudioCaptureOnMute: true,
+          ),
+          defaultAudioPublishOptions: lk.AudioPublishOptions(
+            encoding: connection['highQuality'] != false
+                ? lk.AudioEncoding.presetMusicHighQuality
+                : lk.AudioEncoding.presetSpeech,
+          ),
+          stopLocalTrackOnUnpublish: true,
+        ),
+      );
       listener = room.createListener()
         ..on<lk.RoomEvent>((e) {
           if (e is lk.RoomDisconnectedEvent)
@@ -114,9 +122,9 @@ class LiveKitRoomAudio implements RoomAudio {
       await work;
     } catch (_) {}
     try {
-      await room.disconnect();
+      await _room?.disconnect();
     } finally {
-      await room.dispose();
+      await _room?.dispose();
       await bus.close();
     }
   }

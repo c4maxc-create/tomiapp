@@ -21,6 +21,25 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
   final RoomAudio Function() audioFactory;
   final bool autoPoll;
   final rooms = <VoiceRoom>[];
+  final gifts = <RoomGift>[];
+  List<int> levelThresholds = const [
+    0,
+    100,
+    300,
+    700,
+    1500,
+    3000,
+    6000,
+    10000,
+    16000,
+    25000,
+  ];
+  int coins = 0;
+  String? nextClaim;
+  bool extrasLoading = false, pickingMedia = false;
+  Map<String, dynamic>? pendingGift, pendingMessage;
+  String? pendingGiftRoom, pendingMessageRoom;
+  Timer? pickerDeadline;
   VoiceRoom? active;
   RoomAudio? audio;
   String? error, notice, identity, sessionKey, nextBefore, ownedRoomId;
@@ -48,6 +67,8 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
   bool get microphoneOn => audio?.micEnabled == true;
   bool get canUseMic =>
       connected &&
+      foreground &&
+      !pickingMedia &&
       me?.seat != null &&
       me?.micAllowed == true &&
       audio?.canPublish == true;
@@ -85,6 +106,16 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
     syncing = false;
     loading = false;
     configured = false;
+    gifts.clear();
+    coins = 0;
+    nextClaim = null;
+    extrasLoading = false;
+    pendingGift = null;
+    pendingMessage = null;
+    pendingGiftRoom = null;
+    pendingMessageRoom = null;
+    pickingMedia = false;
+    pickerDeadline?.cancel();
     error = null;
     notice = null;
     if (key != null && autoPoll)
@@ -99,9 +130,13 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.inactive) return;
     foreground = state == AppLifecycleState.resumed;
-    if (!foreground && inRoom)
-      unawaited(leave(message: 'غادرت الغرفة عند مغادرة التطبيق.'));
-    else if (foreground)
+    if (!foreground && inRoom) {
+      if (pickingMedia) {
+        unawaited(audio?.microphone(false));
+      } else {
+        unawaited(leave(message: 'غادرت الغرفة عند مغادرة التطبيق.'));
+      }
+    } else if (foreground)
       unawaited(tick());
   }
 
@@ -200,7 +235,7 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
     } catch (_) {}
   }
 
-  Future<bool> join(String roomId) async {
+  Future<bool> join(String roomId, {String? password}) async {
     if (disposed || busy || inRoom || sessionKey == null || !foreground)
       return false;
     if (accounts.calls.busy || accounts.calls.active?.ended == false) {
@@ -225,10 +260,14 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
       if (!valid(gen) || !foreground) return false;
       Map<String, dynamic> d;
       try {
-        d = await post('/v1/rooms/$roomId/join', {});
+        d = await post('/v1/rooms/$roomId/join', {
+          if (password != null) 'password': password,
+        });
       } on AccountFailure catch (e) {
         if (e.code != 'NETWORK') rethrow;
-        d = await post('/v1/rooms/$roomId/join', {});
+        d = await post('/v1/rooms/$roomId/join', {
+          if (password != null) 'password': password,
+        });
       }
       connection = d['connection'] as Map<String, dynamic>;
       if (!valid(gen) || !foreground) {
@@ -386,18 +425,20 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<void> action(
+  Future<bool> action(
     String action, {
     Map<String, dynamic> body = const {},
   }) async {
-    if (busy || active == null || disposed) return;
+    if (busy || active == null || disposed) return false;
     final gen = generation, r = active!;
     busy = true;
     error = null;
     notify();
     try {
       final d = await post('/v1/rooms/${r.id}/$action', body);
+      if (!valid(gen)) return false;
       await apply(VoiceRoom(d['room'] as Map<String, dynamic>), gen);
+      return valid(gen);
     } on AccountFailure catch (e) {
       if (valid(gen)) error = e.message;
     } catch (_) {
@@ -408,12 +449,229 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
         notify();
       }
     }
+    return false;
   }
 
-  Future<void> moderate(VoiceMember member, String operation) => action(
-    'moderate',
-    body: {'targetId': member.user.id, 'operation': operation},
-  );
+  Future<void> loadGifts() async {
+    if (extrasLoading || sessionKey == null || disposed) return;
+    final gen = generation;
+    extrasLoading = true;
+    error = null;
+    notify();
+    try {
+      final d = await Future.wait([
+        request('GET', '/v1/rooms/gifts'),
+        request('GET', '/v1/rooms/wallet'),
+      ]);
+      if (!valid(gen)) return;
+      gifts
+        ..clear()
+        ..addAll(
+          (d[0]['gifts'] as List).map(
+            (v) => RoomGift(v as Map<String, dynamic>),
+          ),
+        );
+      levelThresholds = (d[0]['thresholds'] as List)
+          .map((v) => (v as num).toInt())
+          .toList();
+      applyWallet(d[1]['wallet'] as Map<String, dynamic>);
+    } on AccountFailure catch (e) {
+      if (valid(gen)) error = e.message;
+    } catch (_) {
+      if (valid(gen)) error = 'تعذّر تحميل الهدايا والرصيد.';
+    } finally {
+      if (valid(gen)) {
+        extrasLoading = false;
+        notify();
+      }
+    }
+  }
+
+  void applyWallet(Map<String, dynamic> d) {
+    coins = (d['coins'] as num).toInt();
+    nextClaim = d['nextClaim'] as String?;
+  }
+
+  Future<void> claimCoins() async {
+    if (busy || sessionKey == null) return;
+    final gen = generation;
+    busy = true;
+    error = null;
+    notify();
+    try {
+      final d = await post('/v1/rooms/wallet/claim', {});
+      if (!valid(gen)) return;
+      applyWallet(d['wallet'] as Map<String, dynamic>);
+      notice = d['claimed'] == true
+          ? 'وصلتك 500 عملة تجريبية.'
+          : 'المكافأة تتجدد كل24 ساعة؛ موعدها ظاهر بالمحفظة.';
+    } on AccountFailure catch (e) {
+      if (valid(gen)) error = e.message;
+    } catch (_) {
+      if (valid(gen)) error = 'تعذّر تحديث المحفظة.';
+    } finally {
+      if (valid(gen)) {
+        busy = false;
+        notify();
+      }
+    }
+  }
+
+  Future<bool> sendGift(String recipient, String gift, int quantity) {
+    if (busy || active == null || sessionKey == null)
+      return Future.value(false);
+    if (pendingGift != null) return retrySend('gift');
+    pendingGift = {
+      'requestId': newRequestId(),
+      'recipientId': recipient,
+      'giftId': gift,
+      'quantity': quantity,
+    };
+    pendingGiftRoom = active?.id;
+    return retrySend('gift');
+  }
+
+  Future<bool> sendMessage(String text, {String? imageUploadId}) {
+    if (busy || active == null || sessionKey == null)
+      return Future.value(false);
+    if (pendingMessage != null) return retrySend('message');
+    pendingMessage = {
+      'requestId': newRequestId(),
+      'text': text,
+      if (imageUploadId != null) 'imageUploadId': imageUploadId,
+    };
+    pendingMessageRoom = active?.id;
+    return retrySend('message');
+  }
+
+  Future<bool> retrySend(String kind) async {
+    final body = kind == 'gift' ? pendingGift : pendingMessage,
+        roomId = kind == 'gift' ? pendingGiftRoom : pendingMessageRoom;
+    if (busy ||
+        disposed ||
+        active == null ||
+        body == null ||
+        active!.id != roomId)
+      return false;
+    final gen = generation;
+    busy = true;
+    error = null;
+    notify();
+    void clear() {
+      if (kind == 'gift') {
+        pendingGift = null;
+        pendingGiftRoom = null;
+      } else {
+        pendingMessage = null;
+        pendingMessageRoom = null;
+      }
+    }
+
+    try {
+      Map<String, dynamic> d;
+      try {
+        d = await post('/v1/rooms/$roomId/$kind', body);
+      } on AccountFailure catch (e) {
+        if (e.code != 'NETWORK') rethrow;
+        if (!valid(gen)) return false;
+        d = await post('/v1/rooms/$roomId/$kind', body);
+      }
+      if (!valid(gen)) return false;
+      if (d['wallet'] is Map<String, dynamic>)
+        applyWallet(d['wallet'] as Map<String, dynamic>);
+      clear();
+      await apply(VoiceRoom(d['room'] as Map<String, dynamic>), gen);
+      return true;
+    } on AccountFailure catch (e) {
+      if (valid(gen)) {
+        error = e.message;
+        if (e.code != 'NETWORK' && e.status >= 400 && e.status < 500) clear();
+      }
+    } catch (_) {
+      if (valid(gen))
+        error = 'نتيجة الإرسال بعد مو مؤكدة؛ اضغط إعادة المحاولة لنفس الطلب.';
+    } finally {
+      if (valid(gen)) {
+        busy = false;
+        notify();
+      }
+    }
+    return false;
+  }
+
+  Future<Map<String, dynamic>?> roomData(String action) async {
+    final r = active, gen = generation;
+    if (r == null) return null;
+    try {
+      final d = await request('GET', '/v1/rooms/${r.id}/$action');
+      return valid(gen) ? d : null;
+    } on AccountFailure catch (e) {
+      if (valid(gen)) error = e.message;
+    } catch (_) {
+      if (valid(gen)) error = 'تعذّر تحميل بيانات الغرفة.';
+    }
+    notify();
+    return null;
+  }
+
+  Future<String?> uploadRoomImage(ImageDraft image) async {
+    final gen = generation;
+    if (active == null) return null;
+    try {
+      final d = await post('/v1/media/images', {
+        'contentType': image.contentType,
+        'byteLength': image.bytes.length,
+        'contentMd5': image.contentMd5,
+      });
+      if (!valid(gen)) return null;
+      final upload = ImageUpload.fromJson(d);
+      await accounts.uploadImage(upload, image);
+      return valid(gen) ? upload.id : null;
+    } on AccountFailure catch (e) {
+      if (valid(gen)) error = e.message;
+    } catch (_) {
+      if (valid(gen)) error = 'تعذّر رفع الصورة.';
+    }
+    notify();
+    return null;
+  }
+
+  Future<T?> mediaPicker<T>(Future<T?> Function() pick) async {
+    if (pickingMedia || active == null) return null;
+    final gen = generation;
+    pickingMedia = true;
+    final deadline = Timer(const Duration(seconds: 40), () {
+      if (valid(gen) && !foreground)
+        unawaited(
+          leave(message: 'انتهت مهلة اختيار الصورة؛ ادخل للغرفة مرة ثانية.'),
+        );
+    });
+    pickerDeadline = deadline;
+    try {
+      await audio?.microphone(false);
+      if (!valid(gen)) return null;
+      return await pick();
+    } finally {
+      deadline.cancel();
+      if (valid(gen)) {
+        pickingMedia = false;
+        if (identical(pickerDeadline, deadline)) pickerDeadline = null;
+        if (!foreground)
+          await leave(message: 'غادرت الغرفة عند مغادرة التطبيق.');
+        if (valid(gen)) notify();
+      }
+    }
+  }
+
+  Future<bool> moderate(VoiceMember member, String operation, {int? seat}) =>
+      action(
+        'moderate',
+        body: {
+          'targetId': member.user.id,
+          'operation': operation,
+          if (seat != null) 'seat': seat,
+        },
+      );
   Future<void> toggleMicrophone() async {
     if (micBusy || audio == null || !connected) return;
     final engine = audio!, gen = generation, enable = !engine.micEnabled;
@@ -486,6 +744,10 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
     busy = false;
     syncing = false;
     loading = false;
+    extrasLoading = false;
+    pickingMedia = false;
+    pickerDeadline?.cancel();
+    pickerDeadline = null;
     notice = message;
     await release();
     notify();
@@ -509,6 +771,7 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
     disposed = true;
     generation++;
     poll?.cancel();
+    pickerDeadline?.cancel();
     accounts.removeListener(accountChanged);
     WidgetsBinding.instance.removeObserver(this);
     release();

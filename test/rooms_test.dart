@@ -86,7 +86,7 @@ class RoomFakeApi extends AccountApi {
         'user': accountJson(id: peerId, name: 'المالك'),
         'identity': 'peer-identity',
         'role': 'owner',
-        'seat': 0,
+        'seat': -1,
         'micAllowed': true,
       },
       if (present)
@@ -386,7 +386,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.requests, 1);
       expect(audio.enables, 0);
-      expect(find.text('إلغاء الطلب'), findsOneWidget);
+      expect(find.byTooltip('إلغاء طلب المايك'), findsOneWidget);
       expect(find.byKey(const Key('leave-voice-room')), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
     },

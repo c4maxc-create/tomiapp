@@ -232,3 +232,57 @@ CREATE TABLE IF NOT EXISTS tomi_voice_jobs (
  publish INTEGER NOT NULL,
  version INTEGER NOT NULL DEFAULT 1
 );
+
+
+-- Additive 0.8. Reserved owner seat is -1; companion is -2; regular seats 0..7.
+-- Keep the original room/seat-count CHECKs and all existing account data intact.
+CREATE TABLE IF NOT EXISTS tomi_room_options (
+ room_id TEXT PRIMARY KEY REFERENCES tomi_voice_rooms(id) ON DELETE CASCADE,
+ announcement TEXT NOT NULL DEFAULT '',category TEXT NOT NULL DEFAULT 'الأصدقاء',
+ mode TEXT NOT NULL DEFAULT 'عادي',background TEXT NOT NULL DEFAULT 'ocean',
+ theme TEXT NOT NULL DEFAULT 'gold',picture TEXT NOT NULL DEFAULT 'headphones',
+ image_upload_id TEXT UNIQUE REFERENCES tomi_image_uploads(id),
+ companion_enabled INTEGER NOT NULL DEFAULT 1,
+ chat_disabled INTEGER NOT NULL DEFAULT 0,images_disabled INTEGER NOT NULL DEFAULT 0,
+ high_quality INTEGER NOT NULL DEFAULT 1,password_hash TEXT,
+ xp BIGINT NOT NULL DEFAULT 0 CHECK(xp>=0),next_event BIGINT NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS tomi_room_seats (
+ room_id TEXT NOT NULL REFERENCES tomi_voice_rooms(id) ON DELETE CASCADE,
+ seat INTEGER NOT NULL CHECK(seat BETWEEN -2 AND 7 AND seat<>-1),
+ locked INTEGER NOT NULL DEFAULT 0,muted INTEGER NOT NULL DEFAULT 0,
+ PRIMARY KEY(room_id,seat)
+);
+CREATE TABLE IF NOT EXISTS tomi_room_invites (
+ room_id TEXT NOT NULL REFERENCES tomi_voice_rooms(id) ON DELETE CASCADE,
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ seat INTEGER NOT NULL,invited_by TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ expires_at TEXT NOT NULL,PRIMARY KEY(room_id,user_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_room_wallets (
+ user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,
+ coins BIGINT NOT NULL CHECK(coins>=0),next_claim TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tomi_room_gifts (
+ id TEXT PRIMARY KEY,room_id TEXT NOT NULL REFERENCES tomi_voice_rooms(id) ON DELETE CASCADE,
+ sender_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ recipient_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ request_id TEXT NOT NULL,gift_id TEXT NOT NULL,quantity INTEGER NOT NULL CHECK(quantity BETWEEN 1 AND 99),
+ unit_price INTEGER NOT NULL,total BIGINT NOT NULL CHECK(total>0),created_at TEXT NOT NULL,
+ UNIQUE(sender_id,request_id),CHECK(sender_id<>recipient_id)
+);
+CREATE INDEX IF NOT EXISTS tomi_room_gifts_rank ON tomi_room_gifts(room_id,sender_id);
+CREATE TABLE IF NOT EXISTS tomi_room_events (
+ room_id TEXT NOT NULL REFERENCES tomi_voice_rooms(id) ON DELETE CASCADE,
+ sequence BIGINT NOT NULL,actor_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ request_id TEXT,kind TEXT NOT NULL CHECK(kind IN ('message','gift','system')),
+ body TEXT NOT NULL,image_upload_id TEXT UNIQUE REFERENCES tomi_image_uploads(id),
+ gift_id TEXT REFERENCES tomi_room_gifts(id),created_at TEXT NOT NULL,
+ PRIMARY KEY(room_id,sequence),UNIQUE(room_id,actor_id,request_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_room_audit (
+ room_id TEXT NOT NULL REFERENCES tomi_voice_rooms(id) ON DELETE CASCADE,
+ id TEXT PRIMARY KEY,actor_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ action TEXT NOT NULL,detail TEXT NOT NULL,created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tomi_room_audit_recent ON tomi_room_audit(room_id,created_at,id);

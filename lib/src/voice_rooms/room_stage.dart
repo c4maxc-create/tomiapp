@@ -1,0 +1,1260 @@
+part of 'room_screens.dart';
+
+const _roomGold = Color(0xfff6d37c),
+    _roomPink = Color(0xffff72ad),
+    _roomCyan = Color(0xff6fe1eb);
+Color _roomAccent(VoiceRoom r) => switch (r.theme) {
+  'rose' => _roomPink,
+  'ice' => _roomCyan,
+  _ => _roomGold,
+};
+List<Color> _roomSky(VoiceRoom r) => switch (r.background) {
+  'dusk' => const [Color(0xff301447), Color(0xff772f75), Color(0xff221033)],
+  'forest' => const [Color(0xff062c32), Color(0xff176b64), Color(0xff061c30)],
+  'midnight' => const [Color(0xff090f27), Color(0xff263259), Color(0xff080c20)],
+  _ => const [Color(0xff04234c), Color(0xff175bb0), Color(0xff06164e)],
+};
+
+class VoiceRoomPage extends StatefulWidget {
+  const VoiceRoomPage({super.key, required this.controller});
+  final VoiceRoomsController controller;
+  @override
+  State<VoiceRoomPage> createState() => _VoiceRoomPageState();
+}
+
+class _VoiceRoomPageState extends State<VoiceRoomPage> {
+  VoiceRoomsController get c => widget.controller;
+  final message = TextEditingController(), chat = ScrollController();
+  bool leaving = false, sendingImage = false;
+  int lastGift = 0;
+  RoomEvent? giftEffect;
+  Timer? effectTimer;
+  @override
+  void initState() {
+    super.initState();
+    lastGift =
+        c.active?.events.where((e) => e.kind == 'gift').lastOrNull?.sequence ??
+        0;
+    c.addListener(changed);
+  }
+
+  void changed() {
+    final gift = c.active?.events.where((e) => e.kind == 'gift').lastOrNull;
+    if (gift != null && gift.sequence > lastGift) {
+      lastGift = gift.sequence;
+      effectTimer?.cancel();
+      if (mounted) setState(() => giftEffect = gift);
+      effectTimer = Timer(const Duration(seconds: 5), () {
+        if (mounted) setState(() => giftEffect = null);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    c.removeListener(changed);
+    effectTimer?.cancel();
+    message.dispose();
+    chat.dispose();
+    super.dispose();
+  }
+
+  Future<void> leave() async {
+    if (leaving) return;
+    setState(() => leaving = true);
+    await c.leave();
+    if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> gifts([String? recipient]) =>
+      _showRoomGifts(context, c, recipient);
+  Future<void> info() => showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    showDragHandle: true,
+    builder: (_) => _RoomInfo(c: c),
+  );
+  Future<void> members({bool requests = false}) => showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (_) => _RoomMembers(c: c, requests: requests),
+  );
+  Future<void> settings() async {
+    if (c.me?.role != 'owner') return;
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (_) => RoomSettingsPage(controller: c)),
+    );
+  }
+
+  Future<void> tools() => showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    backgroundColor: const Color(0xff101629),
+    builder: (sheet) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'وظائف الغرفة',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 10,
+              runSpacing: 14,
+              children: [
+                for (final item in <(IconData, String, VoidCallback)>[
+                  (
+                    Icons.info_outline,
+                    'معلومات الغرفة',
+                    () {
+                      Navigator.pop(sheet);
+                      info();
+                    },
+                  ),
+                  (
+                    Icons.people_outline,
+                    'الأعضاء',
+                    () {
+                      Navigator.pop(sheet);
+                      members();
+                    },
+                  ),
+                  (
+                    Icons.leaderboard_outlined,
+                    'مستوى الغرفة',
+                    () {
+                      Navigator.pop(sheet);
+                      _showRoomLevels(context, c);
+                    },
+                  ),
+                  (
+                    Icons.redeem_rounded,
+                    'الهدايا',
+                    () {
+                      Navigator.pop(sheet);
+                      gifts();
+                    },
+                  ),
+                  if (c.manage)
+                    (
+                      Icons.pan_tool_outlined,
+                      'طلبات المايك',
+                      () {
+                        Navigator.pop(sheet);
+                        members(requests: true);
+                      },
+                    ),
+                  if (c.me?.role == 'owner')
+                    (
+                      Icons.settings_outlined,
+                      'إعدادات الغرفة',
+                      () {
+                        Navigator.pop(sheet);
+                        settings();
+                      },
+                    ),
+                  (
+                    Icons.logout_rounded,
+                    'خروج',
+                    () {
+                      Navigator.pop(sheet);
+                      leave();
+                    },
+                  ),
+                ])
+                  SizedBox(
+                    width: 95,
+                    child: InkWell(
+                      onTap: item.$3,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Column(
+                          children: [
+                            Icon(item.$1, size: 29, color: _roomCyan),
+                            const SizedBox(height: 8),
+                            Text(
+                              item.$2,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+  Future<void> seatAction(VoiceRoom r, int index) async {
+    final m = r.seated(index);
+    if (m != null) {
+      if (m.user.id == c.accounts.user?.id) {
+        final choice = await _roomChoice(context, 'مقعدك', [
+          c.microphoneOn ? 'كتم المايك' : 'فتح المايك',
+          if (c.manage && index != -1 && r.seatMuted(index)) 'إلغاء كتم المقعد',
+          if (index != -1) 'النزول من المقعد',
+        ]);
+        if (choice == null) return;
+        if (choice == 'إلغاء كتم المقعد') {
+          await c.action(
+            'seat-control',
+            body: {'seat': index, 'operation': 'allow'},
+          );
+        } else if (choice == 'النزول من المقعد') {
+          await c.action('leave-seat');
+        } else {
+          await microphone();
+        }
+        return;
+      }
+      await _memberActions(context, c, m, onGift: () => gifts(m.user.id));
+      return;
+    }
+    if (index == -1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('هذا مكان المالك؛ يبقى محجوزًا حتى وهو خارج الغرفة.'),
+        ),
+      );
+      return;
+    }
+    final actions = <String>[
+      if (c.manage) r.seatLocked(index) ? 'فتح المايك' : 'قفل المايك',
+      if (c.manage) r.seatMuted(index) ? 'إلغاء كتم المقعد' : 'كتم الصوت',
+      if (c.manage) 'الدعوة',
+      if (c.manage && c.me?.role != 'owner' && !r.seatLocked(index))
+        'الانتقال إلى مقعد المايك هذا',
+      if (!c.manage && !r.seatLocked(index) && c.me?.seat == null) 'طلب المايك',
+    ];
+    if (actions.isEmpty) return;
+    final choice = await _roomChoice(
+      context,
+      index == -2 ? 'المقعد المميز' : 'مقعد ${index + 1}',
+      actions,
+    );
+    if (choice == null || !mounted) return;
+    if (choice == 'طلب المايك') {
+      await c.action('request-mic');
+      return;
+    }
+    if (choice == 'الانتقال إلى مقعد المايك هذا') {
+      await c.action('take-seat', body: {'seat': index});
+      return;
+    }
+    if (choice == 'الدعوة') {
+      final listeners =
+          c.active?.members.where((m) => m.seat == null).toList() ?? [];
+      if (listeners.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ماكو مستمع متاح للدعوة.')),
+        );
+        return;
+      }
+      final target = await showModalBottomSheet<VoiceMember>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheet) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const ListTile(title: Text('دعوة إلى المايك — ينتظر قبول العضو')),
+              for (final member in listeners)
+                ListTile(
+                  leading: AccountAvatar(member.user, size: 38),
+                  title: Text(member.user.displayName),
+                  onTap: () => Navigator.pop(sheet, member),
+                ),
+            ],
+          ),
+        ),
+      );
+      if (target != null)
+        await c.action(
+          'invite',
+          body: {'seat': index, 'targetId': target.user.id},
+        );
+      return;
+    }
+    final op = switch (choice) {
+      'فتح المايك' => 'unlock',
+      'قفل المايك' => 'lock',
+      'كتم الصوت' => 'mute',
+      _ => 'allow',
+    };
+    await c.action('seat-control', body: {'seat': index, 'operation': op});
+  }
+
+  Future<void> microphone() async {
+    if (c.me?.seat == null) {
+      await c.action(
+        c.me?.requestedAt == null ? 'request-mic' : 'cancel-request',
+      );
+      return;
+    }
+    if (c.me?.role == 'owner' && c.me?.micAllowed != true)
+      await c.action('take-seat');
+    await c.toggleMicrophone();
+  }
+
+  Future<void> send() async {
+    if (c.busy) return;
+    final text = message.text.trim();
+    if (text.isEmpty && c.pendingMessage == null) return;
+    if (await c.sendMessage(text) && mounted) message.clear();
+  }
+
+  Future<void> picture() async {
+    if (sendingImage || c.busy) return;
+    setState(() => sendingImage = true);
+    try {
+      final f = await c.mediaPicker(
+        () => ImagePicker().pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1600,
+          maxHeight: 1600,
+          imageQuality: 88,
+        ),
+      );
+      if (f == null || c.active == null) return;
+      final image = await readPickedImage(f);
+      final id = await c.uploadRoomImage(image);
+      if (id != null)
+        await c.sendMessage(message.text.trim(), imageUploadId: id);
+      if (mounted && c.pendingMessage == null) message.clear();
+    } on AccountFailure catch (e) {
+      c.error = e.message;
+      c.notify();
+    } catch (_) {
+      c.error = 'تعذّر اختيار الصورة.';
+      c.notify();
+    } finally {
+      if (mounted) setState(() => sendingImage = false);
+    }
+  }
+
+  Widget seat(VoiceRoom r, int index, {bool special = false}) {
+    final m = r.seated(index),
+        owner = index == -1,
+        person = m?.user ?? (owner ? r.owner : null),
+        active = m != null && c.audio?.speakers.contains(m.identity) == true,
+        locked = owner && m == null || r.seatLocked(index),
+        accent = _roomAccent(r);
+    final size = special ? 76.0 : 52.0;
+    return Semantics(
+      label: owner
+          ? 'مقعد المالك المحجوز'
+          : 'مقعد ${index == -2 ? 'مميز' : index + 1}',
+      child: InkWell(
+        key: Key('room-seat-$index'),
+        onTap: c.busy ? null : () => seatAction(r, index),
+        borderRadius: BorderRadius.circular(40),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: size + 14,
+                height: size + 14,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      width: size + 10,
+                      height: size + 10,
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: active
+                            ? accent.withValues(alpha: .14)
+                            : Colors.transparent,
+                        border: Border.all(
+                          color: active
+                              ? _roomCyan
+                              : accent.withValues(
+                                  alpha: person == null ? 0.55 : 0.95,
+                                ),
+                          width: active ? 3 : 1.2,
+                        ),
+                        boxShadow: active
+                            ? [
+                                BoxShadow(
+                                  color: _roomCyan.withValues(alpha: .3),
+                                  blurRadius: 15,
+                                  spreadRadius: 4,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: person == null
+                          ? Icon(
+                              locked
+                                  ? Icons.lock_outline_rounded
+                                  : Icons.add_rounded,
+                              color: accent.withValues(alpha: .7),
+                              size: special ? 32 : 27,
+                            )
+                          : Opacity(
+                              opacity: m == null ? 0.48 : 1,
+                              child: MediaQuery.withNoTextScaling(
+                                child: AccountAvatar(person, size: size),
+                              ),
+                            ),
+                    ),
+                    if (owner)
+                      Positioned(
+                        top: 0,
+                        right: 1,
+                        child: Icon(
+                          Icons.workspace_premium_rounded,
+                          size: 22,
+                          color: accent,
+                        ),
+                      ),
+                    if (m != null)
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xff08244d),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            c.audio?.openMics.contains(m.identity) == true
+                                ? Icons.mic
+                                : Icons.mic_off,
+                            size: 13,
+                            color: m.micAllowed ? _roomCyan : _roomPink,
+                          ),
+                        ),
+                      ),
+                    if (owner && m == null)
+                      const Positioned(
+                        bottom: 0,
+                        left: 0,
+                        child: Icon(Icons.lock, size: 15, color: _roomGold),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                person?.displayName ??
+                    (index == -2 ? 'مقعد مميز' : '${index + 1}'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: special ? 13 : 10,
+                  color: Colors.white.withValues(
+                    alpha: person == null ? 0.65 : 1,
+                  ),
+                ),
+              ),
+              if (special)
+                Text(
+                  owner ? 'المالك • محجوز دائمًا' : 'بالدعوة والموافقة',
+                  style: TextStyle(fontSize: 10, color: accent),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget stage(VoiceRoom r) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(width: 132, child: seat(r, -1, special: true)),
+              if (r.companionEnabled) ...[
+                Icon(
+                  Icons.favorite_rounded,
+                  size: 21,
+                  color: _roomPink.withValues(alpha: .75),
+                ),
+                SizedBox(width: 132, child: seat(r, -2, special: true)),
+              ],
+            ],
+          ),
+        ),
+        LayoutBuilder(
+          builder: (context, box) {
+            final columns = MediaQuery.textScalerOf(context).scale(14) > 20
+                ? 2
+                : 4;
+            return Column(
+              children: [
+                for (var row = 0; row < (r.seatCount / columns).ceil(); row++)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        if (columns == 4)
+                          Positioned(
+                            top: 34,
+                            left: 0,
+                            right: 0,
+                            child: CustomPaint(
+                              size: Size(box.maxWidth, 12),
+                              painter: _SeatWaves(
+                                color: _roomAccent(r).withValues(alpha: .35),
+                                active: r.members.any(
+                                  (m) =>
+                                      m.seat != null &&
+                                      m.seat! >= 0 &&
+                                      c.audio?.speakers.contains(m.identity) ==
+                                          true,
+                                ),
+                              ),
+                            ),
+                          ),
+                        Row(
+                          children: [
+                            for (var col = 0; col < columns; col++)
+                              Expanded(
+                                child: row * columns + col < r.seatCount
+                                    ? seat(r, row * columns + col)
+                                    : const SizedBox(),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        if (r.announcement.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.campaign_outlined,
+                    size: 16,
+                    color: _roomGold,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      r.announcement,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xffe1ecff),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        const SizedBox(height: 8),
+      ],
+    ),
+  );
+  Widget header(VoiceRoom r) => Padding(
+    padding: const EdgeInsets.fromLTRB(8, 4, 12, 3),
+    child: Column(
+      children: [
+        Row(
+          children: [
+            IconButton(
+              key: const Key('leave-voice-room'),
+              tooltip: 'مغادرة الغرفة',
+              onPressed: leave,
+              icon: const Icon(
+                Icons.chevron_right_rounded,
+                textDirection: TextDirection.ltr,
+              ),
+            ),
+            Expanded(
+              child: InkWell(
+                onTap: info,
+                child: Row(
+                  children: [
+                    _RoomPicture(r: r, size: 35),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  r.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              _LevelBadge(r.level),
+                            ],
+                          ),
+                          Text(
+                            '${r.category}  •  ${r.memberCount} عضو${r.passwordRequired ? '  🔒' : ''}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Color(0xffadc7eb),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'الأعضاء',
+              onPressed: () => members(),
+              icon: const Icon(Icons.people_outline_rounded, size: 21),
+            ),
+            IconButton(
+              tooltip: 'وظائف الغرفة',
+              onPressed: tools,
+              icon: const Icon(Icons.more_horiz),
+            ),
+          ],
+        ),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            InkWell(
+              onTap: () => _showRoomLevels(context, c),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.bar_chart_rounded,
+                      size: 15,
+                      color: _roomAccent(r),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      'مستوى ${r.level}',
+                      style: const TextStyle(fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Text('  |  ', style: TextStyle(color: Colors.white24)),
+            Icon(
+              c.reconnecting ? Icons.sync : Icons.headphones_rounded,
+              size: 13,
+              color: _roomCyan,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              c.reconnecting
+                  ? 'جارٍ استعادة الاتصال…'
+                  : 'دردشة جماعية • ${r.mode}',
+              style: const TextStyle(fontSize: 10, color: Color(0xffbad1ef)),
+            ),
+            if (c.manage && r.members.any((m) => m.requestedAt != null))
+              TextButton(
+                onPressed: () => members(requests: true),
+                child: Text(
+                  'طلبات ${r.members.where((m) => m.requestedAt != null).length}',
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ),
+          ],
+        ),
+      ],
+    ),
+  );
+  Widget chatEvent(RoomEvent e) {
+    final gifted = e.kind == 'gift';
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: (gifted ? _roomPink : Colors.black).withValues(
+          alpha: gifted ? 0.10 : 0.12,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (e.kind != 'system')
+                MediaQuery.withNoTextScaling(
+                  child: AccountAvatar(e.actor, size: 23),
+                ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      if (e.kind != 'system')
+                        TextSpan(
+                          text: '${e.actor.displayName}  ',
+                          style: const TextStyle(
+                            color: _roomGold,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      TextSpan(
+                        text: gifted
+                            ? 'أرسل ${e.text} ×${e.gift!['quantity']} إلى ${e.recipient?.displayName ?? 'عضو'}'
+                            : e.text,
+                      ),
+                    ],
+                  ),
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.5,
+                    color: e.kind == 'system' ? _roomGold : Colors.white,
+                  ),
+                ),
+              ),
+              if (gifted)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _GiftArt(icon: e.gift!['giftId'] as String, size: 35),
+                ),
+            ],
+          ),
+          if (e.image?['url'] != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: InkWell(
+                onTap: () => showDialog<void>(
+                  context: context,
+                  builder: (context) => Dialog(
+                    child: InteractiveViewer(
+                      child: Image.network(
+                        e.image!['url'] as String,
+                        errorBuilder: (_, _, _) => const Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Text('تعذّر عرض الصورة.'),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    e.image!['url'] as String,
+                    width: 160,
+                    height: 120,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const Text('تعذّر عرض الصورة.'),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget events(VoiceRoom r, {bool expanded = true}) {
+    final all = r.events;
+    if (all.isEmpty)
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Text(
+            'هلا بيكم! ابدأوا السالفة أو أرسلوا أول هدية.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: Color(0xffb3cdec)),
+          ),
+        ),
+      );
+    if (!expanded) return Column(children: all.map(chatEvent).toList());
+    return ListView.builder(
+      controller: chat,
+      reverse: true,
+      padding: const EdgeInsets.only(bottom: 8),
+      itemCount: all.length,
+      itemBuilder: (_, i) => chatEvent(all[all.length - 1 - i]),
+    );
+  }
+
+  Widget composer(VoiceRoom r) {
+    final request = c.me?.seat == null, requested = c.me?.requestedAt != null;
+    return Container(
+      color: const Color(0xff071b48).withValues(alpha: .90),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(5, 6, 5, 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (r.pending)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    'جارٍ تطبيق صلاحيات الصوت…',
+                    style: TextStyle(fontSize: 11, color: _roomGold),
+                  ),
+                ),
+              if (c.error != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  child: Text(
+                    c.error!,
+                    style: const TextStyle(
+                      color: Color(0xffffa9c9),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              if (c.pendingGift != null)
+                TextButton(
+                  onPressed: c.busy ? null : () => c.retrySend('gift'),
+                  child: const Text(
+                    'نتيجة الهدية غير مؤكدة — إعادة المحاولة لنفس الإرسال',
+                  ),
+                ),
+              if (r.invitation != null)
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Text(
+                      'دعوة إلى المايك',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    TextButton(
+                      onPressed: c.busy
+                          ? null
+                          : () => c.action(
+                              'answer-invite',
+                              body: {'accept': true},
+                            ),
+                      child: const Text('قبول'),
+                    ),
+                    TextButton(
+                      onPressed: c.busy
+                          ? null
+                          : () => c.action(
+                              'answer-invite',
+                              body: {'accept': false},
+                            ),
+                      child: const Text('رفض'),
+                    ),
+                  ],
+                ),
+              Row(
+                children: [
+                  _roomTool(Icons.grid_view_rounded, 'وظائف الغرفة', tools),
+                  _roomTool(
+                    Icons.card_giftcard_rounded,
+                    'الهدايا',
+                    () => gifts(),
+                    color: _roomPink,
+                  ),
+                  if (!r.imagesDisabled)
+                    _roomTool(
+                      Icons.add_photo_alternate_outlined,
+                      'إرسال صورة',
+                      sendingImage || c.busy ? null : picture,
+                    ),
+                  Expanded(
+                    child: TextField(
+                      key: const Key('room-chat-input'),
+                      controller: message,
+                      enabled: !c.busy && (!r.chatDisabled || c.manage),
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => send(),
+                      style: const TextStyle(fontSize: 12),
+                      maxLength: 500,
+                      decoration: InputDecoration(
+                        counterText: '',
+                        hintText: r.chatDisabled && !c.manage
+                            ? 'الدردشة مقفلة'
+                            : 'أدخل نص هنا',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 11,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: .06),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(22),
+                          borderSide: BorderSide.none,
+                        ),
+                        suffixIcon: IconButton(
+                          tooltip: c.pendingMessage != null
+                              ? 'إعادة إرسال الرسالة'
+                              : 'إرسال',
+                          onPressed: c.busy ? null : send,
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(
+                            c.pendingMessage != null
+                                ? Icons.refresh_rounded
+                                : Icons.send_rounded,
+                            size: 17,
+                            color: _roomCyan,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  _roomTool(
+                    request
+                        ? (requested ? Icons.pan_tool : Icons.pan_tool_outlined)
+                        : (c.microphoneOn ? Icons.mic : Icons.mic_off),
+                    request
+                        ? (requested ? 'إلغاء طلب المايك' : 'طلب المايك')
+                        : (c.microphoneOn ? 'كتم المايك' : 'فتح المايك'),
+                    c.busy || c.micBusy ? null : microphone,
+                    color: c.microphoneOn ? _roomCyan : Colors.white,
+                    buttonKey: request
+                        ? const Key('room-request-mic')
+                        : const Key('room-microphone'),
+                  ),
+                  _roomTool(
+                    c.speakerOn
+                        ? Icons.volume_up_outlined
+                        : Icons.hearing_outlined,
+                    'مخرج الصوت',
+                    c.toggleSpeaker,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: c,
+    builder: (context, _) {
+      final r = c.active;
+      return PopScope(
+        canPop: r == null || leaving,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) unawaited(leave());
+        },
+        child: Scaffold(
+          resizeToAvoidBottomInset: true,
+          backgroundColor: const Color(0xff071b48),
+          body: r == null
+              ? SafeArea(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.headset_off_rounded, size: 52),
+                          const SizedBox(height: 16),
+                          Text(c.notice ?? 'غادرت الغرفة.'),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('الرجوع للغرف'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              : Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: _roomSky(r),
+                    ),
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: CustomPaint(painter: _RoomStars()),
+                        ),
+                      ),
+                      SafeArea(
+                        bottom: false,
+                        child: Column(
+                          children: [
+                            header(r),
+                            Expanded(
+                              child: LayoutBuilder(
+                                builder: (context, box) {
+                                  if (box.maxHeight < 460 ||
+                                      MediaQuery.textScalerOf(
+                                            context,
+                                          ).scale(14) >
+                                          20)
+                                    return SingleChildScrollView(
+                                      child: Column(
+                                        children: [
+                                          stage(r),
+                                          events(r, expanded: false),
+                                        ],
+                                      ),
+                                    );
+                                  return Column(
+                                    children: [
+                                      stage(r),
+                                      Expanded(child: events(r)),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                            composer(r),
+                          ],
+                        ),
+                      ),
+                      if (giftEffect != null)
+                        Positioned(
+                          left: 22,
+                          right: 22,
+                          top: 140,
+                          child: IgnorePointer(
+                            child: TweenAnimationBuilder<double>(
+                              key: ValueKey(giftEffect!.sequence),
+                              tween: Tween(begin: .75, end: 1),
+                              duration: const Duration(milliseconds: 400),
+                              builder: (_, scale, child) =>
+                                  Transform.scale(scale: scale, child: child),
+                              child: Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xffc14788),
+                                      Color(0xff6637a6),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(22),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 20,
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    _GiftArt(
+                                      icon:
+                                          giftEffect!.gift!['giftId'] as String,
+                                      size: 55,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        '${giftEffect!.actor.displayName}\n${giftEffect!.text} ×${giftEffect!.gift!['quantity']} إلى ${giftEffect!.recipient?.displayName ?? ''}',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+        ),
+      );
+    },
+  );
+}
+
+Widget _roomTool(
+  IconData icon,
+  String label,
+  VoidCallback? tap, {
+  Color color = Colors.white,
+  Key? buttonKey,
+}) => SizedBox(
+  width: 39,
+  child: IconButton(
+    key: buttonKey,
+    tooltip: label,
+    onPressed: tap,
+    padding: EdgeInsets.zero,
+    icon: Icon(icon, size: 22, color: tap == null ? Colors.white30 : color),
+  ),
+);
+
+class _LevelBadge extends StatelessWidget {
+  const _LevelBadge(this.level);
+  final int level;
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        colors: [Color(0xff8b4cdb), Color(0xffcf72ef)],
+      ),
+      border: Border.all(color: const Color(0xffefd3ff)),
+      borderRadius: BorderRadius.circular(7),
+    ),
+    child: Text(
+      'LV.$level',
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 10,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+  );
+}
+
+class _RoomPicture extends StatelessWidget {
+  const _RoomPicture({required this.r, this.size = 52});
+  final VoiceRoom r;
+  final double size;
+  @override
+  Widget build(BuildContext context) {
+    if (r.image?['url'] != null)
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(size * .28),
+        child: Image.network(
+          r.image!['url'] as String,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => fallback(),
+        ),
+      );
+    if (r.picture == 'owner' && r.owner != null)
+      return MediaQuery.withNoTextScaling(
+        child: AccountAvatar(r.owner!, size: size),
+      );
+    return fallback();
+  }
+
+  Widget fallback() => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(size * .28),
+      gradient: LinearGradient(
+        colors: [_roomAccent(r), const Color(0xff5772c6)],
+      ),
+    ),
+    child: Icon(
+      switch (r.picture) {
+        'moon' => Icons.nightlight_round,
+        'crown' => Icons.workspace_premium_rounded,
+        'game' => Icons.sports_esports_rounded,
+        'music' => Icons.music_note_rounded,
+        _ => Icons.headphones_rounded,
+      },
+      size: size * .55,
+      color: Colors.white,
+    ),
+  );
+}
+
+class _RoomStars extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rng = math.Random(84),
+        p = Paint()..color = Colors.white.withValues(alpha: .12);
+    for (var i = 0; i < 55; i++)
+      canvas.drawCircle(
+        Offset(rng.nextDouble() * size.width, rng.nextDouble() * size.height),
+        rng.nextDouble() * 1.6 + .4,
+        p,
+      );
+    final path = Path()
+      ..moveTo(0, size.height * .78)
+      ..quadraticBezierTo(
+        size.width * .4,
+        size.height * .71,
+        size.width,
+        size.height * .88,
+      )
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(
+      path,
+      Paint()..color = const Color(0xff07144a).withValues(alpha: .27),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _RoomStars oldDelegate) => false;
+}
+
+class _SeatWaves extends CustomPainter {
+  _SeatWaves({required this.color, required this.active});
+  final Color color;
+  final bool active;
+  @override
+  void paint(Canvas c, Size s) {
+    final p = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1;
+    for (final center in [s.width * .25, s.width * .75]) {
+      final path = Path()..moveTo(center - 13, 6);
+      for (var x = -13; x <= 13; x++)
+        path.lineTo(
+          center + x,
+          6 + (active ? math.sin(x * 1.1) * (13 - x.abs()) * .6 : 0),
+        );
+      c.drawPath(path, p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SeatWaves o) =>
+      o.active != active || o.color != color;
+}

@@ -112,7 +112,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   const avatarMedia=chatStorage===storage?null:createSocial({database,storage,readJson,respond:json,limit,userById,cleanupPrefix:'tomi/avatars/'});
   const push=createPush({database,sender:pushSender,autoFlush:pushAutoFlush,readJson,respond:json,limit});
   const chat=createChat({database,storage:chatStorage,avatarStorage:storage,readJson,respond:json,limit,userById,enqueuePush:push.enqueue});
-  const rooms=createVoiceRooms({database,provider:roomProvider,readJson,respond:json,limit,usersByIds,autoSweep:roomAutoSweep});
+  const rooms=createVoiceRooms({database,provider:roomProvider,storage,readJson,respond:json,limit,usersByIds,autoSweep:roomAutoSweep});
   const calls=createCalls({database,iceProvider,readJson,respond:json,limit,userById,emit:chat.emit,enqueuePush:push.enqueueCall,autoSweep:callAutoSweep});
   const server = createServer(async (request, response) => {
     try {
@@ -140,7 +140,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       }
       if (method === 'GET' && (path === '/health' || path === '/')) {
         await database.query('SELECT 1 AS ready');
-        json(response, 200, { status: 'ok', service: 'TOMI API', version: '0.7.0' });
+        json(response, 200, { status: 'ok', service: 'TOMI API', version: '0.8.0' });
         return;
       }
 

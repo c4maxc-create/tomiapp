@@ -82,6 +82,30 @@ void main() {
       await ca.moderate(guest, 'promote');
       await cb.tick();
       expect(cb.manage, true);
+      expect(ca.me!.seat, -1);
+      await ca.action(
+        'settings',
+        body: {'announcement': 'هلا بالأصدقاء', 'background': 'dusk'},
+      );
+      await cb.tick();
+      expect(cb.active!.announcement, 'هلا بالأصدقاء');
+      expect(cb.active!.background, 'dusk');
+      await cb.loadGifts();
+      expect(cb.coins, 1000);
+      expect(await cb.sendGift(a.user!.id, 'diamond', 3), true);
+      expect(cb.coins, 700);
+      await ca.tick();
+      expect(ca.active!.level, 3);
+      expect(ca.active!.xp, 300);
+      expect(
+        ca.active!.events.where((e) => e.kind == 'gift').single.recipient!.id,
+        a.user!.id,
+      );
+      expect(await cb.sendMessage('وصلت الهدية؟'), true);
+      await ca.tick();
+      expect(ca.active!.events.last.text, 'وصلت الهدية؟');
+      final rank = await ca.roomData('ranking');
+      expect((rank!['leaders'] as List).single['points'], 300);
       await ca.moderate(cb.me!, 'kick');
       await cb.tick();
       expect(cb.active, isNull);
