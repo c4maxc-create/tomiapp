@@ -1,12 +1,35 @@
-# TOMI 0.6 — private voice and video calls
+# TOMI 0.6.1 — audio calling fix and consented video upgrades
 
-Native Flutter Arabic RTL app and Node 24 API, upgraded from the final 0.5 source.
+Native Flutter Arabic RTL app and Node 24 API, updated from the final 0.6.0 source.
 Keep the existing PostgreSQL DATABASE_URL and hosting service. The schema adds
 tables while preserving accounts, recovery, follows, posts and private chats.
 This archive contains source, not an APK. Follow START_HERE_AR.md to update
-Northflank and build TOMI-0.6.0.apk in GitHub Actions.
+Northflank and build TOMI-0.6.1.apk in GitHub Actions.
 
-## New in 0.6
+## New in 0.6.1
+
+- Fix audio-only setup: explicitly override the plugin's default video receive
+  constraint on both offers and answers. Android uses the communication audio
+  configuration, with earpiece/speaker controls retained.
+- A full-screen video surface, rounded draggable self preview, call identity and
+  timer at the top, and circular controls at the bottom. Voice calls show the
+  peer avatar; both layouts follow the familiar WhatsApp call arrangement.
+- A voice-to-video request prompts the other party to accept or decline.
+  Neither camera is acquired merely by sending/receiving this request. After
+  acceptance, each device acquires its camera and confirms readiness; video
+  renegotiation starts only once both are ready. Either participant can request
+  video and becomes offerer for that round.
+- Declined, cancelled, timed-out or denied-camera requests keep the voice call.
+  Returning to audio stops both cameras without replacing the audio peer or
+  resetting the call duration. A later video upgrade requires consent again.
+- Pending approval expires after 30 seconds; camera setup has 60 seconds and
+  SDP negotiation 30 seconds. Mode changes are bounded at 30 per call. All
+  actions remain scoped to the two owning sessions and have stable request IDs.
+- Deploy this API and rebuild both APKs together. Existing TURN, Firebase,
+  database and R2 settings are reused; no new credentials are required.
+
+## Retained from 0.6
+
 
 - One-to-one WebRTC audio/video from private chats: incoming prompt, accept,
   decline, hangup, mute, speaker, video transmission toggle and camera switch.
@@ -15,7 +38,7 @@ Northflank and build TOMI-0.6.0.apk in GitHub Actions.
   Stable request IDs make start and signaling retries idempotent.
 - Authenticated HTTP signaling with WebSocket invalidation and polling fallback.
   Descriptions/candidates have bounded payloads and are removed at call end.
-  Caller offer, callee answer and candidate order are enforced. Voice-note media
+  Initial caller offer, callee answer and revision-scoped candidate order are enforced. Approved video rounds use the request sender as offerer. Voice-note media
   releases native audio before a call opens microphone/camera.
 - Ring timeout 35 seconds, connection timeout 45 seconds, stale-session timeout
   40 seconds, maximum connected duration two hours, history retention 90 days.
@@ -111,7 +134,7 @@ end-to-end encryption and release/store signing remain outside this update.
 | GET / PUT | /v1/push/settings | Account preference and server config status |
 | PUT / DELETE | /v1/push/device | Register/retire this session device |
 
-Health reports 0.6.0. Existing routes remain compatible. See VALIDATION.md.
+Health reports 0.6.1. Existing routes remain compatible. See VALIDATION.md.
 GitHub runs backend tests against SQLite/PostgreSQL 17, Flutter analysis/tests,
 configuration checks, and debug APK compilation.
 
@@ -156,3 +179,20 @@ TOMI_CALL_INTEGRATION=1 flutter test --no-pub --reporter expanded
 
 The optional contract test requires Node 24 and server dependencies. Without
 TOMI_CALL_INTEGRATION=1 it is skipped; GitHub Actions executes it explicitly.
+
+## Media-change API (0.6.1)
+
+Authenticated owning sessions use these POST routes under `/v1/calls/:id`:
+
+| Route | Body | Purpose |
+| --- | --- | --- |
+| `media-request` | `requestId`, `kind: audio/video` | Ask for video, or stop video and retain audio |
+| `media-response` | `requestId`, `accept: true/false` | Other participant approves or declines |
+| `media-ready` | `requestId`, `ready: true/false` | Camera acquisition outcome; failure keeps audio |
+| `media-applied` | `requestId` | Acknowledge completed offer and answer |
+| `media-cancel` | `requestId` | Cancel a pending request or an incomplete upgrade |
+
+Snapshots expose `mediaChange` with its request ID, kind, state, revision,
+`requestedByMe` and deadline. SDP/ICE payloads carry `revision` (0 for the initial
+call). Only approved, mutually ready video revisions can carry new video SDP.
+A separate additive table stores consent state; existing 0.6 tables are unchanged.

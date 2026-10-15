@@ -1,7 +1,7 @@
 name: tomi_app
 description: TOMI Arabic native app with private chats, voice and video calls, avatars and optional push.
 publish_to: none
-version: 0.6.0+6
+version: 0.6.1+7
 
 environment:
   sdk: '>=3.8.0 <4.0.0'

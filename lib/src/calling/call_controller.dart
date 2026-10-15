@@ -37,11 +37,16 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
       speakerOn = false,
       cameraOn = true,
       localConnected = false,
+      remoteVideoReady = false,
       reconnecting = false;
   bool mediaReady = false,
       localDescriptionSent = false,
       remoteDescriptionSet = false;
   int generation = 0, after = 0, idleTicks = 0;
+  int signalRevision = 0, stableRevision = 0, preparedRevision = 0;
+  int appliedRevision = -1, handledMediaRevision = 0, modeDriveToken = 0;
+  bool modeSyncing = false;
+  String? mediaNotice;
   final localCandidates = <Map<String, dynamic>>[],
       remoteCandidates = <Map<String, dynamic>>[];
   Future<void> signalTail = Future.value(), releaseTail = Future.value();
@@ -124,6 +129,35 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
 
   void apply(DirectCall call, {bool show = false}) {
     if (disposed) return;
+    final old = active;
+    if (old?.id == call.id) {
+      if (old!.ended && !call.ended) return;
+      final before = old.mediaChange, next = call.mediaChange;
+      // A polling response can arrive after a newer POST response. Do not
+      // undo consent or a completed mode switch with that stale snapshot.
+      if (!call.ended &&
+          call.canControl &&
+          before != null &&
+          (next == null ||
+              next.revision < before.revision ||
+              next.revision == before.revision && next.phase < before.phase)) {
+        call = DirectCall({
+          ...call.data,
+          'kind': old.data['kind'],
+          'mediaChange': old.data['mediaChange'],
+        });
+      }
+      if (old.state == 'connected' &&
+          !call.ended &&
+          call.canControl &&
+          call.state != 'connected') {
+        call = DirectCall({
+          ...call.data,
+          'state': old.state,
+          'connectedAt': old.data['connectedAt'],
+        });
+      }
+    }
     final previous = active?.id;
     active = call;
     if (call.ended) {
@@ -136,6 +170,9 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
     }
     notify();
     if (show || previous != call.id) onShow?.call(active!);
+    if (mediaReady && media != null && !active!.ended) {
+      unawaited(syncMediaChange(generation));
+    }
   }
 
   Future<void> open(String id) async {
@@ -271,8 +308,9 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
       }
     } catch (_) {
       if (valid(gen)) {
-        error =
-            'تعذّر بدء المكالمة؛ اسمح بالمايك والكاميرا من إعدادات الهاتف وجرّب مرة ثانية.';
+        error = video
+            ? 'تعذّر بدء المكالمة؛ اسمح بالمايك والكاميرا من إعدادات الهاتف وجرّب مرة ثانية.'
+            : 'تعذّر بدء المكالمة؛ اسمح بالمايك من إعدادات الهاتف وجرّب مرة ثانية.';
         await failed(gen);
       }
     } finally {
@@ -319,8 +357,9 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
       }
     } catch (_) {
       if (valid(gen)) {
-        error =
-            'تعذّر الرد؛ اسمح بالمايك والكاميرا من إعدادات الهاتف وجرّب مرة ثانية.';
+        error = call.video
+            ? 'تعذّر الرد؛ اسمح بالمايك والكاميرا من إعدادات الهاتف وجرّب مرة ثانية.'
+            : 'تعذّر الرد؛ اسمح بالمايك من إعدادات الهاتف وجرّب مرة ثانية.';
         await failed(gen);
       }
     } finally {
@@ -334,6 +373,10 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> beginMedia(int gen, {required bool caller}) async {
     final call = active!, engine = media!;
     after = 0;
+    signalRevision = stableRevision = preparedRevision = handledMediaRevision =
+        0;
+    appliedRevision = -1;
+    mediaNotice = null;
     mediaReady = false;
     localDescriptionSent = false;
     remoteDescriptionSet = false;
@@ -343,6 +386,7 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
     speakerOn = call.video;
     cameraOn = call.video;
     localConnected = false;
+    remoteVideoReady = false;
     reconnecting = false;
     signalTail = Future.value();
     final d = await post('/v1/calls/${call.id}/ice', {}, gen);
@@ -368,6 +412,10 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
 
   void mediaEvent(Map<String, dynamic> e, int gen) {
     switch (e['type']) {
+      case 'media':
+        if (e['remoteVideo'] is bool)
+          remoteVideoReady = e['remoteVideo'] == true;
+        notify();
       case 'candidate':
         final data = {...e}..remove('type');
         if (!localDescriptionSent) {
@@ -378,6 +426,10 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
         localConnected = true;
         reconnecting = false;
         disconnectDeadline?.cancel();
+        final engine = media;
+        if (engine != null) {
+          unawaited(engine.speaker(speakerOn).catchError((Object _) {}));
+        }
         notify();
         final call = active;
         if (call != null)
@@ -411,6 +463,7 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
       'type': type,
       'sdp': sdp,
       'requestId': newRequestId(),
+      'revision': signalRevision,
     }, gen);
     if (!valid(gen) || active?.ended != false) return;
     localDescriptionSent = true;
@@ -422,18 +475,25 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
     final call = active;
     if (call == null) return;
     final requestId = newRequestId();
+    final revision = signalRevision;
     signalTail = signalTail
         .then((_) async {
           if (!valid(gen) || active?.id != call.id || active!.ended) return;
           await post('/v1/calls/${call.id}/signals', {
             'type': 'candidate',
             'requestId': requestId,
+            'revision': revision,
             ...candidate,
           }, gen);
         })
         .catchError((Object _) {
-          if (valid(gen) && active?.id == call.id && active?.ended == false)
-            unawaited(failed(gen));
+          if (valid(gen) && active?.id == call.id && active?.ended == false) {
+            if (revision > 0) {
+              unawaited(abortVideoChange(gen));
+            } else {
+              unawaited(failed(gen));
+            }
+          }
         });
   }
 
@@ -448,32 +508,318 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
     if (!valid(gen) || media != engine || active?.id != call.id) return;
     apply(parse(d));
     if (active!.ended) return;
+    await syncMediaChange(gen);
+    if (!valid(gen) || media != engine || active?.ended != false) return;
     for (final v in d['signals'] as List) {
       final signal = v as Map<String, dynamic>, type = signal['type'];
-      if (type == 'offer' || type == 'answer') {
-        if (!remoteDescriptionSet) {
-          await engine.remoteDescription(
-            type as String,
-            signal['sdp'] as String,
-          );
-          if (!valid(gen) || media != engine) return;
-          remoteDescriptionSet = true;
-          for (final c in remoteCandidates) await engine.candidate(c);
-          remoteCandidates.clear();
-          if (type == 'offer' && !localDescriptionSent) {
-            final answer = await engine.answer();
-            if (!valid(gen)) return;
-            await sendDescription('answer', answer, gen);
-          }
+      final revision = (signal['revision'] as num?)?.toInt() ?? 0;
+      if (revision != signalRevision) {
+        final change = active!.mediaChange;
+        if (revision > signalRevision &&
+            change?.revision == revision &&
+            change!.preparing) {
+          // Permission acquisition can still be in flight. Fetch this round
+          // again after local video is ready instead of dropping its offer.
+          break;
         }
-      } else if (type == 'candidate') {
-        if (remoteDescriptionSet)
-          await engine.candidate(signal);
-        else if (remoteCandidates.length < 256)
-          remoteCandidates.add(signal);
+        after = (signal['sequence'] as num).toInt();
+        continue;
+      }
+      try {
+        if (type == 'offer' || type == 'answer') {
+          if (!remoteDescriptionSet) {
+            await engine.remoteDescription(
+              type as String,
+              signal['sdp'] as String,
+            );
+            if (!valid(gen) || media != engine) return;
+            remoteDescriptionSet = true;
+            for (final c in remoteCandidates) await engine.candidate(c);
+            remoteCandidates.clear();
+            if (type == 'offer' && !localDescriptionSent) {
+              final answer = await engine.answer();
+              if (!valid(gen)) return;
+              await sendDescription('answer', answer, gen);
+            }
+          }
+        } else if (type == 'candidate') {
+          if (remoteDescriptionSet)
+            await engine.candidate(signal);
+          else if (remoteCandidates.length < 256)
+            remoteCandidates.add(signal);
+        }
+      } catch (_) {
+        if (revision == 0) rethrow;
+        await abortVideoChange(gen);
+        return;
       }
       if (!valid(gen) || media != engine) return;
       after = (signal['sequence'] as num).toInt();
+    }
+    await acknowledgeMediaChange(gen);
+  }
+
+  Future<void> changeKind(bool video) async {
+    final c = active;
+    if (busy ||
+        modeSyncing ||
+        c == null ||
+        c.state != 'connected' ||
+        !c.canControl ||
+        c.video == video ||
+        c.mediaChange?.ongoing == true)
+      return;
+    final gen = generation;
+    busy = true;
+    mediaNotice = null;
+    error = null;
+    notify();
+    try {
+      final d = await post('/v1/calls/${c.id}/media-request', {
+        'requestId': newRequestId(),
+        'kind': video ? 'video' : 'audio',
+      }, gen);
+      if (valid(gen) && active?.id == c.id) apply(parse(d));
+    } on AccountFailure catch (e) {
+      if (valid(gen))
+        error = e.status == 404
+            ? 'تحويل المكالمات غير متاح بهذه النسخة بعد.'
+            : e.message;
+    } finally {
+      if (valid(gen)) {
+        busy = false;
+        notify();
+      }
+    }
+  }
+
+  Future<void> respondToVideo(bool accept) async {
+    final c = active, change = active?.mediaChange;
+    if (busy ||
+        c == null ||
+        change == null ||
+        !change.pending ||
+        change.requestedByMe ||
+        !c.canControl)
+      return;
+    await mediaAction('media-response', {
+      'requestId': change.requestId,
+      'accept': accept,
+    });
+  }
+
+  Future<void> cancelVideoRequest() async {
+    final change = active?.mediaChange;
+    if (change == null || !change.ongoing) return;
+    await mediaAction('media-cancel', {'requestId': change.requestId});
+  }
+
+  Future<void> mediaAction(String action, Map<String, dynamic> body) async {
+    final c = active, gen = generation;
+    if (busy || c == null || c.ended) return;
+    busy = true;
+    notify();
+    try {
+      final d = await post('/v1/calls/${c.id}/$action', body, gen);
+      if (valid(gen) && active?.id == c.id) apply(parse(d));
+    } on AccountFailure catch (e) {
+      if (valid(gen)) error = e.message;
+    } finally {
+      if (valid(gen)) {
+        busy = false;
+        notify();
+      }
+    }
+  }
+
+  bool sameChange(int gen, String callId, int revision) =>
+      valid(gen) &&
+      active?.id == callId &&
+      active?.ended == false &&
+      active?.mediaChange?.revision == revision;
+
+  Future<void> syncMediaChange(int gen) async {
+    final c = active, engine = media;
+    var change = c?.mediaChange;
+    if (!valid(gen) ||
+        c == null ||
+        c.ended ||
+        engine == null ||
+        !mediaReady ||
+        change == null ||
+        modeSyncing)
+      return;
+    modeSyncing = true;
+    final token = ++modeDriveToken, revision = change.revision;
+    try {
+      if (!change.video &&
+          change.state == 'applied' &&
+          handledMediaRevision < revision) {
+        await engine.setVideo(false);
+        if (!sameChange(gen, c.id, revision)) return;
+        cameraOn = false;
+        handledMediaRevision = revision;
+        mediaNotice = 'تم التحويل إلى مكالمة صوتية.';
+        notify();
+        return;
+      }
+      if (change.video &&
+          !change.ongoing &&
+          change.state != 'applied' &&
+          handledMediaRevision < revision) {
+        if (preparedRevision == revision) {
+          await engine.rollback();
+          await engine.setVideo(false);
+          if (!sameChange(gen, c.id, revision)) return;
+          cameraOn = false;
+          signalRevision = stableRevision;
+          localDescriptionSent = remoteDescriptionSet = true;
+          localCandidates.clear();
+          remoteCandidates.clear();
+          preparedRevision = 0;
+        }
+        handledMediaRevision = revision;
+        mediaNotice = switch (change.state) {
+          'declined' => 'رُفض طلب الفيديو؛ المكالمة مستمرة صوتيًا.',
+          'expired' => 'انتهت مهلة طلب الفيديو؛ المكالمة مستمرة صوتيًا.',
+          'failed' => 'تعذّر تشغيل الكاميرا؛ المكالمة مستمرة صوتيًا.',
+          _ => 'أُلغي طلب الفيديو؛ المكالمة مستمرة صوتيًا.',
+        };
+        notify();
+        return;
+      }
+      if (!change.video || !change.preparing) return;
+      if (preparedRevision != revision) {
+        await engine.setVideo(true);
+        if (!sameChange(gen, c.id, revision) || media != engine) {
+          if (valid(gen) && media == engine && active?.video != true) {
+            await engine.setVideo(false);
+          }
+          return;
+        }
+        if (active!.mediaChange?.preparing != true) {
+          await engine.setVideo(false);
+          cameraOn = false;
+          notify();
+          return;
+        }
+        preparedRevision = revision;
+        cameraOn = true;
+        final d = await post('/v1/calls/${c.id}/media-ready', {
+          'requestId': change.requestId,
+          'ready': true,
+        }, gen);
+        if (!sameChange(gen, c.id, revision)) return;
+        apply(parse(d));
+        change = active!.mediaChange!;
+      }
+      if (change.state != 'negotiating') return;
+      if (signalRevision != revision) {
+        signalRevision = revision;
+        localDescriptionSent = remoteDescriptionSet = false;
+        localCandidates.clear();
+        remoteCandidates.clear();
+        try {
+          await engine.speaker(true);
+          if (valid(gen) && media == engine) speakerOn = true;
+        } catch (_) {}
+      }
+      if (change.requestedByMe && !localDescriptionSent) {
+        final sdp = await engine.offer();
+        if (!sameChange(gen, c.id, revision)) return;
+        await sendDescription('offer', sdp, gen);
+      }
+    } catch (_) {
+      if (sameChange(gen, c.id, revision) && media == engine) {
+        mediaNotice = 'تعذّر التحويل إلى فيديو؛ المكالمة مستمرة صوتيًا.';
+        try {
+          final d = await post('/v1/calls/${c.id}/media-ready', {
+            'requestId': change!.requestId,
+            'ready': false,
+          }, gen);
+          if (sameChange(gen, c.id, revision)) apply(parse(d));
+        } catch (_) {}
+        try {
+          await engine.rollback();
+        } catch (_) {}
+        try {
+          await engine.setVideo(false);
+        } catch (_) {}
+        if (valid(gen) && media == engine) {
+          cameraOn = false;
+          signalRevision = stableRevision;
+          localDescriptionSent = remoteDescriptionSet = true;
+          localCandidates.clear();
+          remoteCandidates.clear();
+          preparedRevision = 0;
+        }
+        notify();
+      }
+    } finally {
+      if (modeDriveToken == token) modeSyncing = false;
+    }
+  }
+
+  Future<void> acknowledgeMediaChange(int gen) async {
+    final c = active, change = active?.mediaChange;
+    if (!valid(gen) ||
+        c == null ||
+        c.ended ||
+        change == null ||
+        change.state != 'negotiating' ||
+        signalRevision != change.revision ||
+        !localDescriptionSent ||
+        !remoteDescriptionSet ||
+        appliedRevision == signalRevision)
+      return;
+    final revision = signalRevision;
+    appliedRevision = revision;
+    try {
+      final d = await post('/v1/calls/${c.id}/media-applied', {
+        'requestId': change.requestId,
+      }, gen);
+      if (sameChange(gen, c.id, revision)) {
+        stableRevision = revision;
+        mediaNotice = 'تم التحويل إلى مكالمة فيديو.';
+        apply(parse(d));
+      }
+    } catch (_) {
+      if (valid(gen) && appliedRevision == revision) appliedRevision = -1;
+    }
+  }
+
+  Future<void> abortVideoChange(int gen) async {
+    final c = active, engine = media, change = active?.mediaChange;
+    if (!valid(gen) ||
+        c == null ||
+        c.ended ||
+        engine == null ||
+        change == null ||
+        !change.preparing)
+      return;
+    try {
+      final d = await post('/v1/calls/${c.id}/media-ready', {
+        'requestId': change.requestId,
+        'ready': false,
+      }, gen);
+      if (valid(gen) && active?.id == c.id) apply(parse(d));
+    } catch (_) {}
+    if (!valid(gen) || media != engine) return;
+    try {
+      await engine.rollback();
+    } catch (_) {}
+    try {
+      await engine.setVideo(false);
+    } catch (_) {}
+    if (valid(gen) && media == engine) {
+      cameraOn = false;
+      signalRevision = stableRevision;
+      localDescriptionSent = remoteDescriptionSet = true;
+      localCandidates.clear();
+      remoteCandidates.clear();
+      preparedRevision = 0;
+      mediaNotice = 'تعذّر التحويل إلى فيديو؛ المكالمة مستمرة صوتيًا.';
+      notify();
     }
   }
 
@@ -562,6 +908,8 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
   });
   Future<void> switchCamera() => control((m) => m.switchCamera());
   void release() {
+    modeDriveToken++;
+    modeSyncing = false;
     disconnectDeadline?.cancel();
     unawaited(mediaEvents?.cancel());
     mediaEvents = null;
@@ -569,6 +917,7 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
     media = null;
     mediaReady = false;
     localConnected = false;
+    remoteVideoReady = false;
     reconnecting = false;
     if (old != null)
       releaseTail = releaseTail

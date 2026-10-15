@@ -1,61 +1,75 @@
-# TOMI 0.6 validation
+# TOMI 0.6.1 validation
 
-Baseline: final TOMI 0.5 source. Date: 2026-10-14.
+Baseline: saved final TOMI 0.6.0 source. Date: 2026-10-15 (Baghdad).
 Node 24.19.0; Flutter 3.47.7; Dart 3.13.5.
 
 ## Verified locally
 
-- 42 backend tests passed on real local SQLite: the 33 existing tests and nine
-  call cases for isolation, concurrent start replay, busy slots, first-device
-  accept, session-bound ICE/signaling, ordered offer/answer/candidates, retry
-  hashes, cleanup, history, restart, timeouts, blocking, logout, media/payload
-  bounds, disabled config, coturn HMAC, Cloudflare response validation and
-  durable/suppressed incoming-call outbox dispatch with a fake sender.
-- All 62 Flutter tests passed with TOMI_CALL_INTEGRATION=1: 50 existing tests,
-  11 call controller/UI tests and one local Node HTTP contract test. Coverage
-  includes late offers, buffered ICE, stable retries, permission denial, late
-  responses after background, other-device accept, logout, controls, enlarged
-  Arabic video UI at 320px and waiting for voice-note audio release.
-- The contract test runs a real Node API and two actual CallControllers through
-  offer/answer/ICE, connection status, hangup and history. Its media engine is
-  fake; this is not a native RTP/microphone/camera test.
-- The 0.6 schema preserves the exact 0.5 schema prefix. Existing migration,
-  accounts, social, chat and media regression tests pass.
+- All 47 backend tests passed on real local SQLite: the 42 existing tests and
+  five new media-change cases. They cover participant and session isolation,
+  consent, both-camera readiness, requester-owned SDP rounds, restarts,
+  duplicate requests, rejection/cancellation/expiry, denied cameras, returning
+  to audio, requiring consent again, payload/revision bounds and end cleanup.
+- All 70 Flutter tests passed with TOMI_CALL_INTEGRATION=1: 50 non-call tests,
+  17 call controller/UI cases, two plugin-channel regression cases and one
+  expanded real Node HTTP contract test. Coverage includes initial calling,
+  buffered ICE, permissions, logout/background, stale responses, voice-note
+  audio release, consent and refusal, camera denial, return to audio, and
+  cancelled/superseded camera-permission results.
+- The plugin regression uses the real flutter_webrtc Dart offer/answer path
+  with a mocked platform channel. It proves that audio requests explicitly
+  suppress the plugin's default video receive option and video requests retain
+  it. It does not run a native WebRTC media engine.
+- The HTTP contract uses two actual CallControllers and a real local Node API.
+  It covers initial audio, callee-initiated video upgrade, consent, readiness,
+  SDP role reversal, successful application, unchanged call duration, return to
+  audio, a fresh upgrade prompt, refusal, hangup and history. Its media engines
+  are fake; no microphone/camera packets are exchanged by this test.
+- Flutter analyze completed with no issues. Android/bootstrap, optional Firebase
+  client configuration and server-key rejection, HTTPS build configuration,
+  workflow YAML, artifact names and version agreement checks passed.
+- The database schema preserves the exact 0.6.0 prefix and appends only the
+  media-change table. Existing accounts, chats, media and recovery checks pass.
+- Inspected real Flutter-rendered voice, video, approval and landscape screens,
+  including Arabic shaping and Material icons. Video fills the surface; the
+  draggable preview remains above controls in portrait and landscape. The
+  enlarged-text 320px widget check also verifies the preview's drag bounds.
 
-Flutter analysis completed with no issues. Android/bootstrap, optional Firebase,
-HTTPS build configuration, workflow YAML and 0.6 artifact/version checks passed.
-Final status is also recorded in TOMI-PROGRESS.md. GitHub Actions runs both database modes, Flutter analysis/tests,
-the HTTP call contract and the Android APK build.
+## Device acceptance still required
 
-## Not exercised here
+The user reported working video and failing audio on 0.6.0. The verified code
+cause was createOffer/createAnswer using the plugin default video receive
+constraint during audio-only calls, conflicting with the API's audio-only SDP
+validation. This release overrides those constraints explicitly and selects
+Android's communication audio configuration.
 
-The hosted service, GitHub repository, PostgreSQL, R2, Firebase and Cloudflare
-accounts were not changed. PostgreSQL 17 integration is configured in GitHub
-Actions; local backend tests above used SQLite. A native PostgreSQL server was
-not available. No Android SDK/emulator or iOS signing environment was present;
-an APK or iOS binary was not compiled here.
+No Android SDK/emulator or iOS signing environment was available; no APK or iOS
+binary was compiled here. PostgreSQL 17 is configured in GitHub Actions, but
+local tests above used SQLite. The hosted API, GitHub, database, R2, Firebase and
+Cloudflare accounts were not modified by the assistant.
 
-Actual phones, microphones/cameras, speaker routing, permissions, TURN relay
-across Wi-Fi/mobile data, real FCM delivery/taps, background/force-stop and
-network changes need START_HERE_AR.md device checks. Fake transport tests do
-not prove these properties.
+Deploy this API and install newly built 0.6.1 APKs on BOTH phones before testing.
+Keep the existing database and TURN/FCM/R2 values. Follow START_HERE_AR.md for
+bidirectional voice, earpiece/speaker, mute, camera switching, both initiators,
+accept/refuse/cancel/no response, denied permission, repeat voice/video changes,
+Wi-Fi/mobile data and TURN/FCM checks. Automated transport tests do not prove
+native routing, RTP, permission dialogs, capture indicators or real TURN/FCM.
 
-## Scope
+## Scope and limits
 
-Foreground one-to-one calling. Leaving the foreground ends call media. Incoming
-FCM is a normal alert opening the app for explicit acceptance, not CallKit,
-ConnectionService or full-screen OS ringing. TURN setup enables calls; FCM is
-additionally needed for out-of-app alerts. HTTP signaling has WebSocket
-invalidation and polling fallback. Node stores state/history, not media.
+Foreground, one-to-one calls. Backgrounding ends media. Incoming FCM is a normal
+alert opening the app for explicit acceptance, not CallKit, ConnectionService
+or full-screen OS ringing. Permanent provider keys remain on the API; the Node
+API stores state/history and temporary signaling, not call recordings. SDP/ICE
+is bounded, not logged and deleted at call end.
 
-Descriptions/candidates are removed on end and not logged. Permanent TURN/FCM
-keys remain on the API. App-level verified E2EE identity, background calling,
-screen sharing, groups, SFU/voice rooms and release/store signing are outside
-this version. Limits: ringing 35 seconds, setup 45 seconds, stale heartbeat 40
-seconds, media-disconnect grace 12 seconds, connected duration two hours,
-history retention 90 days. An already queued OS alert cannot be recalled;
-opening it checks current account/state and never auto-accepts.
+Video upgrades require the other participant's approval and readiness from both
+sessions. Approval expires after 30 seconds, camera readiness after 60 seconds,
+and SDP negotiation after 30 seconds. A call allows at most 30 media changes.
+Either participant can stop video and retain the audio peer; a future upgrade
+requires approval again. Declines, cancellations and denied cameras retain audio.
 
-Deployment and device acceptance are the next step. The previous saved 0.5
-source remains a rollback point. The work checkpoint contains the current
-source and progress, with no SDK, dependency caches or private configuration.
+Initial ringing/setup, heartbeats and two-hour call bounds remain unchanged.
+Background calls, ICE restart after changing networks, voice rooms/SFU, groups,
+screen sharing, recording, verified E2EE identity and store signing remain out of
+scope. 0.7 voice rooms must wait for device acceptance of this fix.

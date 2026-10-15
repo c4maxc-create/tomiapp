@@ -176,3 +176,16 @@ CREATE TABLE IF NOT EXISTS tomi_call_push_receipts (
  call_id TEXT NOT NULL REFERENCES tomi_call_push_outbox(call_id) ON DELETE CASCADE,
  token_hash TEXT NOT NULL,PRIMARY KEY(call_id,token_hash)
 );
+
+-- Additive 0.6.1: consent and independent SDP rounds for media changes.
+CREATE TABLE IF NOT EXISTS tomi_call_media_changes (
+ call_id TEXT NOT NULL REFERENCES tomi_calls(id) ON DELETE CASCADE,
+ request_id TEXT NOT NULL,requester_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ previous_kind TEXT NOT NULL CHECK(previous_kind IN ('audio','video')),
+ target_kind TEXT NOT NULL CHECK(target_kind IN ('audio','video')),
+ revision INTEGER NOT NULL,state TEXT NOT NULL,
+ caller_ready INTEGER NOT NULL DEFAULT 0,callee_ready INTEGER NOT NULL DEFAULT 0,
+ caller_applied INTEGER NOT NULL DEFAULT 0,callee_applied INTEGER NOT NULL DEFAULT 0,
+ created_at TEXT NOT NULL,updated_at TEXT NOT NULL,deadline TEXT NOT NULL,
+ PRIMARY KEY(call_id,request_id),UNIQUE(call_id,revision)
+);

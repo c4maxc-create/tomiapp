@@ -12,6 +12,9 @@ class DirectCall {
   bool get canControl => data['canControl'] == true;
   bool get incoming => !isCaller && state == 'ringing';
   bool get ended => state == 'ended';
+  CallMediaChange? get mediaChange => data['mediaChange'] is Map
+      ? CallMediaChange(Map<String, dynamic>.from(data['mediaChange'] as Map))
+      : null;
   PostAuthor get peer =>
       PostAuthor.fromJson(data['peer'] as Map<String, dynamic>);
   DateTime get createdAt => DateTime.parse(data['createdAt'] as String);
@@ -54,4 +57,23 @@ class DirectCall {
         .clamp(0, 7200);
     return '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
   }
+}
+
+class CallMediaChange {
+  const CallMediaChange(this.data);
+  final Map<String, dynamic> data;
+  String get requestId => data['requestId'] as String;
+  String get state => data['state'] as String;
+  bool get video => data['kind'] == 'video';
+  bool get requestedByMe => data['requestedByMe'] == true;
+  int get revision => (data['revision'] as num).toInt();
+  bool get pending => state == 'pending';
+  bool get preparing => state == 'accepted' || state == 'negotiating';
+  bool get ongoing => pending || preparing;
+  int get phase => switch (state) {
+    'pending' => 0,
+    'accepted' => 1,
+    'negotiating' => 2,
+    _ => 3,
+  };
 }

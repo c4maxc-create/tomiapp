@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {ApiError,digest} from './security.mjs';
+import {mediaChangeSnapshot,expireMediaChange,endMediaChanges,changeCallMedia,signalMediaPolicy} from './call_media.mjs';
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const stamp=(offset=0)=>new Date(Date.now()+offset).toISOString();
 const fail=(status,code,message)=>{throw new ApiError(status,code,message);};
@@ -19,6 +20,7 @@ export function createCalls({database,iceProvider,readJson,respond,limit,userByI
     return {id:r.id,conversationId:r.thread_id,kind:r.kind,state:r.state,reason:r.reason,isCaller:r.caller_id===current.id,
       canControl:r.state!=='ended'&&(owner(r,current)||r.callee_id===current.id&&r.state==='ringing'),
       createdAt:r.created_at,ringDeadline:r.ring_deadline,acceptedAt:r.accepted_at,connectedAt:r.connected_at,endedAt:r.ended_at,
+      mediaChange:await mediaChangeSnapshot(database,r,current),
       peer:await userById(r.caller_id===current.id?r.callee_id:r.caller_id,current.id)};
   }
   async function end(db,r,reason) {
@@ -26,11 +28,13 @@ export function createCalls({database,iceProvider,readJson,respond,limit,userByI
     await db.query("UPDATE tomi_calls SET state='ended',reason=?,ended_at=?,updated_at=? WHERE id=?",[reason,stamp(),stamp(),r.id]);
     await db.query('DELETE FROM tomi_active_calls WHERE call_id=?',[r.id]);
     await db.query('DELETE FROM tomi_call_signals WHERE call_id=?',[r.id]);
+    await endMediaChanges(db,r);
     for(const key of iceCache.keys())if(key.startsWith(r.id+':'))iceCache.delete(key);
     return {...r,state:'ended',reason,ended_at:stamp()};
   }
   async function expire(db,r) {
     if(r.state==='ended')return r;
+    r=await expireMediaChange(db,r);
     let reason;
     if((await db.query('SELECT 1 FROM tomi_user_blocks WHERE (blocker_id=? AND blocked_id=?) OR (blocker_id=? AND blocked_id=?)',[r.caller_id,r.callee_id,r.callee_id,r.caller_id])).rows.length)reason='blocked';
     else {
@@ -58,7 +62,7 @@ export function createCalls({database,iceProvider,readJson,respond,limit,userByI
   async function handle(request,response,url,current) {
     const path=url.pathname,method=request.method;
     if(!path.startsWith('/v1/calls'))return false;
-    if(path==='/v1/calls/settings'&&method==='GET'){respond(response,200,{configured:!!iceProvider,ringTimeoutSeconds:35,maxDurationSeconds:7200});return true;}
+    if(path==='/v1/calls/settings'&&method==='GET'){respond(response,200,{configured:!!iceProvider,mediaSwitch:true,ringTimeoutSeconds:35,maxDurationSeconds:7200});return true;}
     if(path==='/v1/calls/active'&&method==='GET') {
       const active=(await database.query('SELECT call_id FROM tomi_active_calls WHERE user_id=?',[current.id])).rows[0];
       let r=null;if(active){r=await database.transaction(async db=>expire(db,await row(db,current.id,active.call_id,true)));if(r.state==='ended'){notify(r);r=null;}}
@@ -100,7 +104,7 @@ export function createCalls({database,iceProvider,readJson,respond,limit,userByI
       if(!result.replay)notify(result.r);
       respond(response,result.replay?200:201,{call:await snapshot(result.r,current)});return true;
     }
-    const match=/^\/v1\/calls\/([a-f0-9-]{36})(?:\/(accept|decline|end|heartbeat|connected|signals|ice))?$/.exec(path);
+    const match=/^\/v1\/calls\/([a-f0-9-]{36})(?:\/(accept|decline|end|heartbeat|connected|signals|ice|media-request|media-response|media-ready|media-applied|media-cancel))?$/.exec(path);
     if(!match)return false;const callId=id(match[1]),action=match[2];
     if(method==='GET'&&!action) {
       const r=await database.transaction(async db=>expire(db,await row(db,current.id,callId,true)));if(r.state==='ended')notify(r);
@@ -129,8 +133,19 @@ export function createCalls({database,iceProvider,readJson,respond,limit,userByI
     }
     if(method!=='POST')return false;
     const d=await readJson(request,131072);
+    if(action?.startsWith('media-')) {
+      await limit('call-media:'+current.id,30);
+      const r=await database.transaction(async db=>{
+        const live=await expire(db,await row(db,current.id,callId,true));
+        if(!owner(live,current))fail(409,'CALL_OTHER_DEVICE','المكالمة على جهاز آخر.');
+        return changeCallMedia(db,live,current,action,d);
+      });
+      notify(r);respond(response,200,{call:await snapshot(r,current)});return true;
+    }
     if(action==='signals') {
-      await limit('call-signal:'+current.id,150);fields(d,['type','requestId','sdp','candidate','sdpMid','sdpMLineIndex']);id(d.requestId);
+      await limit('call-signal:'+current.id,150);fields(d,['type','requestId','sdp','candidate','sdpMid','sdpMLineIndex','revision']);id(d.requestId);
+      const revision=d.revision??0;
+      if(!Number.isInteger(revision)||revision<0||revision>30)fail(400,'CALL_SIGNAL','جولة الاتصال غير صحيحة.');
       let payload;
       if(['offer','answer'].includes(d.type)) {
         if(typeof d.sdp!=='string'||Buffer.byteLength(d.sdp)>65536||!d.sdp.startsWith('v=0')||!d.sdp.includes('m=audio')||!d.sdp.includes('a=fingerprint:'))fail(400,'CALL_SIGNAL','وصف الاتصال غير صحيح.');
@@ -139,6 +154,7 @@ export function createCalls({database,iceProvider,readJson,respond,limit,userByI
         if(typeof d.candidate!=='string'||d.candidate.length>4096||!d.candidate.startsWith('candidate:')||d.sdp!==undefined||!(d.sdpMid===null||typeof d.sdpMid==='string'&&d.sdpMid.length<=64)||!(d.sdpMLineIndex===null||Number.isInteger(d.sdpMLineIndex)&&d.sdpMLineIndex>=0&&d.sdpMLineIndex<10))fail(400,'CALL_SIGNAL','بيانات الاتصال غير صحيحة.');
         payload={candidate:d.candidate,sdpMid:d.sdpMid,sdpMLineIndex:d.sdpMLineIndex};
       } else fail(400,'CALL_SIGNAL','نوع إشارة الاتصال غير صحيح.');
+      payload.revision=revision;
       const raw=JSON.stringify(payload),hash=digest(d.type+raw);
       const result=await database.transaction(async db=>{
         const r=await expire(db,await row(db,current.id,callId,true));
@@ -146,11 +162,13 @@ export function createCalls({database,iceProvider,readJson,respond,limit,userByI
         if(r.state==='ended')fail(409,'CALL_ENDED','انتهت المكالمة.');
         const old=(await db.query('SELECT sequence,payload_hash FROM tomi_call_signals WHERE call_id=? AND sender_id=? AND request_id=?',[callId,current.id,d.requestId])).rows[0];
         if(old){if(old.payload_hash!==hash)fail(409,'REQUEST_CHANGED','إشارة الاتصال تغيّرت.');return {r,sequence:Number(old.sequence)};}
-        if(d.type==='offer'&&r.caller_id!==current.id||d.type==='answer'&&(r.callee_id!==current.id||!['connecting','connected'].includes(r.state)))fail(403,'CALL_SIGNAL_ROLE','إشارة الاتصال غير مسموحة لهذا الطرف.');
-        if(d.type!=='candidate'&&(await db.query('SELECT 1 FROM tomi_call_signals WHERE call_id=? AND signal_type=?',[callId,d.type])).rows.length)fail(409,'CALL_SIGNAL_EXISTS','إشارة الاتصال موجودة بالفعل.');
-        if(d.type==='answer'&&!(await db.query("SELECT 1 FROM tomi_call_signals WHERE call_id=? AND signal_type='offer'",[callId])).rows.length)fail(409,'CALL_OFFER_MISSING','انتظر بدء الاتصال.');
-        if(d.type==='candidate'&&!(await db.query('SELECT 1 FROM tomi_call_signals WHERE call_id=? AND sender_id=? AND signal_type<>?',[callId,current.id,'candidate'])).rows.length)fail(409,'CALL_SDP_MISSING','انتظر وصف الاتصال.');
-        if(d.type!=='candidate'&&(r.kind==='audio'&&d.sdp.includes('m=video')||d.sdp.includes('m=application')))fail(400,'CALL_SIGNAL','وصف الاتصال لا يطابق نوع المكالمة.');
+        const policy=await signalMediaPolicy(db,r,revision,d.type,current);
+        if(d.type==='offer'&&policy.offerer!==current.id||d.type==='answer'&&(policy.offerer===current.id||!['connecting','connected'].includes(r.state)))fail(403,'CALL_SIGNAL_ROLE','إشارة الاتصال غير مسموحة لهذا الطرف.');
+        const descriptions=(await db.query("SELECT sender_id,signal_type,payload FROM tomi_call_signals WHERE call_id=? AND signal_type IN ('offer','answer')",[callId])).rows.filter(v=>Number(JSON.parse(v.payload).revision??0)===revision);
+        if(d.type!=='candidate'&&descriptions.some(v=>v.signal_type===d.type))fail(409,'CALL_SIGNAL_EXISTS','إشارة الاتصال موجودة بالفعل.');
+        if(d.type==='answer'&&!descriptions.some(v=>v.signal_type==='offer'))fail(409,'CALL_OFFER_MISSING','انتظر بدء الاتصال.');
+        if(d.type==='candidate'&&!descriptions.some(v=>v.sender_id===current.id))fail(409,'CALL_SDP_MISSING','انتظر وصف الاتصال.');
+        if(d.type!=='candidate'&&(policy.kind==='audio'&&d.sdp.includes('m=video')||d.sdp.includes('m=application')))fail(400,'CALL_SIGNAL','وصف الاتصال لا يطابق نوع المكالمة.');
         if(Number(r.next_seq)>=520)fail(429,'CALL_SIGNAL_LIMIT','وصل الاتصال إلى الحد المسموح.');
         const sequence=Number(r.next_seq)+1;
         await db.query('INSERT INTO tomi_call_signals(call_id,sequence,sender_id,request_id,signal_type,payload,payload_hash,created_at) VALUES(?,?,?,?,?,?,?,?)',[callId,sequence,current.id,d.requestId,d.type,raw,hash,stamp()]);

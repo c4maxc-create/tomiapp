@@ -89,6 +89,88 @@ test('incoming call push is durable, deduplicated and suppressed after acceptanc
  const requestId=randomUUID(),call=(await start(api,a,c,{requestId})).data.call;await start(api,a,c,{requestId});await api.restart();await api.server.flushPush();await api.server.flushPush();assert.equal(api.sent.length,1);assert.equal(api.sent[0].callId,call.id);
  await action(api,b,call,'accept');await action(api,a,call,'end');const next=(await start(api,a,c)).data.call;await action(api,b,next,'accept');await api.server.flushPush();assert.equal(api.sent.length,1);
 });
+
+const videoSdp=sdp+'m=video 9 UDP/TLS/RTP/SAVPF 96\r\na=sendrecv\r\n';
+async function connectedFixture(t) {
+ const api=await fixture(t),a=await api.register('media_a'),b=await api.register('media_b'),z=await api.register('media_z');
+ const c=await thread(api,a,b),call=(await start(api,a,c)).data.call;
+ assert.equal((await signal(api,a,call,'offer',{sdp})).status,200);
+ await action(api,b,call,'accept');assert.equal((await signal(api,b,call,'answer',{sdp})).status,200);
+ await action(api,a,call,'connected');const live=(await action(api,b,call,'connected')).data.call;
+ return {api,a,b,z,call:live};
+}
+test('video changes require peer consent and both ready cameras before SDP',async t=>{
+ const {api,a,b,z,call}=await connectedFixture(t),requestId=randomUUID();
+ const ask=()=>action(api,a,call,'media-request',{kind:'video',requestId});
+ const first=await ask();assert.equal(first.data.call.kind,'audio');assert.equal(first.data.call.mediaChange.state,'pending');assert.equal((await ask()).data.call.mediaChange.revision,1);
+ const m=first.data.call.mediaChange;
+ assert.equal((await action(api,z,call,'media-response',{requestId,accept:true})).status,404);
+ assert.equal((await action(api,a,call,'media-response',{requestId,accept:true})).status,403);
+ assert.equal((await action(api,b,call,'media-ready',{requestId,ready:true})).status,409);
+ assert.equal((await signal(api,a,call,'offer',{sdp:videoSdp,revision:m.revision})).status,409);
+ const accepted=await action(api,b,call,'media-response',{requestId,accept:true});assert.equal(accepted.data.call.kind,'audio');assert.equal(accepted.data.call.mediaChange.state,'accepted');
+ const duplicate=await action(api,b,call,'media-request',{requestId:randomUUID(),kind:'video'});assert.equal(duplicate.status,409);
+ assert.equal((await action(api,a,call,'media-ready',{requestId,ready:true})).data.call.kind,'audio');
+ const both=await action(api,b,call,'media-ready',{requestId,ready:true});assert.equal(both.data.call.kind,'video');assert.equal(both.data.call.mediaChange.state,'negotiating');
+ assert.equal((await signal(api,b,call,'offer',{sdp:videoSdp,revision:m.revision})).status,403);
+ const offer=await signal(api,a,call,'offer',{sdp:videoSdp,revision:m.revision});assert.equal(offer.status,200);
+ assert.equal((await action(api,a,call,'media-applied',{requestId})).status,409);
+ assert.equal((await signal(api,b,call,'answer',{sdp:videoSdp,revision:m.revision})).status,200);
+ assert.equal((await action(api,a,call,'media-applied',{requestId})).status,200);
+ const applied=await action(api,b,call,'media-applied',{requestId});assert.equal(applied.data.call.mediaChange.state,'applied');assert.equal(applied.data.call.connectedAt,call.connectedAt);assert.equal(applied.data.call.id,call.id);
+ assert.equal((await action(api,b,call,'media-response',{requestId,accept:true})).status,200);
+ const signals=await api.request('GET',`/v1/calls/${call.id}/signals?after=0`,undefined,b.token);assert.deepEqual(signals.data.signals.map(s=>s.revision),[0,1]);
+});
+test('the callee can request video and owns that SDP offer round after a restart',async t=>{
+ const {api,a,b,call}=await connectedFixture(t),requestId=randomUUID();
+ const asked=await action(api,b,call,'media-request',{requestId,kind:'video'});const revision=asked.data.call.mediaChange.revision;
+ await api.restart();
+ const pending=await api.request('GET',`/v1/calls/${call.id}`,undefined,a.token);assert.equal(pending.data.call.mediaChange.requestedByMe,false);
+ await action(api,a,call,'media-response',{requestId,accept:true});await action(api,a,call,'media-ready',{requestId,ready:true});await action(api,b,call,'media-ready',{requestId,ready:true});
+ assert.equal((await signal(api,a,call,'offer',{sdp:videoSdp,revision})).status,403);
+ assert.equal((await signal(api,b,call,'offer',{sdp:videoSdp,revision})).status,200);
+ assert.equal((await signal(api,a,call,'answer',{sdp:videoSdp,revision})).status,200);
+ const secondDevice=await api.login(b);assert.equal((await action(api,secondDevice,call,'media-cancel',{requestId})).status,409);
+});
+test('refusal, cancellation, timeout and denied camera preserve the audio call',async t=>{
+ const {api,a,b,call}=await connectedFixture(t);
+ for(const outcome of ['declined','cancelled','expired','failed']) {
+  const requestId=randomUUID();await action(api,a,call,'media-request',{requestId,kind:'video'});
+  let result;
+  if(outcome==='declined')result=await action(api,b,call,'media-response',{requestId,accept:false});
+  if(outcome==='cancelled')result=await action(api,a,call,'media-cancel',{requestId});
+  if(outcome==='expired') {
+   await api.db.query('UPDATE tomi_call_media_changes SET deadline=? WHERE call_id=? AND request_id=?',['2000-01-01T00:00:00.000Z',call.id,requestId]);
+   result=await api.request('GET',`/v1/calls/${call.id}`,undefined,a.token);
+  }
+  if(outcome==='failed') {
+   await action(api,b,call,'media-response',{requestId,accept:true});await action(api,a,call,'media-ready',{requestId,ready:true});
+   result=await action(api,b,call,'media-ready',{requestId,ready:false});
+  }
+  assert.equal(result.data.call.state,'connected');assert.equal(result.data.call.kind,'audio');assert.equal(result.data.call.mediaChange.state,outcome);
+  const revision=result.data.call.mediaChange.revision;
+  assert.equal((await signal(api,a,call,'offer',{sdp:videoSdp,revision})).status,409);
+  assert.equal((await action(api,a,call,'heartbeat')).status,200);
+ }
+});
+test('returning to audio stops video and a fresh upgrade needs consent again',async t=>{
+ const {api,a,b,call}=await connectedFixture(t),requestId=randomUUID();
+ await action(api,a,call,'media-request',{requestId,kind:'video'});await action(api,b,call,'media-response',{requestId,accept:true});
+ await action(api,a,call,'media-ready',{requestId,ready:true});await action(api,b,call,'media-ready',{requestId,ready:true});
+ await signal(api,a,call,'offer',{sdp:videoSdp,revision:1});await signal(api,b,call,'answer',{sdp:videoSdp,revision:1});
+ await action(api,a,call,'media-applied',{requestId});await action(api,b,call,'media-applied',{requestId});
+ const audio=await action(api,b,call,'media-request',{requestId:randomUUID(),kind:'audio'});assert.equal(audio.data.call.kind,'audio');assert.equal(audio.data.call.state,'connected');
+ assert.equal((await signal(api,a,call,'offer',{sdp:videoSdp,revision:1})).status,409);
+ const next=await action(api,b,call,'media-request',{requestId:randomUUID(),kind:'video'});assert.equal(next.data.call.mediaChange.state,'pending');assert.equal(next.data.call.kind,'audio');
+ await action(api,a,call,'end');assert.equal(Number((await api.db.query('SELECT COUNT(*) n FROM tomi_call_signals WHERE call_id=?',[call.id])).rows[0].n),0);
+ assert.equal((await api.request('GET',`/v1/calls/${call.id}`,undefined,b.token)).data.call.mediaChange.state,'cancelled');
+});
+test('SDP rounds reject unbounded revisions and media commands reject unknown fields',async t=>{
+ const {api,a,call}=await connectedFixture(t);
+ for(const revision of [-1,31,1.2,'1'])assert.equal((await signal(api,a,call,'offer',{sdp:videoSdp,revision})).status,400);
+ assert.equal((await action(api,a,call,'media-request',{requestId:randomUUID(),kind:'video',camera:true})).status,400);
+ assert.equal((await action(api,a,call,'media-request',{requestId:randomUUID(),kind:'invalid'})).status,400);
+});
 test('0.6 is an additive migration of the verified 0.5 schema',async()=>{
  const old=await readFile(new URL('fixtures/schema-0.5.sql',import.meta.url),'utf8'),current=await readFile(new URL('../schema.sql',import.meta.url),'utf8');assert.ok(current.startsWith(old));
 });

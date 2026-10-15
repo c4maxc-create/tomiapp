@@ -133,209 +133,547 @@ class _CallPageState extends State<CallPage> {
     super.dispose();
   }
 
-  Widget control(
-    String label,
-    IconData icon,
-    VoidCallback action, {
-    bool enabled = true,
-  }) => FilledButton.tonalIcon(
-    onPressed: enabled ? action : null,
-    icon: Icon(icon),
-    label: Text(label),
+  Offset? previewPosition;
+  bool showLocalLarge = false;
+
+  Widget roundControl({
+    required String label,
+    required IconData icon,
+    required VoidCallback? action,
+    Key? key,
+    bool selected = false,
+    Color? color,
+    double size = 54,
+  }) => Expanded(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 3),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: size,
+            height: size,
+            child: IconButton.filled(
+              key: key,
+              tooltip: label,
+              onPressed: action,
+              style: IconButton.styleFrom(
+                backgroundColor:
+                    color ??
+                    (selected ? Colors.white : const Color(0xff34424a)),
+                foregroundColor: selected && color == null
+                    ? const Color(0xff0b141a)
+                    : Colors.white,
+                disabledBackgroundColor: const Color(0xff26343b),
+                disabledForegroundColor: Colors.white38,
+                padding: EdgeInsets.zero,
+              ),
+              icon: Icon(icon, size: 25),
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              height: 1.2,
+            ),
+          ),
+        ],
+      ),
+    ),
   );
+
+  Widget mediaChangeCard(CallController m, DirectCall c) {
+    final change = c.mediaChange;
+    if (change == null || !change.ongoing) return const SizedBox.shrink();
+    return Container(
+      key: const Key('call-media-request'),
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xff34424a),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            change.pending
+                ? change.requestedByMe
+                      ? 'ننتظر موافقة الطرف الثاني على الفيديو…'
+                      : '${c.peer.displayName} يريد تحويل المكالمة إلى فيديو'
+                : 'جاري التحويل إلى الفيديو…',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+          if (change.pending && !change.requestedByMe) ...[
+            const SizedBox(height: 6),
+            const Text(
+              'الكاميرا تشتغل بعد موافقتك.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    key: const Key('call-video-decline'),
+                    onPressed: m.busy
+                        ? null
+                        : () => unawaited(m.respondToVideo(false)),
+                    style: TextButton.styleFrom(foregroundColor: Colors.white),
+                    child: const Text('رفض'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    key: const Key('call-video-accept'),
+                    onPressed: m.busy
+                        ? null
+                        : () => unawaited(m.respondToVideo(true)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xff00a884),
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: const Icon(Icons.videocam),
+                    label: const Text('قبول الفيديو'),
+                  ),
+                ),
+              ],
+            ),
+          ] else
+            TextButton(
+              key: const Key('call-video-cancel'),
+              onPressed: m.busy
+                  ? null
+                  : () => unawaited(m.cancelVideoRequest()),
+              style: TextButton.styleFrom(foregroundColor: Colors.white70),
+              child: const Text('إلغاء الطلب'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget bottomPanel(CallController m, DirectCall c, double height) => Align(
+    alignment: Alignment.bottomCenter,
+    child: Container(
+      key: const Key('call-controls'),
+      width: double.infinity,
+      constraints: BoxConstraints(maxHeight: height * .64),
+      decoration: BoxDecoration(
+        color: const Color(0xff17242b).withValues(alpha: .96),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          14,
+          height < 450 ? 9 : 15,
+          14,
+          height < 450 ? 8 : 14,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (m.busy)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: LinearProgressIndicator(minHeight: 2),
+              ),
+            if (m.error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(
+                  m.error!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xffffb4ab),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            if (m.mediaNotice != null && !c.ended)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(
+                  m.mediaNotice!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ),
+            if (!c.ended) mediaChangeCard(m, c),
+            if (c.incoming && c.canControl) ...[
+              Text(
+                c.video ? 'مكالمة فيديو واردة' : 'مكالمة صوتية واردة',
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  roundControl(
+                    key: const Key('call-decline'),
+                    label: 'رفض',
+                    icon: Icons.call_end,
+                    color: const Color(0xffef4444),
+                    action: () => unawaited(m.decline()),
+                    size: 64,
+                  ),
+                  roundControl(
+                    key: const Key('call-accept'),
+                    label: 'قبول',
+                    icon: c.video ? Icons.videocam : Icons.call,
+                    color: const Color(0xff00a884),
+                    action: m.busy ? null : () => unawaited(m.accept()),
+                    size: 64,
+                  ),
+                ],
+              ),
+            ] else if (!c.ended)
+              LayoutBuilder(
+                builder: (context, box) {
+                  final ready = m.media != null && m.mediaReady && !m.busy;
+                  final changing =
+                      c.mediaChange?.ongoing == true || m.modeSyncing;
+                  final size = ((box.maxWidth - 36) / (c.video ? 5 : 4)).clamp(
+                    38.0,
+                    54.0,
+                  );
+                  return Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (c.video)
+                          roundControl(
+                            key: const Key('call-switch-camera'),
+                            label: 'تبديل الكاميرا',
+                            icon: Icons.cameraswitch_rounded,
+                            action: ready && m.cameraOn && !changing
+                                ? () => unawaited(m.switchCamera())
+                                : null,
+                            size: size,
+                          ),
+                        roundControl(
+                          key: const Key('call-speaker'),
+                          label: 'مكبر الصوت',
+                          icon: m.speakerOn
+                              ? Icons.volume_up_rounded
+                              : Icons.volume_down_rounded,
+                          selected: m.speakerOn,
+                          action: ready
+                              ? () => unawaited(m.toggleSpeaker())
+                              : null,
+                          size: size,
+                        ),
+                        roundControl(
+                          key: const Key('call-video-toggle'),
+                          label: c.video
+                              ? m.cameraOn
+                                    ? 'إيقاف الكاميرا'
+                                    : 'تشغيل الكاميرا'
+                              : 'تحويل لفيديو',
+                          icon: c.video && !m.cameraOn
+                              ? Icons.videocam_off_rounded
+                              : Icons.videocam_rounded,
+                          selected: c.video && !m.cameraOn,
+                          action:
+                              ready &&
+                                  !changing &&
+                                  (c.video || c.state == 'connected')
+                              ? () => unawaited(
+                                  c.video
+                                      ? m.toggleCamera()
+                                      : m.changeKind(true),
+                                )
+                              : null,
+                          size: size,
+                        ),
+                        roundControl(
+                          key: const Key('call-mute'),
+                          label: m.muted ? 'تشغيل المايك' : 'كتم المايك',
+                          icon: m.muted
+                              ? Icons.mic_off_rounded
+                              : Icons.mic_rounded,
+                          selected: m.muted,
+                          action: ready
+                              ? () => unawaited(m.toggleMute())
+                              : null,
+                          size: size,
+                        ),
+                        roundControl(
+                          key: const Key('call-end'),
+                          label: 'إنهاء',
+                          icon: Icons.call_end_rounded,
+                          color: const Color(0xffef4444),
+                          action: () => unawaited(m.hangup()),
+                          size: size,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const Key('call-close'),
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                  label: const Text('إغلاق'),
+                ),
+              ),
+            if (c.video &&
+                c.state == 'connected' &&
+                c.mediaChange?.ongoing != true)
+              TextButton(
+                key: const Key('call-to-audio'),
+                onPressed: m.busy ? null : () => unawaited(m.changeKind(false)),
+                style: TextButton.styleFrom(foregroundColor: Colors.white70),
+                child: const Text('التحويل إلى مكالمة صوتية'),
+              ),
+            if (!c.ended && height >= 450) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'خلي التطبيق مفتوح أثناء المكالمة.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white54, fontSize: 11),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.calls,
     builder: (context, _) {
       final c = call, m = widget.calls, engine = m.media;
+      final showVideo = c.video && engine != null && m.mediaReady && !c.ended;
+      final status = c.ended
+          ? c.statusText
+          : m.reconnecting
+          ? 'الاتصال ضعيف؛ نحاول استعادته…'
+          : m.localConnected
+          ? 'المكالمة جارية'
+          : c.statusText;
       return PopScope(
         canPop: c.ended,
         onPopInvokedWithResult: (didPop, result) {
           if (!didPop) unawaited(leave());
         },
         child: Scaffold(
-          appBar: AppBar(
-            title: Text(c.video ? 'مكالمة فيديو' : 'مكالمة صوتية'),
-            leading: IconButton(
-              onPressed: leave,
-              icon: const Icon(Icons.arrow_back),
-            ),
-          ),
-          body: SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                const SizedBox(height: 14),
-                Center(child: CallAvatar(c.peer, size: 76)),
-                const SizedBox(height: 14),
-                Text(
-                  c.peer.displayName,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  c.ended
-                      ? c.statusText
-                      : m.reconnecting
-                      ? 'الاتصال ضعيف؛ نحاول استعادته…'
-                      : m.localConnected
-                      ? 'المكالمة جارية'
-                      : c.statusText,
-                  key: const Key('call-status'),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: TomiColors.muted, fontSize: 17),
-                ),
-                if (c.connectedAt != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Text(
-                      c.durationText(),
-                      textDirection: TextDirection.ltr,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 25),
-                    ),
-                  ),
-                if (m.busy)
-                  const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: LinearProgressIndicator(),
-                  ),
-                if (m.error != null) AccountErrorMessage(m.error!),
-                const SizedBox(height: 22),
-                if (c.video && engine != null && !c.ended && m.mediaReady)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: AspectRatio(
-                      aspectRatio: 4 / 3,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          ColoredBox(
-                            color: Colors.black,
-                            child: engine.view(local: false),
-                          ),
-                          Positioned(
-                            right: 10,
-                            top: 10,
-                            width: 96,
-                            height: 128,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: ColoredBox(
-                                color: TomiColors.raised,
-                                child: m.cameraOn
-                                    ? engine.view(local: true)
-                                    : const Icon(Icons.videocam_off),
-                              ),
-                            ),
-                          ),
-                        ],
+          backgroundColor: const Color(0xff0b141a),
+          body: LayoutBuilder(
+            builder: (context, box) {
+              final width = box.maxWidth, height = box.maxHeight;
+              final safe = MediaQuery.paddingOf(context);
+              final landscape = width > height;
+              final pipWidth = (width * .28).clamp(82.0, 116.0);
+              final minTop = safe.top + (landscape ? 64 : 104);
+              final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+              final reserve = c.mediaChange?.ongoing == true
+                  ? height * .64
+                  : (landscape ? 145.0 : 200.0) +
+                        (textScale - 1).clamp(0, 2) * 70;
+              final maxPreviewHeight =
+                  (height - safe.bottom - reserve - minTop - 12).clamp(
+                    56.0,
+                    200.0,
+                  );
+              final pipHeight = (pipWidth * (landscape ? .75 : 1.5)).clamp(
+                56.0,
+                maxPreviewHeight,
+              );
+              final maxTop = (height - safe.bottom - reserve - pipHeight - 12)
+                  .clamp(minTop, height);
+              final offset =
+                  previewPosition ?? Offset(width - pipWidth - 16, minTop);
+              final pipX = offset.dx.clamp(10.0, width - pipWidth - 10);
+              final pipY = offset.dy.clamp(minTop, maxTop);
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (showVideo)
+                    KeyedSubtree(
+                      key: const Key('call-remote-video'),
+                      child: engine.view(local: showLocalLarge && m.cameraOn),
+                    )
+                  else
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0xff23343a), Color(0xff0b141a)],
+                        ),
                       ),
                     ),
-                  ),
-                if (c.incoming && c.canControl)
-                  Column(
-                    children: [
-                      Text(
-                        c.video
-                            ? 'الرد يشغّل المايك والكاميرا بعد موافقتك.'
-                            : 'الرد يشغّل المايك بعد موافقتك.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: TomiColors.muted),
+                  if (!showVideo || !m.remoteVideoReady && !showLocalLarge)
+                    Align(
+                      alignment: const Alignment(0, -.12),
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          bottom: height < 450 ? 40 : 100,
+                        ),
+                        child: CallAvatar(
+                          c.peer,
+                          size: (height * .20).clamp(72.0, 150.0),
+                        ),
                       ),
-                      const SizedBox(height: 20),
-                      Wrap(
-                        spacing: 16,
-                        runSpacing: 12,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          FilledButton.icon(
-                            key: const Key('call-accept'),
-                            onPressed: m.busy ? null : m.accept,
-                            icon: const Icon(Icons.call),
-                            label: const Text('قبول'),
+                    ),
+                  if (showVideo)
+                    const IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Color(0x99000000),
+                              Colors.transparent,
+                              Color(0x55000000),
+                            ],
+                            stops: [0, .42, 1],
                           ),
-                          FilledButton.icon(
-                            key: const Key('call-decline'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.red.shade700,
-                            ),
-                            onPressed: m.decline,
-                            icon: const Icon(Icons.call_end),
-                            label: const Text('رفض'),
-                          ),
-                        ],
+                        ),
                       ),
-                    ],
-                  ),
-                if (!c.incoming && !c.ended)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 24),
-                    child: Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      alignment: WrapAlignment.center,
+                    ),
+                  SafeArea(
+                    child: Column(
                       children: [
-                        control(
-                          m.muted ? 'تشغيل المايك' : 'كتم المايك',
-                          m.muted ? Icons.mic_off : Icons.mic,
-                          () => unawaited(m.toggleMute()),
-                          enabled: engine != null && !m.busy,
-                        ),
-                        control(
-                          m.speakerOn ? 'سماعة الهاتف' : 'مكبر الصوت',
-                          m.speakerOn ? Icons.volume_up : Icons.phone_in_talk,
-                          () => unawaited(m.toggleSpeaker()),
-                          enabled: engine != null && !m.busy,
-                        ),
-                        if (c.video)
-                          control(
-                            m.cameraOn ? 'إيقاف الفيديو' : 'تشغيل الفيديو',
-                            m.cameraOn ? Icons.videocam : Icons.videocam_off,
-                            () => unawaited(m.toggleCamera()),
-                            enabled: engine != null && !m.busy,
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 8, 12, 0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              IconButton(
+                                tooltip: 'رجوع',
+                                onPressed: leave,
+                                color: Colors.white,
+                                icon: const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 32,
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      c.peer.displayName,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontSize: 25,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      status,
+                                      key: const Key('call-status'),
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    if (c.connectedAt != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 5),
+                                        child: Text(
+                                          c.durationText(),
+                                          textDirection: TextDirection.ltr,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 17,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(
+                                width: 40,
+                                child: Padding(
+                                  padding: EdgeInsets.only(top: 13),
+                                  child: Text(
+                                    'TOMI',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Colors.white60,
+                                      fontSize: 10,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        if (c.video)
-                          control(
-                            'تبديل الكاميرا',
-                            Icons.cameraswitch,
-                            () => unawaited(m.switchCamera()),
-                            enabled: engine != null && !m.busy && m.cameraOn,
-                          ),
-                        FilledButton.icon(
-                          key: const Key('call-end'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.red.shade700,
-                          ),
-                          onPressed: () => unawaited(m.hangup()),
-                          icon: const Icon(Icons.call_end),
-                          label: const Text('إنهاء'),
                         ),
+                        const Spacer(),
                       ],
                     ),
                   ),
-                if (c.ended)
-                  FilledButton.icon(
-                    key: const Key('call-close'),
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                    label: const Text('إغلاق'),
-                  ),
-                const SizedBox(height: 24),
-                if (!c.ended)
-                  const Text(
-                    'خلي التطبيق مفتوح أثناء المكالمة. المغادرة تنهي الاتصال في هذه النسخة.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: TomiColors.muted, fontSize: 12),
-                  ),
-              ],
-            ),
+                  if (showVideo)
+                    Positioned(
+                      left: pipX,
+                      top: pipY,
+                      width: pipWidth,
+                      height: pipHeight,
+                      child: GestureDetector(
+                        key: const Key('call-local-preview'),
+                        onPanUpdate: (d) => setState(
+                          () => previewPosition = Offset(
+                            pipX + d.delta.dx,
+                            pipY + d.delta.dy,
+                          ),
+                        ),
+                        onTap: m.remoteVideoReady && m.cameraOn
+                            ? () => setState(
+                                () => showLocalLarge = !showLocalLarge,
+                              )
+                            : null,
+                        child: Semantics(
+                          label: 'معاينة الكاميرا، اسحب لتحريكها',
+                          child: Container(
+                            clipBehavior: Clip.antiAlias,
+                            decoration: BoxDecoration(
+                              color: const Color(0xff26343b),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Colors.white24),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Colors.black38,
+                                  blurRadius: 14,
+                                ),
+                              ],
+                            ),
+                            child: !m.cameraOn
+                                ? const Icon(
+                                    Icons.videocam_off_rounded,
+                                    color: Colors.white70,
+                                  )
+                                : engine.view(local: !showLocalLarge),
+                          ),
+                        ),
+                      ),
+                    ),
+                  SafeArea(child: bottomPanel(m, c, height)),
+                ],
+              );
+            },
           ),
         ),
       );

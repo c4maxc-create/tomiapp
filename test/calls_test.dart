@@ -5,6 +5,7 @@ import 'package:tomi_app/src/accounts/account_api.dart';
 import 'package:tomi_app/src/accounts/account_controller.dart';
 import 'package:tomi_app/src/calling/call_controller.dart';
 import 'package:tomi_app/src/calling/call_media.dart';
+import 'package:tomi_app/src/calling/call_models.dart';
 import 'package:tomi_app/src/calling/call_screens.dart';
 import 'account_fakes.dart';
 import 'package:tomi_app/src/messaging/audio_focus.dart';
@@ -25,6 +26,9 @@ class FakeCallMedia implements CallMedia {
       speaking = false,
       video = true;
   int switches = 0;
+  int videoStarts = 0, rollbacks = 0;
+  bool videoDenied = false;
+  Completer<void>? videoGate;
   @override
   Stream<Map<String, dynamic>> get events => bus.stream;
   @override
@@ -46,9 +50,10 @@ class FakeCallMedia implements CallMedia {
   }
 
   @override
-  Future<String> offer() async => fakeSdp;
+  Future<String> offer() async =>
+      video ? '${fakeSdp}m=video 9 UDP/TLS/RTP/SAVPF 96\r\n' : fakeSdp;
   @override
-  Future<String> answer() async => fakeSdp;
+  Future<String> answer() async => offer();
   @override
   Future<void> remoteDescription(String type, String sdp) async {
     received.add(type);
@@ -77,6 +82,22 @@ class FakeCallMedia implements CallMedia {
   @override
   Future<void> switchCamera() async {
     switches++;
+  }
+
+  @override
+  Future<void> setVideo(bool enabled) async {
+    if (enabled) {
+      if (videoDenied) throw StateError('camera permission denied');
+      await videoGate?.future;
+      if (disposed) return;
+      videoStarts++;
+    }
+    video = enabled;
+  }
+
+  @override
+  Future<void> rollback() async {
+    rollbacks++;
   }
 
   @override
@@ -117,10 +138,17 @@ class CallFakeApi extends ChatFakeApi {
       'acceptedAt': null,
       'connectedAt': null,
       'endedAt': null,
+      'mediaChange': null,
     };
   }
 
-  Map<String, dynamic> snapshot() => {'call': Map<String, dynamic>.from(call)};
+  Map<String, dynamic> snapshot() => {
+    'call': {
+      ...call,
+      if (call['mediaChange'] is Map)
+        'mediaChange': Map<String, dynamic>.from(call['mediaChange'] as Map),
+    },
+  };
   @override
   Future<Map<String, dynamic>> chatRequest(
     String token,
@@ -181,6 +209,40 @@ class CallFakeApi extends ChatFakeApi {
       return {
         'configuration': {'iceServers': []},
       };
+    if (path.endsWith('/media-request')) {
+      final revision = (call['mediaChange'] as Map?)?['revision'] as int? ?? 0;
+      call['mediaChange'] = {
+        'requestId': body!['requestId'],
+        'kind': body['kind'],
+        'state': body['kind'] == 'audio' ? 'applied' : 'pending',
+        'revision': revision + 1,
+        'requestedByMe': true,
+      };
+      if (body['kind'] == 'audio') call['kind'] = 'audio';
+      return snapshot();
+    }
+    if (path.endsWith('/media-response')) {
+      (call['mediaChange'] as Map)['state'] = body!['accept'] == true
+          ? 'accepted'
+          : 'declined';
+      return snapshot();
+    }
+    if (path.endsWith('/media-ready')) {
+      (call['mediaChange'] as Map)['state'] = body!['ready'] == true
+          ? 'negotiating'
+          : 'failed';
+      call['kind'] = body['ready'] == true ? 'video' : 'audio';
+      return snapshot();
+    }
+    if (path.endsWith('/media-applied')) {
+      (call['mediaChange'] as Map)['state'] = 'applied';
+      return snapshot();
+    }
+    if (path.endsWith('/media-cancel')) {
+      (call['mediaChange'] as Map)['state'] = 'cancelled';
+      call['kind'] = 'audio';
+      return snapshot();
+    }
     if (path.endsWith('/signals')) {
       if (method == 'POST') {
         signals.add(Map<String, dynamic>.from(body!));
@@ -439,12 +501,220 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.runAsync(() => c.accept());
       await tester.pump();
-      expect(find.byType(AspectRatio), findsOneWidget);
+      expect(find.byKey(const Key('call-remote-video')), findsOneWidget);
+      expect(find.byKey(const Key('call-local-preview')), findsOneWidget);
+      final full = tester.getRect(find.byKey(const Key('call-remote-video')));
+      expect(full.size, const Size(320, 640));
+      final preview = tester.getRect(
+        find.byKey(const Key('call-local-preview')),
+      );
+      expect(preview.width, lessThan(full.width * .4));
+      await tester.drag(
+        find.byKey(const Key('call-local-preview')),
+        const Offset(-500, 500),
+      );
+      await tester.pump();
+      final moved = tester.getRect(find.byKey(const Key('call-local-preview')));
+      expect(moved.left, greaterThanOrEqualTo(0));
+      expect(moved.bottom, lessThan(full.bottom));
+      expect(
+        moved.bottom,
+        lessThanOrEqualTo(
+          tester.getRect(find.byKey(const Key('call-controls'))).top,
+        ),
+      );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       cleanup(a, c);
       await tester.pump();
       expect(m.disposed, isTrue);
+    },
+  );
+
+  test(
+    'a video request keeps the microphone call and camera off until peer consent',
+    () async {
+      final api = CallFakeApi();
+      final (a, c, m) = await setup(api);
+      addTearDown(() => cleanup(a, c));
+      await c.start(threadId);
+      api.call['state'] = 'connected';
+      await c.tick();
+      final id = c.active!.id;
+      await c.changeKind(true);
+      await drain();
+      expect(m.videoStarts, 0);
+      expect(c.active!.video, isFalse);
+      expect(c.active!.mediaChange!.pending, isTrue);
+      (api.call['mediaChange'] as Map)['state'] = 'accepted';
+      await c.tick();
+      await drain();
+      expect(m.videoStarts, 1);
+      expect(c.active!.video, isTrue);
+      expect(
+        api.signals.where((s) => s['type'] == 'offer' && s['revision'] == 1),
+        hasLength(1),
+      );
+      api.signals.add({
+        'sequence': 10,
+        'type': 'answer',
+        'sdp': fakeSdp,
+        'revision': 1,
+      });
+      await c.tick();
+      await drain();
+      expect(c.active!.mediaChange!.state, 'applied');
+      expect(c.active!.id, id);
+      expect(m.disposed, isFalse);
+      await c.changeKind(false);
+      await drain();
+      expect(c.active!.video, isFalse);
+      expect(m.video, isFalse);
+      expect(c.active!.state, 'connected');
+    },
+  );
+
+  test(
+    'rejection and cancellation leave the existing audio engine running',
+    () async {
+      final api = CallFakeApi();
+      final (a, c, m) = await setup(api);
+      addTearDown(() => cleanup(a, c));
+      await c.start(threadId);
+      api.call['state'] = 'connected';
+      await c.tick();
+      await c.changeKind(true);
+      (api.call['mediaChange'] as Map)['state'] = 'declined';
+      await c.tick();
+      await drain();
+      expect(m.videoStarts, 0);
+      expect(c.mediaNotice, contains('رُفض'));
+      await c.changeKind(true);
+      await c.cancelVideoRequest();
+      await drain();
+      expect(c.active!.state, 'connected');
+      expect(m.videoStarts, 0);
+      expect(m.disposed, isFalse);
+    },
+  );
+
+  test(
+    'denied camera permission aborts the upgrade without ending audio',
+    () async {
+      final api = CallFakeApi();
+      final (a, c, m) = await setup(
+        api,
+        engine: FakeCallMedia()..videoDenied = true,
+      );
+      addTearDown(() => cleanup(a, c));
+      await c.start(threadId);
+      api.call['state'] = 'connected';
+      await c.tick();
+      await c.changeKind(true);
+      (api.call['mediaChange'] as Map)['state'] = 'accepted';
+      await c.tick();
+      await drain();
+      expect(c.active!.state, 'connected');
+      expect(c.active!.video, isFalse);
+      expect(m.disposed, isFalse);
+      expect(m.video, isFalse);
+      expect(
+        api.requests.where((r) => r['path'] == '/v1/calls/$callId/end'),
+        isEmpty,
+      );
+      expect(c.mediaNotice, contains('صوتيًا'));
+    },
+  );
+
+  test(
+    'leaving while camera permission is pending cannot revive the call',
+    () async {
+      final api = CallFakeApi(), gate = Completer<void>();
+      final (a, c, m) = await setup(
+        api,
+        engine: FakeCallMedia()..videoGate = gate,
+      );
+      addTearDown(() => cleanup(a, c));
+      await c.start(threadId);
+      api.call['state'] = 'connected';
+      await c.tick();
+      await c.changeKind(true);
+      (api.call['mediaChange'] as Map)['state'] = 'accepted';
+      await c.tick();
+      await drain();
+      c.didChangeAppLifecycleState(AppLifecycleState.paused);
+      await drain();
+      gate.complete();
+      await drain();
+      expect(c.active!.ended, isTrue);
+      expect(m.disposed, isTrue);
+      expect(m.videoStarts, 0);
+      expect(
+        api.requests.where((r) => r['path'] == '/v1/calls/$callId/media-ready'),
+        isEmpty,
+      );
+    },
+  );
+  test(
+    'stale polls cannot undo consent, downgrade video or revive an ended call',
+    () async {
+      final api = CallFakeApi();
+      final (a, c, m) = await setup(api);
+      addTearDown(() => cleanup(a, c));
+      await c.start(threadId);
+      api.call['state'] = 'connected';
+      await c.tick();
+      await c.changeKind(true);
+      final pending = c.active!;
+      (api.call['mediaChange'] as Map)['state'] = 'accepted';
+      await c.tick();
+      await drain();
+      expect(c.active!.video, isTrue);
+      expect(pending.mediaChange!.pending, isTrue);
+      c.apply(pending);
+      expect(c.active!.video, isTrue);
+      expect(c.active!.mediaChange!.state, 'negotiating');
+      final live = DirectCall({...c.active!.data});
+      c.apply(c.active!.locallyEnded('ended'));
+      c.apply(live);
+      await drain();
+      expect(c.active!.ended, isTrue);
+      expect(m.disposed, isTrue);
+    },
+  );
+  test(
+    'a superseded permission result cannot enable video for a new unapproved request',
+    () async {
+      final api = CallFakeApi(), gate = Completer<void>();
+      final (a, c, m) = await setup(
+        api,
+        engine: FakeCallMedia()..videoGate = gate,
+      );
+      addTearDown(() => cleanup(a, c));
+      await c.start(threadId);
+      api.call['state'] = 'connected';
+      await c.tick();
+      await c.changeKind(true);
+      (api.call['mediaChange'] as Map)['state'] = 'accepted';
+      await c.tick();
+      await drain();
+      api.call['mediaChange'] = <String, dynamic>{
+        'requestId': '55555555-5555-4555-8555-555555555555',
+        'kind': 'video',
+        'state': 'pending',
+        'revision': 2,
+        'requestedByMe': false,
+      };
+      c.apply(DirectCall(Map<String, dynamic>.from(api.call)));
+      gate.complete();
+      await drain();
+      expect(c.active!.video, isFalse);
+      expect(c.active!.mediaChange!.pending, isTrue);
+      expect(m.video, isFalse);
+      expect(
+        api.requests.where((r) => r['path'] == '/v1/calls/$callId/media-ready'),
+        isEmpty,
+      );
     },
   );
 }

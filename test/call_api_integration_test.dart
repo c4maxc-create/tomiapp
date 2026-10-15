@@ -121,6 +121,46 @@ void main() {
       await cb.tick();
       expect(ca.active!.state, 'connected');
       expect(cb.active!.state, 'connected');
+      final connectedAt = ca.active!.connectedAt;
+      // The original callee requests the first upgrade: roles must reverse
+      // for this offer/answer round without restarting the audio connection.
+      await cb.changeKind(true);
+      await ca.tick();
+      expect(ma.videoStarts, 0);
+      expect(mb.videoStarts, 0);
+      expect(ca.active!.mediaChange!.requestedByMe, isFalse);
+      await ca.respondToVideo(true);
+      for (var i = 0; i < 16; i++) {
+        await ca.tick();
+        await cb.tick();
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        if (ca.active!.mediaChange!.state == 'applied' &&
+            cb.active!.mediaChange!.state == 'applied')
+          break;
+      }
+      expect(ca.active!.mediaChange!.state, 'applied');
+      expect(cb.active!.mediaChange!.state, 'applied');
+      expect(ca.active!.video, isTrue);
+      expect(cb.active!.video, isTrue);
+      expect(ma.videoStarts, 1);
+      expect(mb.videoStarts, 1);
+      expect(ca.active!.connectedAt, connectedAt);
+      await ca.changeKind(false);
+      await cb.tick();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(ca.active!.video, isFalse);
+      expect(cb.active!.video, isFalse);
+      expect(ma.video, isFalse);
+      expect(mb.video, isFalse);
+      // Returning to video prompts again; declining must keep audio alive.
+      await ca.changeKind(true);
+      await cb.tick();
+      expect(cb.active!.mediaChange!.pending, isTrue);
+      await cb.respondToVideo(false);
+      await ca.tick();
+      expect(ca.active!.state, 'connected');
+      expect(ca.active!.video, isFalse);
+      expect(ma.videoStarts, 1);
       await ca.hangup();
       await cb.tick();
       await ca.releaseTail;
