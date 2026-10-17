@@ -1,4 +1,4 @@
-name: TOMI 0.9.0 Android
+name: TOMI 0.12.0 Android
 
 "on":
   workflow_dispatch:
@@ -61,8 +61,18 @@ jobs:
           TEST_DATABASE_URL: postgresql://tomi_ci:ephemeral_ci_password@localhost:5432/tomi_test
         run: npm test
 
+      - name: Prepare PostgreSQL 17 restore-drill clients
+        env:
+          TOMI_PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: python3 tool/prepare_pg_drill.py
+
+      - name: Verify encrypted backup and local PostgreSQL restore
+        env:
+          TEST_DATABASE_URL: postgresql://tomi_ci:ephemeral_ci_password@localhost:5432/tomi_test
+        run: node server/test/pg-restore-drill.mjs
+
   android:
-    name: Build TOMI 0.9.0 APK
+    name: Build TOMI 0.12.0 APK
     needs: accounts-api
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -129,10 +139,13 @@ jobs:
       - name: Test accounts, posts and compact screens
         run: flutter test --reporter expanded
 
-      - name: Test call controllers against the API
+      - name: Test call, room, messaging and identity controllers against the API
         env:
           TOMI_CALL_INTEGRATION: '1'
-        run: flutter test --no-pub test/call_api_integration_test.dart test/room_api_integration_test.dart --reporter expanded
+          TOMI_MESSAGING_INTEGRATION: '1'
+          TOMI_IDENTITY_INTEGRATION: '1'
+          TOMI_MODERATION_INTEGRATION: '1'
+        run: flutter test --no-pub test/call_api_integration_test.dart test/room_api_integration_test.dart test/messaging_api_integration_test.dart test/identity_api_integration_test.dart test/moderation_api_integration_test.dart --reporter expanded
 
       - name: Build TOMI APK
         run: |
@@ -141,12 +154,12 @@ jobs:
             --dart-define="TOMI_PREVIEW_MODE=$TOMI_PREVIEW_MODE" \
             --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED"
           mkdir -p output
-          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-0.9.0.apk
+          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-0.12.0.apk
 
       - name: Upload TOMI APK
         uses: actions/upload-artifact@v7
         with:
-          path: output/TOMI-0.9.0.apk
+          path: output/TOMI-0.12.0.apk
           archive: false
           if-no-files-found: error
           retention-days: 7
