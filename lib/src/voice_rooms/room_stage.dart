@@ -22,38 +22,40 @@ class VoiceRoomPage extends StatefulWidget {
   State<VoiceRoomPage> createState() => _VoiceRoomPageState();
 }
 
-class _VoiceRoomPageState extends State<VoiceRoomPage> {
+class _VoiceRoomPageState extends State<VoiceRoomPage>
+    with WidgetsBindingObserver {
   VoiceRoomsController get c => widget.controller;
   final message = TextEditingController(), chat = ScrollController();
   bool leaving = false, sendingImage = false;
-  int lastGift = 0;
-  RoomEvent? giftEffect;
-  Timer? effectTimer;
+  late final effects = RoomEffectsController(c.active?.events ?? []);
   @override
   void initState() {
     super.initState();
-    lastGift =
-        c.active?.events.where((e) => e.kind == 'gift').lastOrNull?.sequence ??
-        0;
+    message.text = c.pendingMessage?['text'] as String? ?? c.roomDraft;
     c.addListener(changed);
+    effects.addListener(effectChanged);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  void effectChanged() {
+    if (mounted) setState(() {});
   }
 
   void changed() {
-    final gift = c.active?.events.where((e) => e.kind == 'gift').lastOrNull;
-    if (gift != null && gift.sequence > lastGift) {
-      lastGift = gift.sequence;
-      effectTimer?.cancel();
-      if (mounted) setState(() => giftEffect = gift);
-      effectTimer = Timer(const Duration(seconds: 5), () {
-        if (mounted) setState(() => giftEffect = null);
-      });
-    }
+    effects.ingest(c.active?.events ?? []);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    effects.visibility(state == AppLifecycleState.resumed);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     c.removeListener(changed);
-    effectTimer?.cancel();
+    effects.removeListener(effectChanged);
+    effects.dispose();
     message.dispose();
     chat.dispose();
     super.dispose();
@@ -128,10 +130,18 @@ class _VoiceRoomPageState extends State<VoiceRoomPage> {
                   ),
                   (
                     Icons.leaderboard_outlined,
-                    'مستوى الغرفة',
+                    'مساهمو الغرفة',
                     () {
                       Navigator.pop(sheet);
-                      _showRoomLevels(context, c);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => ContributionRankingPage(
+                            accounts: c.accounts,
+                            roomId: c.active!.id,
+                          ),
+                        ),
+                      );
                     },
                   ),
                   (
@@ -329,9 +339,7 @@ class _VoiceRoomPageState extends State<VoiceRoomPage> {
       );
       if (f == null || c.active == null) return;
       final image = await readPickedImage(f);
-      final id = await c.uploadRoomImage(image);
-      if (id != null)
-        await c.sendMessage(message.text.trim(), imageUploadId: id);
+      await c.sendMessage(message.text.trim(), image: image);
       if (mounted && c.pendingMessage == null) message.clear();
     } on AccountFailure catch (e) {
       c.error = e.message;
@@ -793,7 +801,7 @@ class _VoiceRoomPageState extends State<VoiceRoomPage> {
   }
 
   Widget events(VoiceRoom r, {bool expanded = true}) {
-    final all = r.events;
+    final all = c.events;
     if (all.isEmpty)
       return const Center(
         child: Padding(
@@ -805,13 +813,21 @@ class _VoiceRoomPageState extends State<VoiceRoomPage> {
           ),
         ),
       );
-    if (!expanded) return Column(children: all.map(chatEvent).toList());
+    final older = TextButton(
+      onPressed: c.historyLoading ? null : c.olderEvents,
+      child: Text(c.historyLoading ? 'جارٍ التحميل…' : 'رسائل أقدم'),
+    );
+    if (!expanded)
+      return Column(
+        children: [if (c.eventsBefore != null) older, ...all.map(chatEvent)],
+      );
     return ListView.builder(
       controller: chat,
       reverse: true,
       padding: const EdgeInsets.only(bottom: 8),
-      itemCount: all.length,
-      itemBuilder: (_, i) => chatEvent(all[all.length - 1 - i]),
+      itemCount: all.length + (c.eventsBefore == null ? 0 : 1),
+      itemBuilder: (_, i) =>
+          i == all.length ? older : chatEvent(all[all.length - 1 - i]),
     );
   }
 
@@ -826,6 +842,26 @@ class _VoiceRoomPageState extends State<VoiceRoomPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (c.historyWindow)
+                TextButton(
+                  onPressed: c.latestEvents,
+                  child: const Text('الرجوع لأحدث الرسائل'),
+                ),
+              if (c.pendingMessage != null)
+                Wrap(
+                  children: [
+                    TextButton(
+                      onPressed: c.busy ? null : () => c.retrySend('message'),
+                      child: const Text('التحقق وإعادة إرسال الرسالة المعلّقة'),
+                    ),
+                    TextButton(
+                      onPressed: c.busy
+                          ? null
+                          : () => c.cancelPending('message'),
+                      child: const Text('إلغاء إعادة المحاولة'),
+                    ),
+                  ],
+                ),
               if (r.pending)
                 const Padding(
                   padding: EdgeInsets.only(bottom: 4),
@@ -847,6 +883,11 @@ class _VoiceRoomPageState extends State<VoiceRoomPage> {
                       fontSize: 12,
                     ),
                   ),
+                ),
+              if (c.pendingGift != null)
+                TextButton(
+                  onPressed: c.busy ? null : () => c.cancelPending('gift'),
+                  child: const Text('إلغاء إعادة محاولة الهدية'),
                 ),
               if (c.pendingGift != null)
                 TextButton(
@@ -903,7 +944,11 @@ class _VoiceRoomPageState extends State<VoiceRoomPage> {
                     child: TextField(
                       key: const Key('room-chat-input'),
                       controller: message,
-                      enabled: !c.busy && (!r.chatDisabled || c.manage),
+                      onChanged: c.setRoomDraft,
+                      enabled:
+                          c.pendingMessage == null &&
+                          !c.busy &&
+                          (!r.chatDisabled || c.manage),
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => send(),
                       style: const TextStyle(fontSize: 12),
@@ -1052,56 +1097,13 @@ class _VoiceRoomPageState extends State<VoiceRoomPage> {
                           ],
                         ),
                       ),
-                      if (giftEffect != null)
-                        Positioned(
-                          left: 22,
-                          right: 22,
-                          top: 140,
-                          child: IgnorePointer(
-                            child: TweenAnimationBuilder<double>(
-                              key: ValueKey(giftEffect!.sequence),
-                              tween: Tween(begin: .75, end: 1),
-                              duration: const Duration(milliseconds: 400),
-                              builder: (_, scale, child) =>
-                                  Transform.scale(scale: scale, child: child),
-                              child: Container(
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xffc14788),
-                                      Color(0xff6637a6),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(22),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Colors.black26,
-                                      blurRadius: 20,
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  children: [
-                                    _GiftArt(
-                                      icon:
-                                          giftEffect!.gift!['giftId'] as String,
-                                      size: 55,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        '${giftEffect!.actor.displayName}\n${giftEffect!.text} ×${giftEffect!.gift!['quantity']} إلى ${giftEffect!.recipient?.displayName ?? ''}',
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                      if (effects.active != null)
+                        Positioned.fill(
+                          child: RoomEffectOverlay(
+                            key: ValueKey(
+                              'room-effect-${effects.active!.sequence}',
                             ),
+                            event: effects.active!,
                           ),
                         ),
                     ],

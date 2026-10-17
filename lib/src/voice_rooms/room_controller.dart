@@ -1,8 +1,15 @@
 import 'dart:async';
+
 import 'package:flutter/widgets.dart';
+
 import '../accounts/account_api.dart';
 import '../accounts/account_controller.dart';
 import '../messaging/audio_focus.dart';
+import '../messaging/chat_models.dart';
+import '../messaging/draft_store.dart';
+
+import 'dart:typed_data';
+
 import '../social/social_models.dart';
 import 'room_audio.dart';
 import 'room_models.dart';
@@ -21,6 +28,10 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
   final RoomAudio Function() audioFactory;
   final bool autoPoll;
   final rooms = <VoiceRoom>[];
+  final preferenceBusy = <String>{};
+  final preferenceCache = <String, Map<String, dynamic>>{};
+  String scope = 'all';
+  int listEpoch = 0;
   final gifts = <RoomGift>[];
   List<int> levelThresholds = const [
     0,
@@ -39,6 +50,20 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
   bool extrasLoading = false, pickingMedia = false;
   Map<String, dynamic>? pendingGift, pendingMessage;
   String? pendingGiftRoom, pendingMessageRoom;
+  PendingChatMessage? roomMedia;
+  String roomDraft = '';
+  bool roomStorageReady = true,
+      giftAttempted = false,
+      messageAttempted = false,
+      historyLoading = false,
+      historyLoaded = false,
+      historyWindow = false;
+  int? eventsBefore;
+  final history = <int, RoomEvent>{};
+  final savedRoomRequests = <String, Map<String, dynamic>>{};
+  Timer? roomDraftTimer;
+  List<RoomEvent> get events =>
+      history.values.toList()..sort((a, b) => a.sequence.compareTo(b.sequence));
   Timer? pickerDeadline;
   VoiceRoom? active;
   RoomAudio? audio;
@@ -101,6 +126,11 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
     active = null;
     identity = null;
     rooms.clear();
+    scope = 'all';
+    listEpoch++;
+    preferenceBusy.clear();
+    preferenceCache.clear();
+    savedRoomRequests.clear();
     nextBefore = null;
     ownedRoomId = null;
     busy = false;
@@ -116,10 +146,22 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
     pendingMessage = null;
     pendingGiftRoom = null;
     pendingMessageRoom = null;
+    roomMedia = null;
+    roomDraft = '';
+    roomStorageReady = true;
+    giftAttempted = false;
+    messageAttempted = false;
+    history.clear();
+    eventsBefore = null;
+    historyLoading = false;
+    historyLoaded = false;
+    historyWindow = false;
+    roomDraftTimer?.cancel();
     pickingMedia = false;
     pickerDeadline?.cancel();
     error = null;
     notice = null;
+    if (key != null) unawaited(restoreSavedRooms(generation));
     if (key != null && autoPoll)
       poll = Timer.periodic(
         const Duration(seconds: 2),
@@ -142,10 +184,91 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(tick());
   }
 
+  Future<void> selectScope(String value) async {
+    if (scope == value || !['all', 'favorites', 'following'].contains(value))
+      return;
+    listEpoch++;
+    scope = value;
+    rooms.clear();
+    nextBefore = null;
+    loading = false;
+    notify();
+    await load();
+  }
+
+  Future<void> setPreference(
+    VoiceRoom room, {
+    bool? favorite,
+    bool? following,
+  }) async {
+    if (disposed || !preferenceBusy.add(room.id)) return;
+    final gen = generation;
+    notify();
+    try {
+      final latest = active?.id == room.id
+          ? active!
+          : rooms.where((r) => r.id == room.id).firstOrNull ?? room;
+      final d = await request(
+        'PUT',
+        '/v1/rooms/${room.id}/preferences',
+        body: {
+          if (favorite != null) 'favorite': favorite,
+          if (following != null) 'following': following,
+          'expectedRevision': latest.preferenceRevision,
+        },
+      );
+      if (!valid(gen)) return;
+      final prefs = d['preferences'] as Map<String, dynamic>;
+      rememberPreferences(VoiceRoom({...room.data, 'preferences': prefs}));
+      final index = rooms.indexWhere((r) => r.id == room.id);
+      if (index >= 0) {
+        final old = rooms[index],
+            next = VoiceRoom({
+              ...old.data,
+              'preferences': prefs,
+            }).preservePreferences(old);
+        if (scope == 'favorites' && !next.favorite ||
+            scope == 'following' && !next.following)
+          rooms.removeAt(index);
+        else
+          rooms[index] = next;
+      }
+      if (active?.id == room.id)
+        active = VoiceRoom({
+          ...active!.data,
+          'preferences': prefs,
+        }).preservePreferences(active!);
+      error = null;
+    } on AccountFailure catch (e) {
+      if (valid(gen)) {
+        error = e.message;
+        if (e.code == 'PREFERENCES_CHANGED') unawaited(load());
+      }
+    } catch (_) {
+      if (valid(gen)) error = 'تعذّر حفظ المفضلة أو المتابعة.';
+    } finally {
+      if (valid(gen)) {
+        preferenceBusy.remove(room.id);
+        notify();
+      }
+    }
+  }
+
+  VoiceRoom rememberPreferences(VoiceRoom room) {
+    final previous = preferenceCache[room.id];
+    if (previous != null &&
+        room.preferenceRevision <
+            ((previous['revision'] as num?)?.toInt() ?? 0)) {
+      return VoiceRoom({...room.data, 'preferences': previous});
+    }
+    preferenceCache[room.id] = room.preferences;
+    return room;
+  }
+
   Future<void> load({bool more = false}) async {
     if (loading || disposed || sessionKey == null || more && nextBefore == null)
       return;
-    final gen = generation;
+    final gen = generation, rev = ++listEpoch;
     loading = true;
     error = null;
     notify();
@@ -153,26 +276,31 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
       final d = await request(
         'GET',
         '/v1/rooms',
-        query: more ? {'before': nextBefore!} : null,
+        query: {'scope': scope, if (more) 'before': nextBefore!},
       );
-      if (!valid(gen)) return;
+      if (!valid(gen) || rev != listEpoch) return;
       configured = d['configured'] == true;
       ownedRoomId = d['ownedRoomId'] as String?;
       final items = (d['rooms'] as List).map(
         (v) => VoiceRoom(v as Map<String, dynamic>),
       );
       if (!more) rooms.clear();
-      for (final r in items) {
+      for (final item in items) {
+        final r = rememberPreferences(item);
         rooms.removeWhere((old) => old.id == r.id);
+        if (scope == 'favorites' && !r.favorite ||
+            scope == 'following' && !r.following)
+          continue;
         rooms.add(r);
       }
       nextBefore = d['nextBefore'] as String?;
     } on AccountFailure catch (e) {
-      if (valid(gen)) error = e.message;
+      if (valid(gen) && rev == listEpoch) error = e.message;
     } catch (_) {
-      if (valid(gen)) error = 'تعذّر تحميل الغرف؛ جرّب مرة ثانية.';
+      if (valid(gen) && rev == listEpoch)
+        error = 'تعذّر تحميل الغرف؛ جرّب مرة ثانية.';
     } finally {
-      if (valid(gen)) {
+      if (valid(gen) && rev == listEpoch) {
         loading = false;
         notify();
       }
@@ -282,7 +410,17 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
         return false;
       }
       identity = connection['identity'] as String;
-      active = VoiceRoom(d['room'] as Map<String, dynamic>);
+      active = rememberPreferences(
+        VoiceRoom(d['room'] as Map<String, dynamic>),
+      );
+      history.clear();
+      historyLoaded = false;
+      historyWindow = false;
+      historyLoading = false;
+      eventsBefore = null;
+      mergeEvents(active!);
+      await restoreRoom(roomId, gen);
+      if (!valid(gen)) return false;
       if (active!.closed || !active!.canControl || me?.identity != identity) {
         throw const AccountFailure(
           'ROOM_CONNECTION_CHANGED',
@@ -369,7 +507,10 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
         active?.id != room.id ||
         room.revision < (active?.revision ?? 0))
       return;
-    active = room;
+    active = rememberPreferences(room.preservePreferences(active!));
+    final ownMember = active!.member(accounts.user?.id);
+    if (ownMember != null) accounts.applyRoomIdentity(ownMember.user);
+    mergeEvents(room);
     if (room.closed ||
         !room.canControl ||
         room.member(accounts.user?.id)?.identity != identity) {
@@ -533,6 +674,277 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  Future<void> restoreSavedRooms(int gen) async {
+    final owner = accounts.draftOwnerId;
+    if (owner == null) return;
+    try {
+      final rows = await accounts.draftStore.list(owner);
+      if (!valid(gen)) return;
+      for (final e in rows.entries.where((e) => e.key.startsWith('room:')))
+        savedRoomRequests[e.key.substring(5)] = e.value;
+      notify();
+    } catch (_) {
+      if (valid(gen)) {
+        notice = 'تعذّر قراءة بعض الإرسالات المحفوظة؛ لم تُحذف.';
+        notify();
+      }
+    }
+  }
+
+  Future<bool> resolveSavedRoom(
+    String rid,
+    String kind, {
+    bool discard = false,
+  }) async {
+    final data = savedRoomRequests[rid],
+        owner = accounts.draftOwnerId,
+        gen = generation;
+    if (data == null || owner == null || busy || rid == active?.id)
+      return false;
+    final body = data[kind] as Map<String, dynamic>?;
+    if (body == null) return false;
+    busy = true;
+    error = null;
+    notify();
+    try {
+      if (!discard) {
+        final receipt = await request(
+          'GET',
+          '/v1/rooms/$rid/requests/${body['requestId']}',
+        );
+        if (!valid(gen)) return false;
+        if (receipt['kind'] != kind)
+          throw const AccountFailure('REQUEST_CHANGED', 'طلب الإرسال تغيّر.');
+        if (receipt['wallet'] is Map<String, dynamic>)
+          applyWallet(receipt['wallet'] as Map<String, dynamic>);
+      }
+      final next = {
+        ...data,
+        kind: null,
+        '${kind}Attempted': false,
+        if (kind == 'message') 'media': null,
+      };
+      if (!await accounts.draftStore.write(
+        owner,
+        'room:$rid',
+        next,
+        valid: () => valid(gen) && accounts.draftOwnerId == owner,
+      ))
+        return false;
+      if (!valid(gen)) return false;
+      savedRoomRequests[rid] = next;
+      notice = discard
+          ? 'أُلغيت إعادة المحاولة على هذا الجهاز.'
+          : 'تم التأكد من نجاح الإرسال السابق.';
+      return true;
+    } on AccountFailure catch (e) {
+      if (valid(gen))
+        error = e.status == 404
+            ? 'لم يُسجّل هذا الإرسال. ادخل الغرفة لإعادة المحاولة، أو ألغِ المحاولة المحفوظة.'
+            : e.message;
+    } catch (_) {
+      if (valid(gen)) error = 'تعذّر التحقق أو حفظ النتيجة؛ أعد المحاولة.';
+    } finally {
+      if (valid(gen)) {
+        busy = false;
+        notify();
+      }
+    }
+    return false;
+  }
+
+  Future<void> restoreRoom(String roomId, int gen) async {
+    pendingGift = null;
+    pendingGiftRoom = null;
+    pendingMessage = null;
+    pendingMessageRoom = null;
+    roomMedia = null;
+    roomDraft = '';
+    roomStorageReady = true;
+    giftAttempted = false;
+    messageAttempted = false;
+    final owner = accounts.draftOwnerId;
+    try {
+      final d = owner == null
+          ? null
+          : await accounts.draftStore.read(owner, 'room:$roomId');
+      if (!valid(gen) || active?.id != roomId || d == null) return;
+      pendingGift = d['gift'] as Map<String, dynamic>?;
+      pendingGiftRoom = pendingGift == null ? null : roomId;
+      pendingMessage = d['message'] as Map<String, dynamic>?;
+      pendingMessageRoom = pendingMessage == null ? null : roomId;
+      if (d['media'] is Map)
+        roomMedia = PendingChatMessage.restore(
+          d['media'] as Map<String, dynamic>,
+        );
+      roomDraft = d['draft'] as String? ?? '';
+      giftAttempted = d['giftAttempted'] == true;
+      messageAttempted = d['messageAttempted'] == true;
+      if (pendingGift != null || pendingMessage != null)
+        notice =
+            'يوجد إرسال محفوظ؛ راجعه واضغط إعادة المحاولة للتحقق من نتيجته.';
+    } catch (_) {
+      if (valid(gen)) {
+        roomStorageReady = false;
+        error = 'تعذّر قراءة إرسال الغرفة المحفوظ؛ لم يُحذف.';
+      }
+    }
+  }
+
+  Future<bool> persistRoom() {
+    final owner = accounts.draftOwnerId,
+        revision = accounts.sessionRevision,
+        rid = active?.id;
+    if (owner == null || rid == null) return Future.value(false);
+    if (!roomStorageReady)
+      return Future.error(
+        const DraftStorageFailure('تعذّر قراءة الإرسال المحفوظ؛ لم نكتب فوقه.'),
+      );
+    final p = roomMedia,
+        data = {
+          'title': active!.title,
+          'gift': pendingGift,
+          'message': pendingMessage,
+          'media': p?.toJson(),
+          'draft': roomDraft,
+          'giftAttempted': giftAttempted,
+          'messageAttempted': messageAttempted,
+        };
+    return accounts.draftStore
+        .write(
+          owner,
+          'room:$rid',
+          data,
+          blobs: <String, Uint8List>{
+            if (p?.media != null) p!.mediaKey!: p.media!.bytes,
+          },
+          valid: () =>
+              !disposed &&
+              accounts.draftOwnerId == owner &&
+              accounts.sessionRevision == revision,
+        )
+        .then((ok) {
+          if (ok &&
+              !disposed &&
+              accounts.draftOwnerId == owner &&
+              accounts.sessionRevision == revision) {
+            savedRoomRequests[rid] = data;
+            notify();
+          }
+          return ok;
+        });
+  }
+
+  void setRoomDraft(String text) {
+    roomDraft = text;
+    roomDraftTimer?.cancel();
+    roomDraftTimer = Timer(
+      const Duration(milliseconds: 250),
+      () => unawaited(
+        persistRoom().catchError((Object _) {
+          if (!disposed) {
+            error = 'تعذّر حفظ مسودة الغرفة.';
+            notify();
+          }
+          return false;
+        }),
+      ),
+    );
+  }
+
+  void mergeEvents(VoiceRoom r) {
+    if (!historyLoaded)
+      eventsBefore = (r.features['eventsBefore'] as num?)?.toInt();
+    final high = history.keys.isEmpty
+        ? 0
+        : history.keys.reduce((a, b) => a > b ? a : b);
+    for (final e in r.events)
+      if (!historyWindow || e.sequence <= high) history[e.sequence] = e;
+    while (history.length > 500)
+      history.remove(history.keys.reduce((a, b) => a < b ? a : b));
+  }
+
+  Future<void> olderEvents() async {
+    final rid = active?.id, gen = generation;
+    if (rid == null || historyLoading || eventsBefore == null) return;
+    historyLoading = true;
+    notify();
+    try {
+      final d = await request(
+        'GET',
+        '/v1/rooms/$rid/events',
+        query: {'before': '$eventsBefore'},
+      );
+      if (!valid(gen) || active?.id != rid) return;
+      for (final row in d['events'] as List) {
+        final e = RoomEvent(row as Map<String, dynamic>);
+        history[e.sequence] = e;
+      }
+      historyLoaded = true;
+      eventsBefore = (d['nextBefore'] as num?)?.toInt();
+      if (history.length > 500) {
+        historyWindow = true;
+        while (history.length > 500)
+          history.remove(history.keys.reduce((a, b) => a > b ? a : b));
+      }
+    } on AccountFailure catch (e) {
+      if (valid(gen)) error = e.message;
+    } catch (_) {
+      if (valid(gen)) error = 'تعذّر تحميل رسائل الغرفة الأقدم.';
+    } finally {
+      if (valid(gen)) {
+        historyLoading = false;
+        notify();
+      }
+    }
+  }
+
+  void latestEvents() {
+    history.clear();
+    historyWindow = false;
+    historyLoaded = false;
+    if (active != null) mergeEvents(active!);
+    notify();
+  }
+
+  Future<void> cancelPending(String kind) async {
+    if (busy || active == null) return;
+    final gen = generation,
+        gift = pendingGift,
+        message = pendingMessage,
+        media = roomMedia,
+        giftRoom = pendingGiftRoom,
+        messageRoom = pendingMessageRoom,
+        ga = giftAttempted,
+        ma = messageAttempted;
+    if (kind == 'gift') {
+      pendingGift = null;
+      pendingGiftRoom = null;
+      giftAttempted = false;
+    } else {
+      pendingMessage = null;
+      pendingMessageRoom = null;
+      roomMedia = null;
+      messageAttempted = false;
+    }
+    try {
+      if (!await persistRoom())
+        throw const DraftStorageFailure('Storage changed');
+    } catch (_) {
+      if (valid(gen)) {
+        pendingGift = gift;
+        pendingMessage = message;
+        roomMedia = media;
+        pendingGiftRoom = giftRoom;
+        pendingMessageRoom = messageRoom;
+        giftAttempted = ga;
+        messageAttempted = ma;
+        error = 'تعذّر حفظ إلغاء المحاولة.';
+      }
+    }
+    if (valid(gen)) notify();
+  }
+
   Future<bool> sendGift(String recipient, String gift, int quantity) {
     if (busy || active == null || sessionKey == null)
       return Future.value(false);
@@ -544,17 +956,25 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
       'quantity': quantity,
     };
     pendingGiftRoom = active?.id;
+    giftAttempted = false;
     return retrySend('gift');
   }
 
-  Future<bool> sendMessage(String text, {String? imageUploadId}) {
+  Future<bool> sendMessage(
+    String text, {
+    String? imageUploadId,
+    ImageDraft? image,
+  }) {
     if (busy || active == null || sessionKey == null)
       return Future.value(false);
     if (pendingMessage != null) return retrySend('message');
+    roomMedia = image == null ? null : PendingChatMessage(text, image);
+    messageAttempted = false;
     pendingMessage = {
-      'requestId': newRequestId(),
+      'requestId': roomMedia?.requestId ?? newRequestId(),
       'text': text,
       if (imageUploadId != null) 'imageUploadId': imageUploadId,
+      if (image != null) 'attachmentSha256': image.contentSha256,
     };
     pendingMessageRoom = active?.id;
     return retrySend('message');
@@ -584,6 +1004,68 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     try {
+      if (!await persistRoom()) return false;
+      if (kind == 'gift' ? giftAttempted : messageAttempted) {
+        try {
+          final receipt = await request(
+            'GET',
+            '/v1/rooms/$roomId/requests/${body['requestId']}',
+          );
+          if (!valid(gen)) return false;
+          if (receipt['kind'] != kind)
+            throw const AccountFailure(
+              'REQUEST_CHANGED',
+              'معرّف الإرسال استُخدم لطلب آخر.',
+            );
+          if (receipt['wallet'] is Map<String, dynamic>)
+            applyWallet(receipt['wallet'] as Map<String, dynamic>);
+          clear();
+          if (kind == 'message') {
+            roomMedia = null;
+            roomDraft = '';
+            messageAttempted = false;
+          } else
+            giftAttempted = false;
+          await persistRoom();
+          await tick();
+          return true;
+        } on AccountFailure catch (e) {
+          if (e.status != 404) rethrow;
+        }
+      }
+      if (kind == 'message' && roomMedia != null) {
+        final p = roomMedia!;
+        if (p.media == null) {
+          final m = p.savedMedia!,
+              bytes = await accounts.draftStore.bytes(
+                accounts.draftOwnerId!,
+                m['mediaKey'] as String,
+              );
+          if (!valid(gen)) return false;
+          p.image = ImageDraft(bytes, m['type'] as String);
+        }
+        if (!p.uploaded) {
+          if (p.upload != null &&
+              (p.preparedAt == null ||
+                  DateTime.now().difference(p.preparedAt!).inMinutes >= 14))
+            p.upload = null;
+          if (p.upload == null) {
+            p.upload = await accounts.preparePostMedia(p.media!, p.requestId);
+            if (!valid(gen)) return false;
+            p.preparedAt = DateTime.now();
+            if (!await persistRoom()) return false;
+          }
+          await accounts.uploadImage(p.upload!, p.media!);
+          if (!valid(gen)) return false;
+          p.uploaded = true;
+        }
+        body['imageUploadId'] = p.upload!.id;
+      }
+      if (kind == 'gift')
+        giftAttempted = true;
+      else
+        messageAttempted = true;
+      if (!await persistRoom()) return false;
       Map<String, dynamic> d;
       try {
         d = await post('/v1/rooms/$roomId/$kind', body);
@@ -596,12 +1078,30 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
       if (d['wallet'] is Map<String, dynamic>)
         applyWallet(d['wallet'] as Map<String, dynamic>);
       clear();
+      if (kind == 'message') {
+        roomMedia = null;
+        roomDraft = '';
+        messageAttempted = false;
+      } else
+        giftAttempted = false;
+      await persistRoom();
       await apply(VoiceRoom(d['room'] as Map<String, dynamic>), gen);
       return true;
     } on AccountFailure catch (e) {
       if (valid(gen)) {
         error = e.message;
-        if (e.code != 'NETWORK' && e.status >= 400 && e.status < 500) clear();
+        if (e.code == 'UPLOAD_INVALID' &&
+            kind == 'message' &&
+            roomMedia != null) {
+          roomMedia!.upload = null;
+          roomMedia!.uploaded = false;
+        }
+        try {
+          await persistRoom();
+        } catch (_) {
+          error =
+              'تعذّر حفظ الإرسال على الجهاز؛ لا تغلق الصفحة قبل إعادة المحاولة.';
+        }
       }
     } catch (_) {
       if (valid(gen))
@@ -768,11 +1268,24 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> leave({String? message}) async {
+    final saved = persistRoom().catchError((Object _) => false);
     final r = active,
         oldIdentity = identity,
         user = accounts.user?.id,
         revision = accounts.sessionRevision;
+    await saved;
+    if (accounts.user?.id != user ||
+        accounts.sessionRevision != revision ||
+        active?.id != r?.id ||
+        identity != oldIdentity)
+      return;
     generation++;
+    preferenceBusy.clear();
+    history.clear();
+    eventsBefore = null;
+    historyLoading = false;
+    historyLoaded = false;
+    historyWindow = false;
     active = null;
     identity = null;
     joining = false;
@@ -807,6 +1320,7 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
     generation++;
     poll?.cancel();
     pickerDeadline?.cancel();
+    roomDraftTimer?.cancel();
     accounts.removeListener(accountChanged);
     WidgetsBinding.instance.removeObserver(this);
     release();

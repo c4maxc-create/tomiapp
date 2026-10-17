@@ -10,7 +10,7 @@ class FeedController extends ChangeNotifier {
   String scope;
   List<SocialPost> posts = [];
   String? nextCursor, error;
-  bool loading = false, imageUploadEnabled = false;
+  bool loading = false, imageUploadEnabled = false, videoUploadEnabled = false;
   final busyPosts = <String>{};
   int _revision = 0;
   bool _disposed = false;
@@ -37,6 +37,7 @@ class FeedController extends ChangeNotifier {
       posts = p.posts;
       nextCursor = p.nextCursor;
       imageUploadEnabled = p.imageUploadEnabled;
+      videoUploadEnabled = p.videoUploadEnabled;
     } on AccountFailure catch (f) {
       if (!_disposed && revision == _revision) error = f.message;
     } catch (_) {

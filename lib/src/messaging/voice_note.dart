@@ -44,6 +44,8 @@ class VoicePlayback extends ChangeNotifier with WidgetsBindingObserver {
     error = null;
     notify();
     try {
+      await stopVoiceForCall(except: this);
+      if (disposed || gen != generation) return;
       final uri = await source();
       if (disposed || gen != generation) return;
       if (uri == null) throw StateError('Unavailable voice');

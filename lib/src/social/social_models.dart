@@ -1,7 +1,11 @@
+import '../identity/identity_models.dart';
+
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
+
 import 'package:crypto/crypto.dart';
+
 import '../accounts/account_models.dart';
 
 String newRequestId() {
@@ -28,9 +32,11 @@ class PostAuthor {
     required this.avatarPreset,
     this.avatarUrl,
     this.avatarId,
+    this.identity = const UserIdentity(),
   });
   final String id, username, displayName, avatarPreset;
   final String? avatarUrl, avatarId;
+  final UserIdentity identity;
   factory PostAuthor.fromJson(Map<String, dynamic> d) => PostAuthor(
     id: d['id'] as String,
     username: d['username'] as String,
@@ -38,6 +44,7 @@ class PostAuthor {
     avatarPreset: d['avatarPreset'] as String,
     avatarUrl: d['avatarUrl'] as String?,
     avatarId: d['avatarId'] as String?,
+    identity: UserIdentity(d['identity'] as Map<String, dynamic>? ?? const {}),
   );
   AccountUser get avatarUser => AccountUser(
     id: id,
@@ -47,6 +54,7 @@ class PostAuthor {
     avatarPreset: avatarPreset,
     avatarUrl: avatarUrl,
     avatarId: avatarId,
+    identity: identity,
     followersCount: 0,
     followingCount: 0,
   );
@@ -70,6 +78,7 @@ class SocialPost {
     required this.createdAt,
     required this.author,
     this.image,
+    this.video,
     required this.likesCount,
     required this.commentsCount,
     required this.liked,
@@ -79,6 +88,7 @@ class SocialPost {
   final DateTime createdAt;
   final PostAuthor author;
   final PostImage? image;
+  final PostVideo? video;
   final int likesCount, commentsCount;
   final bool liked, isMine;
   factory SocialPost.fromJson(Map<String, dynamic> d) => SocialPost(
@@ -89,6 +99,9 @@ class SocialPost {
     image: d['image'] == null
         ? null
         : PostImage.fromJson(d['image'] as Map<String, dynamic>),
+    video: d['video'] == null
+        ? null
+        : PostVideo(d['video'] as Map<String, dynamic>),
     likesCount: (d['likesCount'] as num).toInt(),
     commentsCount: (d['commentsCount'] as num).toInt(),
     liked: d['liked'] as bool,
@@ -122,16 +135,18 @@ class FeedPage {
     required this.posts,
     this.nextCursor,
     this.imageUploadEnabled = false,
+    this.videoUploadEnabled = false,
   });
   final List<SocialPost> posts;
   final String? nextCursor;
-  final bool imageUploadEnabled;
+  final bool imageUploadEnabled, videoUploadEnabled;
   factory FeedPage.fromJson(Map<String, dynamic> d) => FeedPage(
     posts: (d['posts'] as List)
         .map((p) => SocialPost.fromJson(p as Map<String, dynamic>))
         .toList(),
     nextCursor: d['nextCursor'] as String?,
     imageUploadEnabled: d['imageUploadEnabled'] as bool? ?? false,
+    videoUploadEnabled: d['videoUploadEnabled'] == true,
   );
 }
 
@@ -164,6 +179,26 @@ class ImageDraft {
   final Uint8List bytes;
   final String contentType;
   late final String contentMd5 = base64Encode(md5.convert(bytes).bytes);
+  late final String contentSha256 = sha256.convert(bytes).toString();
+}
+
+class VideoDraft extends ImageDraft {
+  VideoDraft(
+    Uint8List bytes, {
+    required this.durationMs,
+    required this.width,
+    required this.height,
+  }) : super(bytes, 'video/mp4');
+  final int durationMs, width, height;
+}
+
+class PostVideo {
+  PostVideo(this.data);
+  final Map<String, dynamic> data;
+  String? get url => data['url'] as String?;
+  int get width => (data['width'] as num).toInt();
+  int get height => (data['height'] as num).toInt();
+  int get durationMs => (data['durationMs'] as num).toInt();
 }
 
 class ImageUpload {
@@ -175,6 +210,11 @@ class ImageUpload {
   final String id;
   final Uri url;
   final Map<String, String> headers;
+  Map<String, dynamic> toJson() => {
+    'uploadId': id,
+    'uploadUrl': url.toString(),
+    'headers': headers,
+  };
   factory ImageUpload.fromJson(Map<String, dynamic> d) => ImageUpload(
     id: d['uploadId'] as String,
     url: Uri.parse(d['uploadUrl'] as String),

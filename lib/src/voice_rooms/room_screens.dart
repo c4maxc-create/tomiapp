@@ -1,11 +1,21 @@
+import '../identity/room_effects.dart';
+import '../identity/ranking_screen.dart';
+
 import 'dart:async';
+
+import '../moderation/report_dialog.dart';
+
 import 'dart:math' as math;
+
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../accounts/account_models.dart';
 import '../accounts/account_api.dart';
 import '../social/social_screens.dart' show readPickedImage;
+
 import 'package:flutter/material.dart';
+
 import '../accounts/account_controller.dart';
 import '../accounts/account_widgets.dart';
 import '../widgets.dart';
@@ -66,6 +76,30 @@ class _VoiceRoomsScreenState extends State<VoiceRoomsScreen> {
     }
   }
 
+  Future<void> discardSaved(String rid, String kind) async {
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('إلغاء إعادة المحاولة؟'),
+        content: const Text(
+          'إذا سبق أن نجح الإرسال، يبقى مسجلًا. هذا الزر يلغي المحاولة المحفوظة على الجهاز.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('رجوع'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('إلغاء المحاولة'),
+          ),
+        ],
+      ),
+    );
+    if (yes == true && mounted)
+      await controller.resolveSavedRoom(rid, kind, discard: true);
+  }
+
   Future<void> create() async {
     final input = await showModalBottomSheet<_NewRoom>(
       context: context,
@@ -102,6 +136,38 @@ class _VoiceRoomsScreenState extends State<VoiceRoomsScreen> {
             style: TextStyle(color: TomiColors.muted, height: 1.6),
           ),
           const SizedBox(height: 18),
+          Material(
+            color: Colors.transparent,
+            child: Wrap(
+              spacing: 7,
+              runSpacing: 6,
+              children: [
+                for (final option in const {
+                  'all': 'كل الغرف',
+                  'favorites': 'المفضلة',
+                  'following': 'أتابعها',
+                }.entries)
+                  ChoiceChip(
+                    key: ValueKey('room-scope-${option.key}'),
+                    label: Text(option.value),
+                    selected: controller.scope == option.key,
+                    onSelected: (_) => controller.selectScope(option.key),
+                  ),
+                ActionChip(
+                  avatar: const Icon(Icons.leaderboard_outlined, size: 18),
+                  label: const Text('نجوم تومي'),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          ContributionRankingPage(accounts: widget.accounts),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
           FilledButton.icon(
             key: const Key('create-voice-room'),
             onPressed:
@@ -121,6 +187,46 @@ class _VoiceRoomsScreenState extends State<VoiceRoomsScreen> {
             const AccountErrorMessage(
               'الغرف الصوتية تنتظر تفعيل الخدمة. باقي ميزات التطبيق متاحة.',
             ),
+          for (final saved in controller.savedRoomRequests.entries.where(
+            (e) => e.key != controller.active?.id,
+          ))
+            for (final kind in ['gift', 'message'])
+              if (saved.value[kind] != null)
+                TomiCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        saved.value['title'] as String? ?? 'غرفة محفوظة',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        kind == 'gift'
+                            ? 'هدية محفوظة تنتظر التحقق'
+                            : 'رسالة محفوظة تنتظر التحقق',
+                      ),
+                      Wrap(
+                        children: [
+                          TextButton(
+                            onPressed: controller.busy
+                                ? null
+                                : () => controller.resolveSavedRoom(
+                                    saved.key,
+                                    kind,
+                                  ),
+                            child: const Text('التحقق من النتيجة'),
+                          ),
+                          TextButton(
+                            onPressed: controller.busy
+                                ? null
+                                : () => discardSaved(saved.key, kind),
+                            child: const Text('إلغاء إعادة المحاولة'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
           if (controller.ownedRoomId != null &&
               !controller.rooms.any((r) => r.id == controller.ownedRoomId))
             TextButton(
@@ -133,17 +239,21 @@ class _VoiceRoomsScreenState extends State<VoiceRoomsScreen> {
           if (controller.rooms.isEmpty &&
               controller.configured &&
               !controller.loading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 42),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 42),
               child: Column(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.spatial_audio_off_rounded,
                     size: 52,
                     color: TomiColors.accent,
                   ),
-                  SizedBox(height: 14),
-                  Text('بعد ماكو غرف. افتح أول غرفة لأصدقائك!'),
+                  const SizedBox(height: 14),
+                  Text(
+                    controller.scope == 'all'
+                        ? 'بعد ماكو غرف. افتح أول غرفة لأصدقائك!'
+                        : 'بعد ماكو غرف محفوظة بهالقائمة.',
+                  ),
                 ],
               ),
             ),
@@ -179,7 +289,51 @@ class _VoiceRoomsScreenState extends State<VoiceRoomsScreen> {
                       '${r.memberCount} / ${r.capacity} عضو  •  LV.${r.level}  •  ${r.category}${r.passwordRequired ? '  🔒' : ''}',
                       style: const TextStyle(color: TomiColors.muted),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        TextButton.icon(
+                          key: ValueKey('favorite-room-${r.id}'),
+                          onPressed: controller.preferenceBusy.contains(r.id)
+                              ? null
+                              : () => controller.setPreference(
+                                  r,
+                                  favorite: !r.favorite,
+                                ),
+                          icon: Icon(
+                            r.favorite ? Icons.favorite : Icons.favorite_border,
+                          ),
+                          label: Text(r.favorite ? 'بالمفضلة' : 'مفضلة'),
+                        ),
+                        TextButton.icon(
+                          key: ValueKey('follow-room-${r.id}'),
+                          onPressed: controller.preferenceBusy.contains(r.id)
+                              ? null
+                              : () => controller.setPreference(
+                                  r,
+                                  following: !r.following,
+                                ),
+                          icon: Icon(
+                            r.following
+                                ? Icons.bookmark
+                                : Icons.bookmark_border,
+                          ),
+                          label: Text(r.following ? 'أتابعها' : 'متابعة'),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            '${r.followers} متابع',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: TomiColors.muted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                     Align(
                       alignment: Alignment.centerLeft,
                       child: FilledButton.tonalIcon(

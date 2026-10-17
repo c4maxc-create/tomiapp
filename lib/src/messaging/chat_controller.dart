@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 
@@ -8,6 +9,7 @@ import '../accounts/account_controller.dart';
 import '../social/social_models.dart';
 import 'chat_models.dart';
 import 'chat_connection.dart';
+import 'draft_store.dart';
 
 class ChatController extends ChangeNotifier with WidgetsBindingObserver {
   ChatController({required this.accounts, this.realtimeEnabled = true}) {
@@ -49,12 +51,16 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
       t.dispose();
     }
     threads.clear();
+    storedCounts.clear();
+    storedBytes.clear();
+    storedVoiceBytes.clear();
     conversations = [];
     totalUnread = 0;
     nextCursor = null;
     error = null;
     loading = false;
     openingPeerIds.clear();
+    if (next != null) unawaited(restoreIndex(generation));
     if (next != null && foreground) start();
     notify();
   }
@@ -79,6 +85,7 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
     if (!foreground) {
       for (final t in threads.values) {
         t.stopTyping();
+        unawaited(t.persist().catchError((Object _) => false));
       }
       disconnect();
       poll?.cancel();
@@ -86,6 +93,7 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
       start();
       for (final t in threads.values) {
         if (t.visible) unawaited(t.sync(reconcile: true));
+        t.scheduleRetry();
       }
     }
     notify();
@@ -212,7 +220,8 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
         final c = DirectConversation.fromJson(item as Map<String, dynamic>);
         final old = map[c.id];
         if (old == null ||
-            (c.sequence >= old.sequence &&
+            (c.featuresRevision >= old.featuresRevision &&
+                c.sequence >= old.sequence &&
                 c.myReadSequence >= old.myReadSequence &&
                 c.peerReadSequence >= old.peerReadSequence))
           map[c.id] = old == null ? c : c.preserveReads(old);
@@ -240,7 +249,8 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
     final index = conversations.indexWhere((c) => c.id == value.id);
     if (index >= 0) {
       final old = conversations[index];
-      if (value.sequence < old.sequence ||
+      if (value.featuresRevision < old.featuresRevision ||
+          value.sequence < old.sequence ||
           value.myReadSequence < old.myReadSequence ||
           value.peerReadSequence < old.peerReadSequence)
         return;
@@ -253,6 +263,53 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
     conversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     notify();
     scheduleRefresh();
+  }
+
+  final storedCounts = <String, int>{},
+      storedBytes = <String, int>{},
+      storedVoiceBytes = <String, int>{};
+  Future<void> restoreIndex(int gen) async {
+    final owner = accounts.draftOwnerId;
+    if (owner == null) return;
+    try {
+      final rows = await accounts.draftStore.list(owner);
+      if (disposed || gen != generation) return;
+      for (final e in rows.entries.where((e) => e.key.startsWith('chat:'))) {
+        final cid = e.key.substring(5),
+            list = e.value['pending'] as List? ?? [];
+        storedCounts[cid] = list.length;
+        storedVoiceBytes[cid] = list.fold<int>(
+          0,
+          (n, p) =>
+              n +
+              ((p['media'] as Map?)?['kind'] == 'audio'
+                  ? ((p['media']['bytes'] as num).toInt())
+                  : 0),
+        );
+        storedBytes[cid] = list.fold<int>(
+          0,
+          (n, p) =>
+              n +
+              (((p as Map)['media'] as Map?)?['bytes'] as num? ?? 0).toInt(),
+        );
+        if ((list.isNotEmpty ||
+                (e.value['draft'] as String? ?? '').isNotEmpty) &&
+            e.value['conversation'] is Map) {
+          if (!conversations.any((c) => c.id == cid))
+            conversations.add(
+              DirectConversation(
+                Map<String, dynamic>.from(e.value['conversation'] as Map),
+              ),
+            );
+        }
+      }
+      notify();
+    } catch (_) {
+      if (!disposed && gen == generation) {
+        error = 'تعذّر قراءة المسودات المحفوظة؛ لم تُحذف.';
+        notify();
+      }
+    }
   }
 
   ChatThreadController thread(DirectConversation value) => threads.putIfAbsent(
@@ -273,12 +330,30 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   int get pendingCount =>
-      threads.values.fold(0, (sum, t) => sum + t.pending.length);
-  int get pendingBytes => threads.values.fold(
-    0,
-    (sum, t) =>
-        sum + t.pending.fold(0, (n, p) => n + (p.media?.bytes.length ?? 0)),
-  );
+      threads.values.fold(0, (sum, t) => sum + t.pending.length) +
+      storedCounts.entries
+          .where((e) => !threads.containsKey(e.key))
+          .fold(0, (sum, e) => sum + e.value);
+  int get pendingVoiceBytes =>
+      threads.values.fold(
+        0,
+        (n, t) =>
+            n +
+            t.pending
+                .where((p) => p.hasAudio)
+                .fold<int>(0, (n, p) => n + p.byteLength),
+      ) +
+      storedVoiceBytes.entries
+          .where((e) => !threads.containsKey(e.key))
+          .fold<int>(0, (n, e) => n + e.value);
+  int get pendingBytes =>
+      threads.values.fold(
+        0,
+        (sum, t) => sum + t.pending.fold<int>(0, (n, p) => n + p.byteLength),
+      ) +
+      storedBytes.entries
+          .where((e) => !threads.containsKey(e.key))
+          .fold(0, (sum, e) => sum + e.value);
   @override
   void dispose() {
     disposed = true;
@@ -298,7 +373,202 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
 }
 
 class ChatThreadController extends ChangeNotifier {
-  ChatThreadController({required this.chats, required this.conversation});
+  ChatThreadController({required this.chats, required this.conversation}) {
+    savedOwner = chats.accounts.draftOwnerId;
+    sessionRevision = chats.accounts.sessionRevision;
+    restored = restore();
+  }
+  late final String? savedOwner;
+  late final int sessionRevision;
+  late final Future<void> restored;
+  String draft = '';
+  String? replyToId;
+  PendingChatMessage? draftAttachment;
+  bool restoring = true, storageReady = true;
+  int draftEpoch = 0;
+  Timer? draftTimer, sendRetry;
+  String get scope => 'chat:${conversation.id}';
+  bool get current =>
+      !disposed &&
+      chats.accounts.draftOwnerId == savedOwner &&
+      chats.accounts.sessionRevision == sessionRevision;
+  Future<void> restore() async {
+    final epoch = draftEpoch;
+    try {
+      final d = savedOwner == null
+          ? null
+          : await chats.accounts.draftStore.read(savedOwner!, scope);
+      if (!current || d == null) return;
+      if (epoch == draftEpoch) {
+        draft = d['draft'] as String? ?? '';
+        replyToId = d['replyToId'] as String?;
+        if (d['attachment'] is Map) {
+          draftAttachment = PendingChatMessage.restore(
+            Map<String, dynamic>.from(d['attachment'] as Map),
+          );
+          await loadMedia(draftAttachment!);
+        }
+      }
+      final matching = d['sessionFence'] == chats.accounts.draftSessionFence;
+      for (final row in d['pending'] as List? ?? []) {
+        final p = PendingChatMessage.restore(
+          Map<String, dynamic>.from(row as Map),
+        );
+        p.autoRetry &= matching;
+        if (!pending.any((x) => x.requestId == p.requestId)) pending.add(p);
+      }
+    } catch (_) {
+      if (current) {
+        storageReady = false;
+        error = 'تعذّر قراءة المسودات المحفوظة؛ لم تُحذف.';
+      }
+    } finally {
+      if (current) {
+        restoring = false;
+        notify();
+        scheduleRetry();
+      }
+    }
+  }
+
+  Future<bool> persist() async {
+    await restored;
+    if (!current || savedOwner == null) return false;
+    if (!storageReady)
+      throw const DraftStorageFailure(
+        'تعذّر قراءة التخزين؛ لم نكتب فوق المسودات.',
+      );
+    final data = {
+      'conversation': conversation.data,
+      'draft': draft,
+      'replyToId': replyToId,
+      'attachment': draftAttachment?.toJson(),
+      'sessionFence': chats.accounts.draftSessionFence,
+      'pending': pending.map((p) => p.toJson()).toList(),
+    };
+    final blobs = <String, Uint8List>{
+      for (final p in [
+        ...pending,
+        if (draftAttachment != null) draftAttachment!,
+      ])
+        if (p.media != null) p.mediaKey!: p.media!.bytes,
+    };
+    final ok = await chats.accounts.draftStore.write(
+      savedOwner!,
+      scope,
+      data,
+      blobs: blobs,
+      valid: () => current,
+    );
+    if (current) {
+      chats.storedCounts[conversation.id] = pending.length;
+      chats.storedVoiceBytes[conversation.id] = pending
+          .where((p) => p.hasAudio)
+          .fold<int>(0, (n, p) => n + p.byteLength);
+      chats.storedBytes[conversation.id] = pending.fold(
+        0,
+        (n, p) => n + p.byteLength,
+      );
+    }
+    return ok;
+  }
+
+  void setDraft(String value, {String? reply}) {
+    if (!current) return;
+    draftEpoch++;
+    draft = value;
+    if (reply != null) replyToId = reply;
+    draftTimer?.cancel();
+    draftTimer = Timer(
+      const Duration(milliseconds: 250),
+      () => unawaited(
+        persist().catchError((Object _) {
+          if (current) {
+            error = 'تعذّر حفظ المسودة على الجهاز.';
+            notify();
+          }
+          return false;
+        }),
+      ),
+    );
+  }
+
+  Future<void> setAttachment(ImageDraft? media) async {
+    if (!current) return;
+    draftEpoch++;
+    draftAttachment = media == null
+        ? null
+        : PendingChatMessage(
+            '',
+            media is VideoDraft ? null : media,
+            video: media is VideoDraft ? media : null,
+          );
+    await persist();
+    notify();
+  }
+
+  void chooseReply(ChatMessage? message) {
+    replyToId = message?.id;
+    setDraft(draft);
+    notify();
+  }
+
+  void scheduleRetry() {
+    if (!chats.realtimeEnabled ||
+        !current ||
+        !chats.foreground ||
+        pending.isEmpty ||
+        sending ||
+        sendRetry != null)
+      return;
+    final eligible = pending.where((p) => p.autoRetry && p.attempts < 5);
+    if (eligible.isEmpty) return;
+    final p = eligible.first;
+    sendRetry = Timer(Duration(seconds: min(30, 1 << min(p.attempts, 5))), () {
+      sendRetry = null;
+      if (current && chats.foreground) unawaited(retryPending(p));
+    });
+  }
+
+  Future<void> loadMedia(PendingChatMessage p) async {
+    if (p.media != null || !p.hasMedia) return;
+    final d = p.savedMedia!,
+        b = await chats.accounts.draftStore.bytes(
+          savedOwner!,
+          d['mediaKey'] as String,
+        );
+    if (b.length != (d['bytes'] as num).toInt())
+      throw const DraftStorageFailure('حجم ملف المسودة تغيّر.');
+    if (d['kind'] == 'audio')
+      p.audio = AudioDraft(b, (d['durationMs'] as num).toInt());
+    else if (d['kind'] == 'video')
+      p.video = VideoDraft(
+        b,
+        durationMs: (d['durationMs'] as num).toInt(),
+        width: (d['width'] as num).toInt(),
+        height: (d['height'] as num).toInt(),
+      );
+    else
+      p.image = ImageDraft(b, d['type'] as String);
+  }
+
+  Future<bool> reconcilePending(PendingChatMessage p) async {
+    if (!p.commitAttempted) return false;
+    try {
+      final d = await request('GET', '/requests/${p.requestId}');
+      if (!current) return true;
+      merge([d['message']]);
+      apply(d, metadataEpoch);
+      pending.remove(p);
+      await persist();
+      notify();
+      return true;
+    } on AccountFailure catch (e) {
+      if (e.status == 404) return false;
+      rethrow;
+    }
+  }
+
   final ChatController chats;
   DirectConversation conversation;
   final cache = <String, ChatMessage>{};
@@ -343,7 +613,8 @@ class ChatThreadController extends ChangeNotifier {
     final c = DirectConversation.fromJson(
       p['conversation'] as Map<String, dynamic>,
     );
-    if (c.sequence < conversation.sequence ||
+    if (c.featuresRevision < conversation.featuresRevision ||
+        c.sequence < conversation.sequence ||
         c.myReadSequence < conversation.myReadSequence ||
         c.peerReadSequence < conversation.peerReadSequence)
       return;
@@ -355,17 +626,39 @@ class ChatThreadController extends ChangeNotifier {
     for (final row in rows) {
       var m = ChatMessage.fromJson(row as Map<String, dynamic>);
       final old = cache[m.id];
-      if (old?.deleted == true && !m.deleted) continue;
-      if (!m.deleted && (m.image?.url != null || m.audio?.url != null)) {
+      if (old?.deleted == true && !m.deleted ||
+          old != null && old.revision > m.revision)
+        continue;
+      if (old?.reply?['deleted'] == true && m.reply?['deleted'] != true)
+        m = ChatMessage({...m.data, 'reply': old!.reply});
+      if (m.deleted) {
+        for (final entry in cache.entries.toList())
+          if (entry.value.reply?['id'] == m.id)
+            cache[entry.key] = ChatMessage({
+              ...entry.value.data,
+              'reply': {
+                ...entry.value.reply!,
+                'text': 'تم حذف الرسالة',
+                'deleted': true,
+              },
+            });
+      }
+      if (!m.deleted &&
+          (m.image?.url != null ||
+              m.audio?.url != null ||
+              m.video?.url != null)) {
         final time = imageUpdatedAt[m.id];
         if (!refreshImages &&
-            (old?.image?.url != null || old?.audio?.url != null) &&
+            (old?.image?.url != null ||
+                old?.audio?.url != null ||
+                old?.video?.url != null) &&
             time != null &&
             DateTime.now().difference(time).inMinutes < 4) {
           m = ChatMessage({
             ...m.data,
             'image': old!.data['image'],
             'audio': old.data['audio'],
+            'video': old.data['video'],
           });
         } else {
           imageUpdatedAt[m.id] = DateTime.now();
@@ -374,8 +667,12 @@ class ChatThreadController extends ChangeNotifier {
         imageUpdatedAt.remove(m.id);
       }
       cache[m.id] = m;
-      if (m.isMine && m.requestId != null)
+      if (m.isMine && m.requestId != null) {
+        final before = pending.length;
         pending.removeWhere((p) => p.requestId == m.requestId);
+        if (before != pending.length)
+          unawaited(persist().catchError((Object _) => false));
+      }
     }
     while (cache.length > 500) {
       final oldest = messages.first;
@@ -385,6 +682,7 @@ class ChatThreadController extends ChangeNotifier {
   }
 
   Future<void> sync({bool reconcile = false}) async {
+    await restored;
     if (disposed) return;
     if (loading) {
       syncAgain = true;
@@ -484,7 +782,9 @@ class ChatThreadController extends ChangeNotifier {
         (d) => ChatMessage.fromJson(d as Map<String, dynamic>),
       );
       for (final m in older) {
-        if (cache[m.id]?.deleted == true && !m.deleted) continue;
+        if (cache[m.id]?.deleted == true && !m.deleted ||
+            (cache[m.id]?.revision ?? 0) > m.revision)
+          continue;
         cache[m.id] = m;
       }
       if (cache.length > 500) {
@@ -551,11 +851,12 @@ class ChatThreadController extends ChangeNotifier {
             notify();
           });
         notify();
+      case 'chat.updated':
       case 'chat.deleted':
         metadataEpoch++;
         final mid = e['messageId'];
         if (mid is String) unawaited(refreshMessage(mid));
-        unawaited(sync());
+        unawaited(sync(reconcile: true));
       case 'chat.message':
         unawaited(sync());
       case 'chat.read':
@@ -636,35 +937,88 @@ class ChatThreadController extends ChangeNotifier {
     notify();
   }
 
-  void enqueue(String text, ImageDraft? image, {AudioDraft? audio}) {
+  Future<void> changeTool(
+    ChatMessage m,
+    String action,
+    Map<String, dynamic> body,
+  ) async {
+    final epoch = metadataEpoch;
+    final d = await request('PUT', '/messages/${m.id}/$action', body: body);
+    if (!current) return;
+    merge([d['message']]);
+    apply(d, epoch);
+    notify();
+  }
+
+  Future<Map<String, dynamic>> search(String text, {int? before}) => request(
+    'GET',
+    '/search',
+    query: {'q': text, if (before != null) 'before': '$before'},
+  );
+  void enqueue(
+    String text,
+    ImageDraft? image, {
+    AudioDraft? audio,
+    VideoDraft? video,
+  }) {
     if (disposed || sending || !conversation.canSend) return;
-    if (text.trim().isEmpty && image == null && audio == null) return;
+    if (restoring)
+      throw const AccountFailure(
+        'DRAFT_RESTORE',
+        'نستعيد المسودات المحفوظة؛ انتظر قليلًا.',
+      );
+    if (text.trim().isEmpty && image == null && audio == null && video == null)
+      return;
     if (chats.pendingCount >= 20 ||
-        chats.pendingBytes + ((image ?? audio)?.bytes.length ?? 0) >
-            20 * 1024 * 1024) {
+        audio != null &&
+            chats.pendingVoiceBytes + audio.bytes.length > 18 * 1024 * 1024 ||
+        chats.pendingBytes + ((image ?? audio ?? video)?.bytes.length ?? 0) >
+            100 * 1024 * 1024) {
       throw const AccountFailure(
         'DRAFT_LIMIT',
         'عندك رسائل كثيرة قيد الإرسال؛ أكملها أولًا.',
       );
     }
-    if (image != null && audio != null)
+    if ([image, audio, video].where((m) => m != null).length > 1)
       throw const AccountFailure('MEDIA_TYPE', 'اختَر صورة أو تسجيلًا صوتيًا.');
-    final p = PendingChatMessage(text.trim(), image, audio: audio);
+    final p = PendingChatMessage(
+      text.trim(),
+      image,
+      audio: audio,
+      video: video,
+      replyToId: replyToId,
+    );
+    draft = '';
+    replyToId = null;
+    draftAttachment = null;
+    draftEpoch++;
     pending.add(p);
     if (historyWindow) unawaited(showLatest());
     notify();
     unawaited(retryPending(p));
   }
 
-  Future<void> retryPending(PendingChatMessage p) async {
+  Future<void> retryPending(PendingChatMessage p, {bool manual = false}) async {
+    await restored;
     if (disposed || sending || !pending.contains(p) || !conversation.canSend)
       return;
+    sendRetry?.cancel();
+    sendRetry = null;
+    if (manual) {
+      p.attempts = 0;
+      p.autoRetry = true;
+    }
     sending = true;
     p.busy = true;
     p.error = null;
     notify();
     stopTyping();
     try {
+      if (!await persist()) return;
+      if (await reconcilePending(p)) return;
+      await loadMedia(p);
+      if (!current) return;
+      p.attempts++;
       if (p.media != null && !p.uploaded) {
         if (p.upload != null &&
             DateTime.now().difference(p.preparedAt!).inMinutes >= 14)
@@ -672,22 +1026,32 @@ class ChatThreadController extends ChangeNotifier {
         if (p.upload == null) {
           final d = await request(
             'POST',
-            p.audio != null ? '/audio' : '/images',
+            p.hasAudio
+                ? '/audio'
+                : p.hasVideo
+                ? '/videos'
+                : '/images',
             body: {
               'contentType': p.media!.contentType,
               'byteLength': p.media!.bytes.length,
               'contentMd5': p.media!.contentMd5,
+              'contentSha256': p.media!.contentSha256,
+              'requestId': p.requestId,
               if (p.audio != null) 'durationMs': p.audio!.durationMs,
             },
           );
           if (disposed) return;
           p.upload = ImageUpload.fromJson(d);
           p.preparedAt = DateTime.now();
+          if (!await persist()) return;
         }
         await chats.accounts.uploadImage(p.upload!, p.media!);
         if (disposed) return;
         p.uploaded = true;
+        if (!await persist()) return;
       }
+      p.commitAttempted = true;
+      if (!await persist()) return;
       final epoch = metadataEpoch,
           d = await request(
             'POST',
@@ -695,8 +1059,14 @@ class ChatThreadController extends ChangeNotifier {
             body: {
               'text': p.text,
               'requestId': p.requestId,
+              if (p.replyToId != null) 'replyToId': p.replyToId,
+              if (p.hasMedia) 'attachmentSha256': p.mediaKey,
               if (p.upload != null)
-                (p.audio != null ? 'audioUploadId' : 'imageUploadId'):
+                (p.hasAudio
+                        ? 'audioUploadId'
+                        : p.hasVideo
+                        ? 'videoUploadId'
+                        : 'imageUploadId'):
                     p.upload!.id,
             },
           );
@@ -704,22 +1074,41 @@ class ChatThreadController extends ChangeNotifier {
       merge([d['message']]);
       apply(d, epoch);
       pending.remove(p);
+      await persist();
       error = null;
     } on AccountFailure catch (f) {
       if (!disposed) {
         p.error = f.message;
+        p.autoRetry =
+            [
+              'NETWORK',
+              'IMAGE_NETWORK',
+              'UPLOAD_INVALID',
+              'UPLOAD_INCOMPLETE',
+            ].contains(f.code) ||
+            f.status >= 500;
+        if (f.code == 'UPLOAD_ATTACHED' && p.commitAttempted) {
+          try {
+            if (await reconcilePending(p)) return;
+          } catch (_) {}
+        }
         if (f.code == 'UPLOAD_INVALID') {
           p.upload = null;
           p.uploaded = false;
         }
       }
     } catch (_) {
-      if (!disposed) p.error = 'تعذّر الإرسال؛ جرّب إعادة المحاولة.';
+      if (!disposed) {
+        p.error = 'تعذّر الحفظ أو الإرسال؛ الرسالة ما زالت معلّقة.';
+        p.autoRetry = false;
+      }
     } finally {
       if (!disposed) {
         sending = false;
         p.busy = false;
+        unawaited(persist().catchError((Object _) => false));
         notify();
+        scheduleRetry();
       }
     }
   }
@@ -727,6 +1116,16 @@ class ChatThreadController extends ChangeNotifier {
   void discard(PendingChatMessage p) {
     if (!p.busy) {
       pending.remove(p);
+      unawaited(
+        persist().catchError((Object _) {
+          if (current) {
+            if (!pending.contains(p)) pending.add(p);
+            error = 'تعذّر حفظ حذف المعلّق.';
+            notify();
+          }
+          return false;
+        }),
+      );
       notify();
     }
   }
@@ -734,6 +1133,8 @@ class ChatThreadController extends ChangeNotifier {
   @override
   void dispose() {
     disposed = true;
+    draftTimer?.cancel();
+    sendRetry?.cancel();
     typingExpiry?.cancel();
     typingStop?.cancel();
     readRetry?.cancel();

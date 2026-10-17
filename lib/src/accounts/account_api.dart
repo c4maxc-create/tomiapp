@@ -251,6 +251,8 @@ class AccountApi {
     String text,
     String requestId, {
     String? uploadId,
+    videoUploadId,
+    attachmentSha256,
   }) async {
     final d = await _request(
       'POST',
@@ -260,6 +262,8 @@ class AccountApi {
         'text': text.trim(),
         'requestId': requestId,
         if (uploadId != null) 'imageUploadId': uploadId,
+        if (videoUploadId != null) 'videoUploadId': videoUploadId,
+        if (attachmentSha256 != null) 'attachmentSha256': attachmentSha256,
       },
     );
     return PublishResult(

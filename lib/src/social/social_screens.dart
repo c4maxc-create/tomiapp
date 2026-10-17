@@ -1,8 +1,13 @@
+import '../messaging/voice_note.dart' show voiceTime;
 import '../messaging/gallery_intent.dart';
+import '../messaging/video_media.dart';
+import 'post_draft_controller.dart';
 import '../messaging/chat_screens.dart';
 import '../messaging/chat_models.dart';
 
 import 'dart:async';
+
+import '../moderation/report_dialog.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -128,7 +133,12 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                 conversation: DirectConversation.fromJson(
                   d['conversation'] as Map<String, dynamic>,
                 ),
-                initialImage: lost.files!.first,
+                initialImage: destination['purpose'] == 'chat-video'
+                    ? null
+                    : lost.files!.first,
+                initialVideo: destination['purpose'] == 'chat-video'
+                    ? lost.files!.first
+                    : null,
               ),
             ),
           );
@@ -144,15 +154,23 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
             ),
           );
       } else if (destination['purpose'] == null ||
-          destination['purpose'] == 'feed') {
-        await compose(initialImage: lost.files!.first);
+          destination['purpose'] == 'feed' ||
+          destination['purpose'] == 'feed-video') {
+        await compose(
+          initialImage: destination['purpose'] == 'feed-video'
+              ? null
+              : lost.files!.first,
+          initialVideo: destination['purpose'] == 'feed-video'
+              ? lost.files!.first
+              : null,
+        );
       }
     } catch (_) {
       /* No pending selection on this platform. */
     }
   }
 
-  Future<void> compose({XFile? initialImage}) async {
+  Future<void> compose({XFile? initialImage, XFile? initialVideo}) async {
     final p = await showModalBottomSheet<SocialPost>(
       context: context,
       isScrollControlled: true,
@@ -163,6 +181,8 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
         accounts: widget.accounts,
         imageEnabled: initialImage != null || feed.imageUploadEnabled,
         initialImage: initialImage,
+        initialVideo: initialVideo,
+        videoEnabled: feed.videoUploadEnabled,
       ),
     );
     if (mounted && p != null) {
@@ -408,12 +428,37 @@ class RealPostCard extends StatelessWidget {
                 onPressed: busy ? null : () => confirmDelete(c),
                 icon: const Icon(Icons.more_horiz_rounded),
               ),
+            if (!post.isMine)
+              IconButton(
+                key: ValueKey('report-post-${post.id}'),
+                tooltip: 'إبلاغ الإدارة',
+                icon: const Icon(Icons.flag_outlined),
+                onPressed: () => showReportDialog(
+                  c,
+                  accounts,
+                  targetType: 'post',
+                  targetId: post.id,
+                  title: 'الإبلاغ عن منشور ${post.author.displayName}',
+                ),
+              ),
           ],
         ),
         if (post.text.isNotEmpty) ...[
           const SizedBox(height: 14),
           Text(post.text, style: const TextStyle(height: 1.7, fontSize: 15)),
         ],
+        if (post.video != null)
+          VideoTile(
+            video: post.video!,
+            source: () async {
+              final d = await accounts.chatRequest(
+                'GET',
+                '/v1/posts/${post.id}',
+              );
+              final p = SocialPost.fromJson(d['post'] as Map<String, dynamic>);
+              return p.video?.url == null ? null : Uri.parse(p.video!.url!);
+            },
+          ),
         if (post.image != null) ...[
           const SizedBox(height: 14),
           ClipRRect(
@@ -529,231 +574,300 @@ class SocialComposer extends StatefulWidget {
     required this.accounts,
     required this.imageEnabled,
     this.initialImage,
+    this.initialVideo,
+    this.videoEnabled = false,
   });
   final AccountController accounts;
-  final bool imageEnabled;
-  final XFile? initialImage;
+  final bool imageEnabled, videoEnabled;
+  final XFile? initialImage, initialVideo;
   @override
   State<SocialComposer> createState() => _SocialComposerState();
 }
 
 class _SocialComposerState extends State<SocialComposer> {
   final text = TextEditingController();
-  String requestId = newRequestId();
-  String? error, stage;
-  ImageDraft? image;
-  ImageUpload? upload;
-  bool busy = false, imageSent = false, picking = false;
+  late final draft = PostDraftController(widget.accounts);
+  bool picking = false, closing = false;
+  String? pickerError;
   @override
   void initState() {
     super.initState();
-    if (widget.initialImage != null) unawaited(loadImage(widget.initialImage!));
+    draft.addListener(changed);
+    unawaited(initialize());
   }
 
-  Future<void> loadImage(XFile f) async {
-    try {
-      final p = await readPickedImage(f);
-      if (mounted)
-        setState(() {
-          image = p;
-          upload = null;
-          imageSent = false;
-          requestId = newRequestId();
-          error = null;
-        });
-    } on AccountFailure catch (e) {
-      if (mounted) setState(() => error = e.message);
-    } catch (_) {
-      if (mounted) setState(() => error = 'تعذّر فتح الصورة؛ جرّب صورة ثانية.');
+  void changed() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> initialize() async {
+    await draft.restored;
+    if (!mounted) return;
+    text.text = draft.item.text;
+    if (widget.initialImage != null) await load(widget.initialImage!, false);
+    if (widget.initialVideo != null) await load(widget.initialVideo!, true);
+    changed();
+  }
+
+  Future<void> load(XFile file, bool video) async {
+    if (draft.locked) {
+      pickerError =
+          'توجد مسودة تنتظر التحقق؛ أعد المحاولة أو ألغِ إعادة محاولتها قبل استبدالها.';
+      changed();
+      return;
     }
+    try {
+      final media = video
+          ? await readPickedVideo(file)
+          : await readPickedImage(file);
+      if (!mounted || !draft.current) return;
+      await draft.attachment(media);
+      pickerError = null;
+    } on AccountFailure catch (e) {
+      pickerError = e.message;
+    } catch (_) {
+      pickerError = 'تعذّر فتح المرفق أو حفظه على الجهاز.';
+    }
+    changed();
   }
 
-  Future<void> pick() async {
-    if (busy || picking) return;
+  Future<void> pick({bool video = false}) async {
+    if (draft.locked || picking) return;
     setState(() {
       picking = true;
-      error = null;
+      pickerError = null;
     });
     try {
       await GalleryIntent.remember(
         widget.accounts.api.baseUrl,
         widget.accounts.user!.id,
+        purpose: video ? 'feed-video' : 'feed',
       );
-      final f = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 2400,
-        maxHeight: 2400,
-        imageQuality: 90,
-        requestFullMetadata: false,
-      );
+      final file = video
+          ? await ImagePicker().pickVideo(
+              source: ImageSource.gallery,
+              maxDuration: const Duration(minutes: 3),
+            )
+          : await ImagePicker().pickImage(
+              source: ImageSource.gallery,
+              maxWidth: 2400,
+              maxHeight: 2400,
+              imageQuality: 90,
+              requestFullMetadata: false,
+            );
       await GalleryIntent.clear();
-      if (f != null) await loadImage(f);
+      if (file != null && mounted && draft.current) await load(file, video);
     } catch (_) {
-      if (mounted)
-        setState(() => error = 'تعذّر فتح المعرض؛ تأكد من الصلاحيات.');
+      pickerError = 'تعذّر فتح المعرض.';
     } finally {
       if (mounted) setState(() => picking = false);
     }
   }
 
-  Future<void> publish() async {
-    if (busy || picking) return;
-    if (text.text.trim().isEmpty && image == null) {
-      setState(() => error = 'اكتب نص أو اختَر صورة.');
-      return;
-    }
-    setState(() {
-      busy = true;
-      error = null;
-      stage = image != null ? 'جارٍ رفع الصورة…' : 'جارٍ نشر المنشور…';
-    });
+  Future<void> close() async {
+    if (draft.busy || picking || closing) return;
     try {
-      if (image != null && !imageSent) {
-        upload ??= await widget.accounts.prepareImage(image!);
-        await widget.accounts.uploadImage(upload!, image!);
-        imageSent = true;
-      }
-      if (mounted) setState(() => stage = 'جارٍ التحقق والنشر…');
-      final p = await widget.accounts.publishPost(
-        text.text,
-        requestId,
-        uploadId: upload?.id,
-      );
-      if (mounted) Navigator.pop(context, p);
-    } on AccountFailure catch (f) {
-      if (f.code == 'IMAGE_UPLOAD' || f.code == 'UPLOAD_INVALID') {
-        upload = null;
-        imageSent = false;
-      }
-      if (mounted) setState(() => error = f.message);
+      await draft.persist();
+      if (!mounted) return;
+      closing = true;
+      Navigator.pop(context);
     } catch (_) {
-      if (mounted)
-        setState(
-          () => error = 'تعذّر النشر؛ منشورك محفوظ هنا، جرّب مرة ثانية.',
-        );
-    } finally {
-      if (mounted)
-        setState(() {
-          busy = false;
-          stage = null;
-        });
+      pickerError = 'تعذّر حفظ المسودة؛ أبقِ الصفحة مفتوحة وأعد المحاولة.';
+      changed();
+    }
+  }
+
+  Future<void> publish() async {
+    final prior = draft.item.requestId;
+    final post = await draft.publish();
+    if (mounted && post == null && draft.item.requestId != prior)
+      text.text = draft.item.text;
+    if (mounted && post != null) {
+      closing = true;
+      Navigator.pop(context, post);
+    }
+  }
+
+  Future<void> discard() async {
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('إلغاء إعادة المحاولة؟'),
+        content: const Text(
+          'تُزال المسودة من الجهاز. إذا سبق أن نجح النشر، يبقى المنشور في صفحتك.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('رجوع'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('إزالة المسودة'),
+          ),
+        ],
+      ),
+    );
+    if (yes != true || !mounted) return;
+    try {
+      await draft.clear();
+      if (mounted) {
+        text.clear();
+        changed();
+      }
+    } catch (_) {
+      pickerError = 'تعذّر إزالة المسودة.';
+      changed();
     }
   }
 
   @override
   void dispose() {
+    draft.removeListener(changed);
+    draft.dispose();
     text.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext c) => PopScope(
-    canPop: !busy && !picking,
-    child: SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          0,
-          20,
-          20 + MediaQuery.viewInsetsOf(c).bottom,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'شارك لحظتك',
-                      style: TextStyle(
-                        fontSize: 23,
-                        fontWeight: FontWeight.bold,
+  Widget build(BuildContext c) {
+    final media = draft.item.media, locked = draft.locked || picking;
+    return PopScope(
+      canPop: closing,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(close());
+      },
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            0,
+            20,
+            20 + MediaQuery.viewInsetsOf(c).bottom,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'شارك لحظتك',
+                        style: TextStyle(
+                          fontSize: 23,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
+                    IconButton(
+                      tooltip: 'حفظ وإغلاق',
+                      onPressed: draft.busy || picking ? null : close,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                if (draft.loading) const LinearProgressIndicator(),
+                const SizedBox(height: 14),
+                TextField(
+                  key: const Key('post-input'),
+                  controller: text,
+                  enabled: !locked,
+                  minLines: 3,
+                  maxLines: 6,
+                  maxLength: 2000,
+                  onChanged: draft.editText,
+                  decoration: const InputDecoration(
+                    hintText: 'شنو تحب تشارك اليوم؟',
                   ),
-                  IconButton(
-                    tooltip: 'إلغاء',
-                    onPressed: busy || picking ? null : () => Navigator.pop(c),
-                    icon: const Icon(Icons.close_rounded),
+                ),
+                if (media is VideoDraft)
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text('🎬 فيديو • ${voiceTime(media.durationMs)}'),
+                  )
+                else if (media != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: Image.memory(
+                      media.bytes,
+                      height: 180,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) =>
+                          const Text('تعذّر عرض معاينة الصورة'),
+                    ),
+                  ),
+                if (media != null)
+                  TextButton.icon(
+                    onPressed: locked
+                        ? null
+                        : () => draft.attachment(null).catchError((Object _) {
+                            pickerError = 'تعذّر إزالة المرفق.';
+                            changed();
+                          }),
+                    icon: const Icon(Icons.close),
+                    label: const Text('إزالة المرفق'),
+                  ),
+                OutlinedButton.icon(
+                  key: const Key('pick-post-image'),
+                  onPressed: locked || !widget.imageEnabled
+                      ? null
+                      : () => pick(),
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: Text(picking ? 'جارٍ فتح المعرض…' : 'إضافة صورة'),
+                ),
+                if (widget.videoEnabled)
+                  OutlinedButton.icon(
+                    key: const Key('pick-post-video'),
+                    onPressed: locked ? null : () => pick(video: true),
+                    icon: const Icon(Icons.video_library_outlined),
+                    label: const Text('إضافة فيديو'),
+                  ),
+                const Text(
+                  'المسودة تُحفظ على هذا الجهاز.',
+                  style: TextStyle(fontSize: 11, color: TomiColors.muted),
+                ),
+                if (pickerError ?? draft.error case final String error)
+                  AccountErrorMessage(error),
+                if (draft.busy) ...[
+                  const LinearProgressIndicator(),
+                  const Text(
+                    'جارٍ التحقق والرفع والنشر…',
+                    textAlign: TextAlign.center,
                   ),
                 ],
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                key: const Key('post-input'),
-                controller: text,
-                enabled: !busy && !picking,
-                minLines: 3,
-                maxLines: 6,
-                maxLength: 2000,
-                onChanged: (_) => requestId = newRequestId(),
-                decoration: const InputDecoration(
-                  hintText: 'شنو تحب تشارك اليوم؟',
-                ),
-              ),
-              const SizedBox(height: 10),
-              if (image != null) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(18),
-                  child: Image.memory(
-                    image!.bytes,
-                    height: 180,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) =>
-                        const Text('تعذّر عرض معاينة الصورة'),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: busy || picking
-                      ? null
-                      : () => setState(() {
-                          image = null;
-                          upload = null;
-                          imageSent = false;
-                          requestId = newRequestId();
-                        }),
-                  icon: const Icon(Icons.close_rounded),
-                  label: const Text('إزالة الصورة'),
-                ),
-              ],
-              OutlinedButton.icon(
-                key: const Key('pick-post-image'),
-                onPressed: busy || picking || !widget.imageEnabled
-                    ? null
-                    : pick,
-                icon: const Icon(Icons.photo_library_outlined),
-                label: Text(picking ? 'جارٍ فتح المعرض…' : 'إضافة صورة'),
-              ),
-              if (!widget.imageEnabled)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8),
-                  child: Text(
-                    'نشر الصور غير متاح حاليًا؛ تگدر تنشر نص.',
-                    style: TextStyle(color: TomiColors.muted, height: 1.6),
-                  ),
-                ),
-              if (error != null) AccountErrorMessage(error!),
-              if (busy) ...[
                 const SizedBox(height: 14),
-                const LinearProgressIndicator(),
-                const SizedBox(height: 8),
-                Text(stage ?? '', textAlign: TextAlign.center),
+                FilledButton.icon(
+                  key: const Key('publish-post'),
+                  onPressed:
+                      draft.loading ||
+                          draft.busy ||
+                          picking ||
+                          !draft.storageReady
+                      ? null
+                      : publish,
+                  icon: const Icon(Icons.send_rounded),
+                  label: Text(
+                    draft.busy
+                        ? 'جارٍ النشر…'
+                        : draft.item.commitAttempted
+                        ? 'إعادة المحاولة والتحقق'
+                        : 'نشر',
+                  ),
+                ),
+                if (draft.item.commitAttempted)
+                  TextButton(
+                    onPressed: draft.busy ? null : discard,
+                    child: const Text('إلغاء إعادة المحاولة'),
+                  ),
               ],
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                key: const Key('publish-post'),
-                onPressed: busy || picking ? null : publish,
-                icon: const Icon(Icons.send_rounded),
-                label: Text(busy ? 'جارٍ النشر…' : 'نشر'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class RealCommentsSheet extends StatefulWidget {

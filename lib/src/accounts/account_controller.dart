@@ -1,4 +1,5 @@
 import '../messaging/chat_controller.dart';
+import '../messaging/draft_store.dart';
 import '../messaging/chat_connection.dart';
 import '../notifications/push_controller.dart';
 import '../notifications/mobile_runtime.dart';
@@ -42,10 +43,17 @@ class AccountController extends ChangeNotifier {
     this.roomAudioFactory,
     this.callMediaFactory,
     MobileRuntime? mobile,
-  }) : mobile = mobile ?? NativeMobileRuntime(),
+    DraftStore? draftStore,
+  }) : draftStore = draftStore ?? defaultDraftStore(),
+       mobile = mobile ?? NativeMobileRuntime(),
        _vault = vault ?? SecureTokenVault(api.baseUrl);
   final AccountApi api;
   final MobileRuntime mobile;
+  final DraftStore draftStore;
+  String? get draftSessionFence =>
+      _token == null ? null : draftOwner('session', _token!);
+  String? get draftOwnerId =>
+      user == null ? null : draftOwner(api.baseUrl, user!.id);
   final bool realtimeEnabled;
   final RoomAudio Function()? roomAudioFactory;
   final CallMedia Function()? callMediaFactory;
@@ -80,6 +88,33 @@ class AccountController extends ChangeNotifier {
   }) => _authenticated(
     (token) => api.chatRequest(token, method, path, body: body, query: query),
   );
+  Future<void> saveIdentity(Map<String, dynamic> body) async {
+    final d = await chatRequest('PUT', '/v1/me/identity', body: body);
+    _user = AccountUser.fromJson(d['user'] as Map<String, dynamic>);
+    _notify();
+  }
+
+  void applyRoomIdentity(AccountUser member) {
+    final own = _user;
+    if (own == null || member.id != own.id || !member.identity.available)
+      return;
+    final next = member.identity, previous = own.identity;
+    if (next.xp < previous.xp ||
+        next.revision < previous.revision ||
+        next.giftsReceived < previous.giftsReceived ||
+        (next.data['roomsCreated'] as num? ?? 0) <
+            (previous.data['roomsCreated'] as num? ?? 0))
+      return;
+    if (previous.available &&
+        next.xp == previous.xp &&
+        next.revision == previous.revision &&
+        next.giftsReceived == previous.giftsReceived &&
+        next.data['roomsCreated'] == previous.data['roomsCreated'])
+      return;
+    _user = own.withIdentity(next);
+    _notify();
+  }
+
   Future<void> saveAvatar(String? uploadId, String requestId) async {
     final d = await chatRequest(
       'PUT',
@@ -297,9 +332,18 @@ class AccountController extends ChangeNotifier {
     String text,
     String requestId, {
     String? uploadId,
+    videoUploadId,
+    attachmentSha256,
   }) async {
     final r = await _authenticated(
-      (token) => api.publishPost(token, text, requestId, uploadId: uploadId),
+      (token) => api.publishPost(
+        token,
+        text,
+        requestId,
+        uploadId: uploadId,
+        videoUploadId: videoUploadId,
+        attachmentSha256: attachmentSha256,
+      ),
     );
     _user = r.user;
     _notify();
@@ -319,6 +363,22 @@ class AccountController extends ChangeNotifier {
       _authenticated((token) => api.addComment(token, id, text, requestId));
   Future<SocialPost> deleteComment(String id) =>
       _authenticated((token) => api.deleteComment(token, id));
+  Future<ImageUpload> preparePostMedia(
+    ImageDraft media,
+    String requestId,
+  ) async => ImageUpload.fromJson(
+    await chatRequest(
+      'POST',
+      media is VideoDraft ? '/v1/media/videos' : '/v1/media/images',
+      body: {
+        'contentType': media.contentType,
+        'byteLength': media.bytes.length,
+        'contentMd5': media.contentMd5,
+        'contentSha256': media.contentSha256,
+        'requestId': requestId,
+      },
+    ),
+  );
   Future<ImageUpload> prepareImage(ImageDraft image) =>
       _authenticated((token) => api.prepareImage(token, image));
   Future<void> uploadImage(ImageUpload upload, ImageDraft image) =>

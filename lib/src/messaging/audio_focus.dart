@@ -2,8 +2,9 @@
 // A call waits for recording/playback to release native audio before getUserMedia.
 final voiceMediaStops = <Object, Future<void> Function()>{};
 
-Future<void> stopVoiceForCall() async {
-  for (final stop in List<Future<void> Function()>.of(voiceMediaStops.values)) {
-    await stop();
+Future<void> stopVoiceForCall({Object? except}) async {
+  for (final owner in List<Object>.of(voiceMediaStops.keys)) {
+    if (owner == except) continue;
+    await voiceMediaStops[owner]?.call();
   }
 }

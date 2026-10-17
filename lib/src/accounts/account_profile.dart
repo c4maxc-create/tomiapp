@@ -1,3 +1,7 @@
+import '../identity/identity_screens.dart';
+import '../moderation/reports_page.dart';
+import '../moderation/report_dialog.dart';
+import '../identity/ranking_screen.dart';
 import '../calling/call_screens.dart';
 import '../messaging/chat_screens.dart';
 
@@ -67,6 +71,19 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
               'حسابي',
               subtitle: 'بياناتك محفوظة، وترافقك بكل جهاز',
             ),
+            ListTile(
+              key: const Key('open-community-ranking'),
+              leading: const Icon(Icons.leaderboard_outlined),
+              title: const Text('نجوم تومي'),
+              subtitle: const Text('المساهمون اليوم وهذا الأسبوع'),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      ContributionRankingPage(accounts: widget.accounts),
+                ),
+              ),
+            ),
             if (error != null) AccountErrorMessage(error!),
             if (widget.accounts.storageWarning != null)
               AccountErrorMessage(widget.accounts.storageWarning!),
@@ -75,6 +92,16 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Center(child: AccountAvatar(user, size: 90)),
+                  IdentitySummary(
+                    user,
+                    onCustomize: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            IdentityStudioPage(accounts: widget.accounts),
+                      ),
+                    ),
+                  ),
                   TextButton.icon(
                     key: const Key('edit-avatar'),
                     onPressed: () => Navigator.push(
@@ -149,6 +176,8 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
               icon: const Icon(Icons.grid_view_rounded),
               label: const Text('عرض منشوراتي'),
             ),
+            const SizedBox(height: 16),
+            ModerationSettingsEntry(accounts: widget.accounts),
             const SizedBox(height: 16),
             TomiCard(
               child: Column(
@@ -500,7 +529,23 @@ class _UserAccountPageState extends State<UserAccountPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('البروفايل')),
+    appBar: AppBar(
+      title: const Text('البروفايل'),
+      actions: [
+        if (user.id != widget.accounts.user?.id)
+          IconButton(
+            tooltip: 'إبلاغ الإدارة',
+            icon: const Icon(Icons.flag_outlined),
+            onPressed: () => showReportDialog(
+              context,
+              widget.accounts,
+              targetType: 'account',
+              targetId: user.id,
+              title: 'الإبلاغ عن حساب ${user.displayName}',
+            ),
+          ),
+      ],
+    ),
     body: RefreshIndicator(
       onRefresh: reload,
       child: ListView(
@@ -513,6 +558,7 @@ class _UserAccountPageState extends State<UserAccountPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Center(child: AccountAvatar(user, size: 90)),
+                IdentitySummary(user),
                 const SizedBox(height: 18),
                 Text(
                   user.displayName,

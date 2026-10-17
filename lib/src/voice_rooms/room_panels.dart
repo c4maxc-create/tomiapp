@@ -841,6 +841,50 @@ class _RoomInfo extends StatelessWidget {
                     color: Color(0xff292c39),
                   ),
                 ),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  children: [
+                    TextButton.icon(
+                      onPressed: c.preferenceBusy.contains(r.id)
+                          ? null
+                          : () => c.setPreference(r, favorite: !r.favorite),
+                      icon: Icon(
+                        r.favorite
+                            ? Icons.star_rounded
+                            : Icons.star_outline_rounded,
+                      ),
+                      label: Text(r.favorite ? 'بالمفضلة' : 'أضف للمفضلة'),
+                    ),
+                    TextButton.icon(
+                      onPressed: c.preferenceBusy.contains(r.id)
+                          ? null
+                          : () => c.setPreference(r, following: !r.following),
+                      icon: Icon(
+                        r.following ? Icons.bookmark : Icons.bookmark_outline,
+                      ),
+                      label: Text(
+                        r.following ? 'أتابع الغرفة' : 'متابعة الغرفة',
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  '${r.followers} متابع',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+                if (r.ownerId != c.accounts.user?.id)
+                  TextButton.icon(
+                    icon: const Icon(Icons.flag_outlined),
+                    label: const Text('إبلاغ إدارة التطبيق'),
+                    onPressed: () => showReportDialog(
+                      context,
+                      c.accounts,
+                      targetType: 'room',
+                      targetId: r.id,
+                      title: 'الإبلاغ عن غرفة ${r.title}',
+                    ),
+                  ),
                 const SizedBox(height: 8),
                 Text(
                   'ID: ${r.id.substring(0, 8).toUpperCase()}',
@@ -1052,6 +1096,19 @@ class _RoomLevelsState extends State<_RoomLevels> {
                       ),
                     ),
                   const Divider(height: 35),
+                  TextButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => ContributionRankingPage(
+                          accounts: widget.c.accounts,
+                          roomId: r.id,
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.leaderboard_outlined),
+                    label: const Text('ترتيب اليوم والأسبوع'),
+                  ),
                   const Text(
                     'أكثر المساهمين',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),

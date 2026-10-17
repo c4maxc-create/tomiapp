@@ -1,0 +1,235 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
+import '../accounts/account_api.dart';
+import '../social/social_models.dart';
+import 'audio_focus.dart';
+import 'voice_note.dart' show voiceTime;
+
+Future<VideoDraft> readPickedVideo(XFile file) async {
+  if (await file.length() > 25 * 1024 * 1024)
+    throw const AccountFailure(
+      'INVALID_VIDEO',
+      'الفيديو يجب أن يكون حتى25 MB وثلاث دقائق و1080p.',
+    );
+  final player = VideoPlayerController.file(File(file.path));
+  try {
+    await player.initialize().timeout(const Duration(seconds: 20));
+    final v = player.value,
+        w = v.size.width.round(),
+        h = v.size.height.round(),
+        ms = v.duration.inMilliseconds;
+    if (ms < 100 ||
+        ms > 180000 ||
+        w < 1 ||
+        h < 1 ||
+        w * h > 1920 * 1080 ||
+        w > 1920 ||
+        h > 1920)
+      throw const AccountFailure(
+        'INVALID_VIDEO',
+        'اختَر فيديو حتى1080p وثلاث دقائق.',
+      );
+    final parts = BytesBuilder(copy: false);
+    await for (final chunk in file.openRead()) {
+      if (parts.length + chunk.length > 25 * 1024 * 1024)
+        throw const AccountFailure('INVALID_VIDEO', 'الفيديو أكبر من25 MB.');
+      parts.add(chunk);
+    }
+    final b = parts.takeBytes();
+    if (b.length < 16 ||
+        b.length > 25 * 1024 * 1024 ||
+        String.fromCharCodes(b.sublist(4, 8)) != 'ftyp')
+      throw const AccountFailure(
+        'INVALID_VIDEO',
+        'اختَر MP4 بترميز H.264 وصوت AAC.',
+      );
+    return VideoDraft(b, durationMs: ms, width: w, height: h);
+  } finally {
+    await player.dispose();
+  }
+}
+
+/// A poster button allocates a native player only after the user opens it.
+class VideoTile extends StatelessWidget {
+  const VideoTile({super.key, required this.video, required this.source});
+  final PostVideo video;
+  final Future<Uri?> Function() source;
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'فتح الفيديو',
+    child: FilledButton.tonalIcon(
+      onPressed: () => Navigator.push(
+        context,
+        MaterialPageRoute<void>(builder: (_) => VideoPage(source: source)),
+      ),
+      icon: const Icon(Icons.play_circle_outline, size: 38),
+      label: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Text('فيديو • ${voiceTime(video.durationMs)}'),
+      ),
+    ),
+  );
+}
+
+class VideoPage extends StatefulWidget {
+  const VideoPage({super.key, required this.source});
+  final Future<Uri?> Function() source;
+  @override
+  State<VideoPage> createState() => _VideoPageState();
+}
+
+class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
+  VideoPlayerController? player;
+  String? error;
+  bool loading = false, foreground = true;
+  int epoch = 0;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    voiceMediaStops[this] = pause;
+    unawaited(load());
+  }
+
+  Future<void> pause() async {
+    epoch++;
+    if (mounted && loading) setState(() => loading = false);
+    await player?.pause();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    foreground = state == AppLifecycleState.resumed;
+    if (!foreground) unawaited(pause());
+  }
+
+  Future<void> load() async {
+    final e = ++epoch;
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    final old = player;
+    old?.removeListener(changed);
+    player = null;
+    await old?.dispose();
+    VideoPlayerController? next;
+    try {
+      final uri = await widget.source();
+      if (!mounted || e != epoch) return;
+      if (uri == null || !['https', 'http'].contains(uri.scheme))
+        throw StateError('Video unavailable');
+      next = VideoPlayerController.networkUrl(
+        uri,
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: false),
+      );
+      await next.initialize().timeout(const Duration(seconds: 25));
+      if (!mounted || e != epoch) {
+        await next.dispose();
+        return;
+      }
+      player = next;
+      next = null;
+      player!.addListener(changed);
+    } catch (_) {
+      await next?.dispose();
+      if (mounted && e == epoch)
+        error = 'تعذّر فتح الفيديو؛ حدّث الرابط وجرّب مرة ثانية.';
+    } finally {
+      if (mounted && e == epoch) setState(() => loading = false);
+    }
+  }
+
+  void changed() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> toggle() async {
+    final p = player;
+    if (p == null || !foreground) return;
+    if (p.value.isPlaying) {
+      await p.pause();
+      return;
+    }
+    final e = epoch;
+    await stopVoiceForCall(except: this);
+    if (!mounted || e != epoch || !foreground || !identical(p, player)) return;
+    if (p.value.position >= p.value.duration) await p.seekTo(Duration.zero);
+    if (!mounted || e != epoch || !foreground) return;
+    try {
+      await p.play();
+      if (mounted && e != epoch) await p.pause();
+    } catch (_) {
+      if (mounted) setState(() => error = 'تعذّر تشغيل الفيديو.');
+    }
+  }
+
+  @override
+  void dispose() {
+    epoch++;
+    WidgetsBinding.instance.removeObserver(this);
+    voiceMediaStops.remove(this);
+    player?.removeListener(changed);
+    unawaited(player?.dispose());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext c) {
+    final p = player, v = p?.value;
+    return Scaffold(
+      appBar: AppBar(title: const Text('الفيديو')),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: Center(
+                child: loading
+                    ? const CircularProgressIndicator()
+                    : p == null
+                    ? const Icon(Icons.videocam_off_outlined, size: 60)
+                    : AspectRatio(
+                        aspectRatio: v!.aspectRatio,
+                        child: VideoPlayer(p),
+                      ),
+              ),
+            ),
+            if (error != null || v?.hasError == true)
+              Text(error ?? 'تعذّر تشغيل الفيديو.'),
+            if (p != null && v!.isInitialized) ...[
+              VideoProgressIndicator(
+                p,
+                allowScrubbing: true,
+                padding: const EdgeInsets.all(16),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton.filled(
+                    tooltip: v.isPlaying ? 'إيقاف مؤقت' : 'تشغيل',
+                    onPressed: toggle,
+                    icon: Icon(v.isPlaying ? Icons.pause : Icons.play_arrow),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '${voiceTime(v.position.inMilliseconds)} / ${voiceTime(v.duration.inMilliseconds)}',
+                  ),
+                ],
+              ),
+            ],
+            TextButton.icon(
+              onPressed: loading ? null : load,
+              icon: const Icon(Icons.refresh),
+              label: const Text('تحديث الفيديو'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

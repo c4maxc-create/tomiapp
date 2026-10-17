@@ -1,3 +1,5 @@
+import '../identity/identity_avatar.dart';
+
 import 'package:flutter/material.dart';
 
 import '../widgets.dart';
@@ -47,7 +49,13 @@ class AccountAvatar extends StatelessWidget {
   final AccountUser user;
   final double size;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => IdentityDecoration(
+    identity: user.identity,
+    size: size,
+    name: user.displayName,
+    child: base(context),
+  );
+  Widget base(BuildContext context) {
     if (user.avatarUrl != null)
       return Semantics(
         label: 'صورة ${user.displayName}',

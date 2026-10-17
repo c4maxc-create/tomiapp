@@ -18,6 +18,16 @@ class VoiceMember {
 class VoiceRoom {
   VoiceRoom(this.data);
   final Map<String, dynamic> data;
+  Map<String, dynamic> get preferences =>
+      data['preferences'] as Map<String, dynamic>? ?? const {};
+  bool get favorite => preferences['favorite'] == true;
+  bool get following => preferences['following'] == true;
+  int get preferenceRevision => (preferences['revision'] as num?)?.toInt() ?? 0;
+  int get followers => (preferences['followers'] as num?)?.toInt() ?? 0;
+  VoiceRoom preservePreferences(VoiceRoom old) =>
+      preferenceRevision >= old.preferenceRevision
+      ? this
+      : VoiceRoom({...data, 'preferences': old.preferences});
   String get id => data['id'] as String;
   String get title => data['title'] as String;
   String get ownerId => data['ownerId'] as String;
@@ -95,6 +105,7 @@ class RoomEvent {
   final Map<String, dynamic> data;
   int get sequence => (data['sequence'] as num).toInt();
   String get kind => data['kind'] as String;
+  Map<String, dynamic>? get effect => data['effect'] as Map<String, dynamic>?;
   String get text => data['text'] as String? ?? '';
   AccountUser get actor =>
       AccountUser.fromJson(data['actor'] as Map<String, dynamic>);
