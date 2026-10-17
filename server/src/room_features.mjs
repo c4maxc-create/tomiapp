@@ -1,5 +1,7 @@
+import {giftProgress,styleAllowed,userLevel} from './identity_catalog.mjs';
 import {randomUUID} from 'node:crypto';
 import {ApiError,hashPassword,verifyPassword} from './security.mjs';
+import {uploadWithDigest} from './media_intents.mjs';
 import {giftCatalog,roomLevel,welcomeCoins,dailyCoins,levelThresholds} from './room_catalog.mjs';
 const now=(delta=0)=>new Date(Date.now()+delta).toISOString();
 const fail=(status,code,message)=>{throw new ApiError(status,code,message);};
@@ -28,19 +30,22 @@ export function createRoomFeatures({database,storage,usersByIds,job,bump,remove}
   const seq=Number((await db.query('UPDATE tomi_room_options SET next_event=next_event+1 WHERE room_id=? RETURNING next_event',[r.id])).rows[0].next_event);
   await db.query('INSERT INTO tomi_room_events(room_id,sequence,actor_id,request_id,kind,body,image_upload_id,gift_id,created_at) VALUES(?,?,?,?,?,?,?,?,?)',
    [r.id,seq,current.id,requestId,kind,body,imageId,giftId,now()]);
+  return seq;
  }
  async function picture(db,id){
   if(!id)return null;const u=(await db.query('SELECT * FROM tomi_image_uploads WHERE id=?',[id])).rows[0];
   return u&&storage?{url:storage.avatarUrl?.(u.object_key)??storage.readUrl(u.object_key),width:Number(u.width),height:Number(u.height)}:null;
  }
- async function events(db,r,current){
-  const rows=(await db.query(`SELECT e.*,g.gift_id AS catalog_id,g.quantity,g.total,g.recipient_id
-   FROM tomi_room_events e LEFT JOIN tomi_room_gifts g ON g.id=e.gift_id
-   WHERE e.room_id=? ORDER BY e.sequence DESC LIMIT 40`,[r.id])).rows.reverse();
+ async function history(db,r,current,before=null){
+  const rows=(await db.query(`SELECT e.*,g.gift_id AS catalog_id,g.quantity,g.total,g.recipient_id,x.style_id
+   FROM tomi_room_events e LEFT JOIN tomi_room_gifts g ON g.id=e.gift_id LEFT JOIN tomi_room_entry_effects x ON x.room_id=e.room_id AND x.sequence=e.sequence
+   WHERE e.room_id=? ${before===null?'':'AND e.sequence<?'} ORDER BY e.sequence DESC LIMIT 41`,[r.id,...(before===null?[]:[before])])).rows;
+  const more=rows.length>40;rows.splice(40);rows.reverse();
   const users=await usersByIds([...new Set(rows.flatMap(e=>[e.actor_id,e.recipient_id].filter(Boolean)))],current.id,db);
-  return Promise.all(rows.map(async e=>({sequence:Number(e.sequence),kind:e.kind,text:e.body,createdAt:e.created_at,
-   actor:users.get(e.actor_id),image:await picture(db,e.image_upload_id),requestId:e.actor_id===current.id?e.request_id:null,
+  const items=await Promise.all(rows.map(async e=>({sequence:Number(e.sequence),kind:e.kind,text:e.body,createdAt:e.created_at,
+   actor:users.get(e.actor_id),effect:e.style_id?{kind:'entrance',styleId:e.style_id}:e.gift_id?{kind:'gift',styleId:giftCatalog.find(g=>g.id===e.catalog_id)?.effect??'pulse'}:null,image:await picture(db,e.image_upload_id),requestId:e.actor_id===current.id?e.request_id:null,
    gift:e.gift_id?{id:e.gift_id,giftId:e.catalog_id,quantity:Number(e.quantity),total:Number(e.total),recipient:users.get(e.recipient_id)}:null})));
+  return {events:items,nextBefore:more?Number(rows[0].sequence):null};
  }
  async function snapshot(db,r,current,me,details){
   // Snapshot reads do not create rows: listing rooms stays read-only.
@@ -54,7 +59,7 @@ export function createRoomFeatures({database,storage,usersByIds,job,bump,remove}
   if(details){
    result.seats=(await db.query('SELECT seat,locked,muted FROM tomi_room_seats WHERE room_id=?',[r.id])).rows.map(v=>({seat:Number(v.seat),locked:!!v.locked,muted:!!v.muted}));
    if(me&&me.session_hash===current.tokenHash){
-    result.events=await events(db,r,current);
+    const page=await history(db,r,current);result.events=page.events;result.eventsBefore=page.nextBefore;
     const inv=(await db.query('SELECT seat,expires_at FROM tomi_room_invites WHERE room_id=? AND user_id=? AND expires_at>?',[r.id,current.id,now()])).rows[0];
     result.invitation=inv?{seat:Number(inv.seat),expiresAt:inv.expires_at}:null;
    }
@@ -105,7 +110,7 @@ export function createRoomFeatures({database,storage,usersByIds,job,bump,remove}
     if(!storage)fail(503,'IMAGES_DISABLED','رفع الصور غير متاح.');
     const u=(await database.query('SELECT * FROM tomi_image_uploads WHERE id=? AND user_id=?',[d.imageUploadId,current.id])).rows[0];
     if(!u||u.state!=='pending'||u.expires_at<=now()||!u.object_key.startsWith('tomi/posts/'+current.id+'/'))fail(400,'UPLOAD_INVALID','الصورة انتهت أو استُخدمت.');
-    prepared.image=await storage.verify(u);
+    prepared.image=await storage.verify(await uploadWithDigest(database,u,d.attachmentSha256));
    }
   }
   return prepared;
@@ -133,16 +138,18 @@ export function createRoomFeatures({database,storage,usersByIds,job,bump,remove}
    const id=randomUUID();await db.query('INSERT INTO tomi_room_gifts(id,room_id,sender_id,recipient_id,request_id,gift_id,quantity,unit_price,total,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
     [id,r.id,current.id,d.recipientId,d.requestId,gift.id,d.quantity,gift.price,total,now()]);
    const before=roomLevel(o.xp).level;await db.query('UPDATE tomi_room_options SET xp=xp+? WHERE room_id=?',[total,r.id]);
+   await giftProgress(db,current.id,d.recipientId,total);
    await emit(db,r,current,'gift',gift.name,{requestId:d.requestId,giftId:id});
    const after=roomLevel(Number(o.xp)+total).level;
    if(after>before)await emit(db,r,current,'system',`مبروك! وصلت الغرفة إلى المستوى ${after}`);
    await bump(db,r);return {wallet:await wallet(db,current.id),receiptId:id};
   }
   if(name==='message'){
-   fields(d,['requestId','text','imageUploadId']);const body=text(d.text??'',500),imageId=d.imageUploadId??null;
+   fields(d,['requestId','text','imageUploadId','attachmentSha256']);const body=text(d.text??'',500),imageId=d.imageUploadId??null;
+   if(d.attachmentSha256!==undefined&&(!imageId||typeof d.attachmentSha256!=='string'||!/^[a-f0-9]{64}$/.test(d.attachmentSha256)))fail(400,'VALIDATION','بصمة الصورة غير صحيحة.');
    if(!uuid(d.requestId)||!body&&!imageId||imageId&&!uuid(imageId))fail(400,'VALIDATION','اكتب رسالة أو اختَر صورة.');
    const old=(await db.query('SELECT body,image_upload_id,kind FROM tomi_room_events WHERE room_id=? AND actor_id=? AND request_id=?',[r.id,current.id,d.requestId])).rows[0];
-   if(old){if(old.kind!=='message'||old.body!==body||(old.image_upload_id??null)!==imageId)fail(409,'REQUEST_CHANGED','محتوى الرسالة تغيّر.');return {};}
+   if(old){const oldSha=old.image_upload_id?(await db.query('SELECT sha256 FROM tomi_upload_digests WHERE upload_id=?',[old.image_upload_id])).rows[0]?.sha256:null;if(old.kind!=='message'||old.body!==body||(d.attachmentSha256?oldSha!==d.attachmentSha256:(old.image_upload_id??null)!==imageId))fail(409,'REQUEST_CHANGED','محتوى الرسالة تغيّر.');return {};}
    if(o.chat_disabled&&!manage)fail(403,'ROOM_CHAT_DISABLED','الدردشة مقفلة من إدارة الغرفة.');
    if(imageId){if(o.images_disabled)fail(403,'ROOM_IMAGES_DISABLED','إرسال الصور مقفل.');await attach(db,current,imageId,p.image);}
    await emit(db,r,current,'message',body,{requestId:d.requestId,imageId});await bump(db,r);return {};
@@ -218,7 +225,24 @@ export function createRoomFeatures({database,storage,usersByIds,job,bump,remove}
   }
   return null;
  }
- return {options,snapshot,verifyJoin,validateSeat,freeSeat,prepare,action,audit,readAdministration,
+ async function entry(db,r,current){
+  const row=(await db.query('SELECT ui.entrance_id,up.spent FROM tomi_user_identity ui LEFT JOIN tomi_user_progress up ON up.user_id=ui.user_id WHERE ui.user_id=?',[current.id])).rows[0];
+  if(!row||row.entrance_id==='none'||!styleAllowed('entrances',row.entrance_id,userLevel(row.spent??0).level))return;
+  const prior=(await db.query('SELECT last_effect_at FROM tomi_room_entry_cooldowns WHERE room_id=? AND user_id=?',[r.id,current.id])).rows[0];
+  if(prior&&Date.parse(prior.last_effect_at)>Date.now()-90000)return;
+  const name=(await db.query('SELECT display_name FROM tomi_users WHERE id=?',[current.id])).rows[0].display_name;
+  const seq=await emit(db,r,current,'system',name+' انضم إلى السالفة');
+  await db.query('INSERT INTO tomi_room_entry_effects(room_id,sequence,style_id) VALUES(?,?,?)',[r.id,seq,row.entrance_id]);
+  await db.query('INSERT INTO tomi_room_entry_cooldowns(room_id,user_id,last_effect_at) VALUES(?,?,?) ON CONFLICT(room_id,user_id) DO UPDATE SET last_effect_at=excluded.last_effect_at',[r.id,current.id,now()]);await bump(db,r);
+ }
+ async function receipt(db,roomId,current,nonce){
+  const gift=(await db.query('SELECT id FROM tomi_room_gifts WHERE room_id=? AND sender_id=? AND request_id=?',[roomId,current.id,nonce])).rows[0];
+  if(gift)return {roomId,requestId:nonce,kind:'gift',receiptId:gift.id,wallet:await wallet(db,current.id)};
+  const e=(await db.query("SELECT sequence,kind FROM tomi_room_events WHERE room_id=? AND actor_id=? AND request_id=? AND kind='message'",[roomId,current.id,nonce])).rows[0];
+  if(e)return {roomId,requestId:nonce,kind:e.kind,sequence:Number(e.sequence)};
+  fail(404,'REQUEST_NOT_FOUND','لم يُسجّل هذا الإرسال بعد.');
+ }
+ return {options,snapshot,history,receipt,entry,verifyJoin,validateSeat,freeSeat,prepare,action,audit,readAdministration,
   catalog:{gifts:giftCatalog,thresholds:levelThresholds,welcomeCoins,dailyCoins,trial:true},
   async wallet(current){return database.transaction(db=>wallet(db,current.id));},
   async claim(current){return database.transaction(async db=>{

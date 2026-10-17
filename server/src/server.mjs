@@ -2,6 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { openDatabase } from './database.mjs';
 import { createApp } from './app.mjs';
+import {moderationOwner} from './moderation.mjs';
 import {fcmFromEnvironment} from './push.mjs';
 import {iceFromEnvironment} from './ice.mjs';
 import {roomProviderFromEnvironment} from './room_provider.mjs';
@@ -19,11 +20,12 @@ const server = await createApp({
   roomProvider:roomProviderFromEnvironment(),
   chatStorage:chatR2FromEnvironment(process.env,storage),
   database,
+  ownerUserId:moderationOwner(),
   trustProxy: process.env.TRUST_PROXY === '1',
   origins: (process.env.CORS_ORIGINS || '').split(',').map((origin) => origin.trim()).filter(Boolean),
 });
 const port = Number(process.env.PORT || 10000);
-server.listen(port, '0.0.0.0', () => console.log(`TOMI API 0.7 listening on port ${port}`));
+server.listen(port, '0.0.0.0', () => console.log(`TOMI API0.12.0 listening on port ${port}`));
 
 // Opportunistic retention cleanup; there are no passwords or raw tokens in these tables.
 const cleanup = setInterval(() => {

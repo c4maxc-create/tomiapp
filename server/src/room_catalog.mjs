@@ -3,14 +3,14 @@
 export const welcomeCoins=1000,dailyCoins=500;
 export const levelThresholds=Object.freeze([0,100,300,700,1500,3000,6000,10000,16000,25000]);
 export const giftCatalog=Object.freeze([
- {id:'rose',name:'وردة',icon:'rose',category:'شائعة',price:1},
- {id:'heart',name:'من القلب',icon:'heart',category:'شائعة',price:5},
- {id:'applause',name:'تصفيق',icon:'applause',category:'شائعة',price:20},
- {id:'cake',name:'يوم حلو',icon:'cake',category:'احتفال',price:50},
- {id:'diamond',name:'ألماسة',icon:'diamond',category:'مميزة',price:100},
- {id:'crown',name:'تاج الغرفة',icon:'crown',category:'مميزة',price:250},
- {id:'car',name:'سيارة الأحلام',icon:'car',category:'مميزة',price:500},
- {id:'rocket',name:'إلى النجوم',icon:'rocket',category:'احتفال',price:1000},
+ {id:'rose',effect:'petals',name:'وردة',icon:'rose',category:'شائعة',price:1},
+ {id:'heart',effect:'pulse',name:'من القلب',icon:'heart',category:'شائعة',price:5},
+ {id:'applause',effect:'confetti',name:'تصفيق',icon:'applause',category:'شائعة',price:20},
+ {id:'cake',effect:'confetti',name:'يوم حلو',icon:'cake',category:'احتفال',price:50},
+ {id:'diamond',effect:'crystal',name:'ألماسة',icon:'diamond',category:'مميزة',price:100},
+ {id:'crown',effect:'royal',name:'تاج الغرفة',icon:'crown',category:'مميزة',price:250},
+ {id:'car',effect:'road',name:'سيارة الأحلام',icon:'car',category:'مميزة',price:500},
+ {id:'rocket',effect:'launch',name:'إلى النجوم',icon:'rocket',category:'احتفال',price:1000},
 ]);
 export function roomLevel(value){
  const xp=Number(value);let index=0;

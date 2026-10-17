@@ -1,3 +1,6 @@
+import {createIdentity} from './identity.mjs';
+import {createModeration} from './moderation.mjs';
+import {createOperations} from './operations.mjs';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { createSocial } from './social.mjs';
@@ -59,7 +62,12 @@ function publicUser(row,storage) {
   };
 }
 
-export async function createApp({ database, trustProxy = false, origins = [], rateLimitMultiplier = 1, storage = null, chatStorage = storage, pushSender=null, pushAutoFlush=true, iceProvider=null, callAutoSweep=true, roomProvider=null, roomAutoSweep=true }) {
+export async function createApp({ database, trustProxy = false, origins = [], rateLimitMultiplier = 1, storage = null, chatStorage = storage, pushSender=null, pushAutoFlush=true, iceProvider=null, callAutoSweep=true, roomProvider=null, roomAutoSweep=true,ownerUserId=null }) {
+  if(ownerUserId){
+    if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(ownerUserId))throw Error('Invalid TOMI_OWNER_USER_ID');
+    const configured=(await database.query('SELECT u.id,COALESCE(a.suspended,0) suspended FROM tomi_users u LEFT JOIN tomi_account_restrictions a ON a.user_id=u.id WHERE u.id=?',[ownerUserId])).rows[0];
+    if(!configured||Number(configured.suspended))throw Error('TOMI_OWNER_USER_ID must identify an existing active account');
+  }
   // Equal-cost verification for unknown users avoids a cheap username timing oracle.
   const dummyHash = await hashPassword(newToken());
   const userById = async (id, viewer, db = database) => {
@@ -94,6 +102,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       JOIN tomi_users u ON u.id = s.user_id AND u.auth_version = s.auth_version
       WHERE s.token_hash = ? AND s.expires_at > ?`, [tokenHash, nowText()]);
     if (!result.rows[0]) throw new ApiError(401, 'UNAUTHORIZED', 'انتهت الجلسة؛ سجّل دخولك مرة ثانية.');
+    await moderation.active(database,result.rows[0].user_id);
     return { id: result.rows[0].user_id, tokenHash };
   }
 
@@ -106,6 +115,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
     return { token, expiresAt: expires };
   }
 
+  const identity=createIdentity({database,readJson,respond:json,limit,userById,usersByIds});
   const social = createSocial({database, storage, readJson, respond: json, limit, userById, cleanupPrefix:chatStorage===storage?'tomi/':'tomi/posts/'});
   const chatMedia=chatStorage===storage?null:createSocial({database,storage:chatStorage,readJson,respond:json,limit,userById,cleanupPrefix:'tomi/chat-images/'});
   const avatars=createAvatars({database,storage,readJson,respond:json,limit,userById});
@@ -114,7 +124,10 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   const chat=createChat({database,storage:chatStorage,avatarStorage:storage,readJson,respond:json,limit,userById,enqueuePush:push.enqueue});
   const rooms=createVoiceRooms({database,provider:roomProvider,storage,readJson,respond:json,limit,usersByIds,autoSweep:roomAutoSweep});
   const calls=createCalls({database,iceProvider,readJson,respond:json,limit,userById,emit:chat.emit,enqueuePush:push.enqueueCall,autoSweep:callAutoSweep});
+  const operations=createOperations();
+  const moderation=createModeration({database,ownerUserId,storage,readJson,respond:json,limit,userById,usersByIds,rooms,calls,chat,operations});
   const server = createServer(async (request, response) => {
+    operations.track(request,response);
     try {
       const origin = request.headers.origin;
       if (origin && !origins.includes(origin)) throw new ApiError(403, 'ORIGIN', 'مصدر الطلب غير مسموح.');
@@ -140,7 +153,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       }
       if (method === 'GET' && (path === '/health' || path === '/')) {
         await database.query('SELECT 1 AS ready');
-        json(response, 200, { status: 'ok', service: 'TOMI API', version: '0.9.0' });
+        json(response, 200, { status: 'ok', service: 'TOMI API', version: '0.12.0' });
         return;
       }
 
@@ -179,9 +192,12 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
         const row = rows[0];
         const matches = await verifyPassword(password, row?.password_hash || dummyHash);
         if (!row || !matches) throw new ApiError(401, 'BAD_CREDENTIALS', 'اليوزر أو كلمة المرور غير صحيحة.');
-        const result = await database.transaction(async (db) => ({
-          ...(await grant(db, row.id, row.auth_version)), user: await userById(row.id, row.id, db),
-        }));
+        const result = await database.transaction(async db=>{
+          const fresh=(await db.query('UPDATE tomi_users SET updated_at=updated_at WHERE id=? RETURNING auth_version',[row.id])).rows[0];
+          if(Number(fresh.auth_version)!==Number(row.auth_version))throw new ApiError(401,'BAD_CREDENTIALS','تغيّرت بيانات الدخول؛ حاول مرة ثانية.');
+          await moderation.active(db,row.id);
+          return {...(await grant(db,row.id,fresh.auth_version)),user:await userById(row.id,row.id,db)};
+        });
         json(response, 200, result);
         return;
       }
@@ -204,6 +220,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
             auth_version = auth_version + 1, updated_at = ? WHERE id = ? AND recovery_hash = ?`,
             [passwordHash, digest(normalizeRecoveryCode(recoveryCode)), nowText(), row.id, digest(code)]);
           if (updated.changes !== 1) throw new ApiError(400, 'BAD_RECOVERY', 'رمز الاسترجاع استُخدم؛ استخدم الرمز الجديد.');
+          await moderation.active(db,row.id);
           await db.query('DELETE FROM tomi_sessions WHERE user_id = ?', [row.id]);
           return { ...(await grant(db, row.id, row.auth_version + 1)),
             user: await userById(row.id, row.id, db), recoveryCode };
@@ -216,7 +233,9 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       }
 
       const current = await session(request);
+      if(await moderation.handle(request,response,url,current))return;
       await limit(`requests:user:${current.id}`, 300);
+      if(await identity.handle(request,response,url,current))return;
       if (await rooms.handle(request,response,url,current)) return;
       if (await calls.handle(request,response,url,current)) return;
       if (await avatars.handle(request,response,url,current)) return;
@@ -246,8 +265,14 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
         const data = await readJson(request);
         const profile = validateProfile(data);
         try {
-          await database.query(`UPDATE tomi_users SET username = ?, display_name = ?, bio = ?, avatar_preset = ?,
-            updated_at = ? WHERE id = ?`, [profile.username, profile.name, profile.bio, profile.avatarPreset, nowText(), current.id]);
+          await database.transaction(async db => {
+            const {rows} = await db.query('UPDATE tomi_users SET updated_at=updated_at WHERE id=? RETURNING avatar_preset', [current.id]);
+            if (rows[0].avatar_preset !== profile.avatarPreset) {
+              await db.query("UPDATE tomi_user_identity SET portrait_id='none',revision=revision+1 WHERE user_id=? AND portrait_id<>'none'", [current.id]);
+            }
+            await db.query(`UPDATE tomi_users SET username = ?, display_name = ?, bio = ?, avatar_preset = ?,
+              updated_at = ? WHERE id = ?`, [profile.username, profile.name, profile.bio, profile.avatarPreset, nowText(), current.id]);
+          });
         } catch (error) {
           if (isUniqueConflict(error)) throw new ApiError(409, 'USERNAME_TAKEN', 'هذا اليوزر مستخدم؛ اختَر غيره.', 'username');
           throw error;
@@ -292,7 +317,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
         const pattern = `%${escaped}%`;
         const result = await database.query(`${userSelect}
           WHERE (u.username LIKE ? ESCAPE '\\' OR LOWER(u.display_name) LIKE ? ESCAPE '\\')
-          AND u.id <> ? ORDER BY u.username LIMIT 20`, [current.id, pattern, pattern, current.id]);
+          AND u.id <> ? AND NOT EXISTS(SELECT 1 FROM tomi_account_restrictions a WHERE a.user_id=u.id AND a.suspended=1) ORDER BY u.username LIMIT 20`, [current.id, pattern, pattern, current.id]);
         json(response, 200, { users: result.rows.map(row=>publicUser(row,storage)) });
         return;
       }
@@ -337,7 +362,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   server.flushPush=push.flush;
   server.sweepCalls=calls.sweep;
   server.sweepRooms=rooms.sweep;server.flushRooms=rooms.flush;
-  server.on('close',()=>{push.close();calls.close();rooms.close();});
+  server.on('close',()=>{push.close();calls.close();rooms.close();operations.close();});
   chat.attach(server,{origins,authenticate:token=>session({headers:{authorization:'Bearer '+token}}),validSessions:async hashes=>{
     if(!hashes.length)return new Set();
     const{rows}=await database.query(`SELECT s.token_hash FROM tomi_sessions s JOIN tomi_users u ON u.id=s.user_id AND u.auth_version=s.auth_version WHERE s.expires_at>? AND s.token_hash IN (${hashes.map(()=>'?').join(',')})`,[nowText(),...hashes]);return new Set(rows.map(r=>r.token_hash));

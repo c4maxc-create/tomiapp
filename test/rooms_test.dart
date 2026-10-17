@@ -115,6 +115,8 @@ class RoomFakeApi extends AccountApi {
     Map<String, dynamic>? body,
     Map<String, String>? query,
   }) async {
+    if (path.contains('/requests/'))
+      throw const AccountFailure('REQUEST_NOT_FOUND', 'Not sent', status:404);
     if (path == '/v1/calls/active') return {'configured': true, 'call': null};
     if (path == '/v1/rooms' && method == 'GET') {
       listReads++;

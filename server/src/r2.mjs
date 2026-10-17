@@ -2,6 +2,7 @@ import { createHash,createHmac } from 'node:crypto';
 import { ApiError } from './security.mjs';
 import { imageDimensions,maxImageBytes } from './images.mjs';
 import {audioMetadata,maxAudioBytes} from './audio.mjs';
+import {VideoInspector,maxVideoBytes} from './video.mjs';
 const encode=v=>encodeURIComponent(v).replace(/[!'()*]/g,c=>'%'+c.charCodeAt(0).toString(16).toUpperCase());
 const hmac=(key,value)=>createHmac('sha256',key).update(value).digest();
 const hash=value=>createHash('sha256').update(value).digest('hex');
@@ -42,7 +43,19 @@ export class R2Images {
  avatarUrl(key){return this.config.publicBaseUrl?this.readUrl(key):signS3Url({...this.config,method:'GET',key,expires:86400,now:new Date(Math.floor(Date.now()/600000)*600000)});}
  async verifyAudio(u){
   if(this.active>=2)throw new ApiError(503,'MEDIA_BUSY','الصوت قيد المعالجة؛ جرّب بعد قليل.');this.active++;const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),30000);
-  try{const r=await this.fetcher(this.url('GET',u.object_key),{signal:abort.signal,redirect:'error'});if(!r.ok){await r.body?.cancel();throw new ApiError(r.status===404?409:503,r.status===404?'UPLOAD_INCOMPLETE':'MEDIA_UNAVAILABLE','تعذّر التحقق من التسجيل.');}const length=Number(r.headers.get('content-length')),type=(r.headers.get('content-type')||'').split(';')[0].trim().toLowerCase();if(length!==Number(u.byte_length)||length>maxAudioBytes||type!=='audio/mp4'){await r.body?.cancel();throw new ApiError(400,'INVALID_AUDIO','حجم التسجيل أو نوعه تغيّر.');}let size=0;const pieces=[],md5=createHash('md5');for await(const piece of r.body){size+=piece.length;if(size>length||size>maxAudioBytes){abort.abort();throw new ApiError(400,'INVALID_AUDIO','التسجيل أكبر من المسموح.');}md5.update(piece);pieces.push(Buffer.from(piece));}if(size!==length||md5.digest('base64')!==u.content_md5)throw new ApiError(400,'INVALID_AUDIO','التسجيل غير مكتمل.');return audioMetadata(Buffer.concat(pieces));}catch(e){if(e instanceof ApiError)throw e;throw new ApiError(503,'MEDIA_UNAVAILABLE','تعذّر التحقق من التسجيل؛ جرّب مرة ثانية.');}finally{clearTimeout(timer);this.active--;}
+  try{const r=await this.fetcher(this.url('GET',u.object_key),{signal:abort.signal,redirect:'error'});if(!r.ok){await r.body?.cancel();throw new ApiError(r.status===404?409:503,r.status===404?'UPLOAD_INCOMPLETE':'MEDIA_UNAVAILABLE','تعذّر التحقق من التسجيل.');}const length=Number(r.headers.get('content-length')),type=(r.headers.get('content-type')||'').split(';')[0].trim().toLowerCase();if(length!==Number(u.byte_length)||length>maxAudioBytes||type!=='audio/mp4'){await r.body?.cancel();throw new ApiError(400,'INVALID_AUDIO','حجم التسجيل أو نوعه تغيّر.');}let size=0;const pieces=[],md5=createHash('md5'),sha=createHash('sha256');for await(const piece of r.body){size+=piece.length;if(size>length||size>maxAudioBytes){abort.abort();throw new ApiError(400,'INVALID_AUDIO','التسجيل أكبر من المسموح.');}md5.update(piece);sha.update(piece);pieces.push(Buffer.from(piece));}if(size!==length||md5.digest('base64')!==u.content_md5||u.content_sha256&&sha.digest('hex')!==u.content_sha256)throw new ApiError(400,'INVALID_AUDIO','التسجيل غير مكتمل.');return audioMetadata(Buffer.concat(pieces));}catch(e){if(e instanceof ApiError)throw e;throw new ApiError(503,'MEDIA_UNAVAILABLE','تعذّر التحقق من التسجيل؛ جرّب مرة ثانية.');}finally{clearTimeout(timer);this.active--;}
+ }
+ async verifyVideo(u){
+  if(this.active>=2)throw new ApiError(503,'MEDIA_BUSY','الفيديو قيد المعالجة؛ جرّب بعد قليل.');this.active++;const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),60000);
+  try{
+   const r=await this.fetcher(this.url('GET',u.object_key),{signal:abort.signal,redirect:'error'});if(!r.ok){await r.body?.cancel();throw new ApiError(r.status===404?409:503,r.status===404?'UPLOAD_INCOMPLETE':'MEDIA_UNAVAILABLE','تعذّر التحقق من الفيديو.');}
+   const length=Number(r.headers.get('content-length')),type=(r.headers.get('content-type')||'').split(';')[0].trim().toLowerCase();
+   if(length!==Number(u.byte_length)||length>maxVideoBytes||type!=='video/mp4'){await r.body?.cancel();throw new ApiError(400,'INVALID_VIDEO','حجم الفيديو أو نوعه تغيّر.');}
+   const inspector=new VideoInspector(length),md5=createHash('md5'),sha=createHash('sha256');
+   for await(const piece of r.body){md5.update(piece);sha.update(piece);inspector.push(piece);}
+   if(md5.digest('base64')!==u.content_md5||u.content_sha256&&sha.digest('hex')!==u.content_sha256)throw new ApiError(400,'INVALID_VIDEO','الفيديو غير مكتمل أو تغيّر.');
+   return inspector.finish();
+  }catch(e){if(e instanceof ApiError)throw e;throw new ApiError(503,'MEDIA_UNAVAILABLE','تعذّر التحقق من الفيديو؛ جرّب مرة ثانية.');}finally{clearTimeout(timer);this.active--;}
  }
  async verify(u){
   if(this.active>=2)throw new ApiError(503,'MEDIA_BUSY','الصور قيد المعالجة؛ جرّب النشر بعد قليل.');
@@ -52,13 +65,13 @@ export class R2Images {
    if(!response.ok){await response.body?.cancel();throw new ApiError(response.status===404?409:503,response.status===404?'UPLOAD_INCOMPLETE':'MEDIA_UNAVAILABLE','تعذّر التحقق من الصورة؛ جرّب النشر مرة ثانية.');}
    const type=(response.headers.get('content-type')||'').split(';')[0].trim().toLowerCase(),length=Number(response.headers.get('content-length'));
    if(type!==u.content_type||length!==Number(u.byte_length)||length>maxImageBytes){await response.body?.cancel();throw new ApiError(400,'INVALID_IMAGE','حجم الصورة أو نوعها تغيّر؛ اختَرها مرة ثانية.');}
-   const checksum=createHash('md5'),prefix=[];let size=0,prefixSize=0;
+   const checksum=createHash('md5'),sha=createHash('sha256'),prefix=[];let size=0,prefixSize=0;
    for await(const chunk of response.body){
     size+=chunk.length;if(size>length||size>maxImageBytes){abort.abort();throw new ApiError(400,'INVALID_IMAGE','الصورة أكبر من المسموح.');}
-    checksum.update(chunk);
+    checksum.update(chunk);sha.update(chunk);
     if(prefixSize<262144){const part=Buffer.from(chunk.subarray(0,262144-prefixSize));prefix.push(part);prefixSize+=part.length;}
    }
-   if(size!==length||checksum.digest('base64')!==u.content_md5)throw new ApiError(400,'INVALID_IMAGE','الصورة غير مكتملة؛ اختَرها مرة ثانية.');
+   if(size!==length||checksum.digest('base64')!==u.content_md5||u.content_sha256&&sha.digest('hex')!==u.content_sha256)throw new ApiError(400,'INVALID_IMAGE','الصورة غير مكتملة؛ اختَرها مرة ثانية.');
    return imageDimensions(Buffer.concat(prefix),type);
   }catch(e){if(e instanceof ApiError)throw e;throw new ApiError(503,'MEDIA_UNAVAILABLE','تعذّر التحقق من الصورة؛ جرّب النشر مرة ثانية.');}
   finally{clearTimeout(deadline);this.active--;}

@@ -1,3 +1,5 @@
+import {createRoomSocial} from './room_social.mjs';
+import {giftRanking} from './ranking.mjs';
 import {randomUUID} from 'node:crypto';
 import {ApiError} from './security.mjs';
 import {createRoomFeatures} from './room_features.mjs';
@@ -9,6 +11,7 @@ const fields=(d,keys)=>{if(Object.keys(d).some(k=>!keys.includes(k)))fail(400,'V
 
 export function createVoiceRooms({database,provider,readJson,respond,limit,usersByIds,storage,autoSweep=true}) {
   let stopped=false,sweeping=false,flushing=false;
+  const social=createRoomSocial({database,readJson,respond,limit});
   async function lock(db,id){
     await db.query('UPDATE tomi_voice_rooms SET revision=revision WHERE id=? RETURNING id',[id]);
     const r=(await db.query('SELECT * FROM tomi_voice_rooms WHERE id=?',[id])).rows[0];
@@ -56,6 +59,7 @@ export function createVoiceRooms({database,provider,readJson,respond,limit,users
       myRole:me?.role??null,canControl:!!me&&me.session_hash===current.tokenHash,
       moderationPending:(await db.query('SELECT 1 FROM tomi_voice_jobs WHERE room_id=? LIMIT 1',[r.id])).rows.length>0};
     result.features=await features.snapshot(db,r,current,me,details);
+    result.preferences=await social.preferences(db,r.id,current.id);
     const users=details?await usersByIds([...new Set([r.owner_id,...members.map(m=>m.user_id)])],current.id,db):null;
     if(details)result.owner=users.get(r.owner_id);
     if(details)result.members=members.map(m=>({user:users.get(m.user_id),
@@ -130,6 +134,7 @@ export function createVoiceRooms({database,provider,readJson,respond,limit,users
   async function handle(request,response,url,current){
     const path=url.pathname,method=request.method;
     if(!path.startsWith('/v1/rooms'))return false;
+    if(await social.handle(request,response,url,current))return true;
     if(path==='/v1/rooms/settings'&&method==='GET'){
       respond(response,200,{configured:!!provider,maxMembers:30,maxSeats:8,specialSeats:2,ownerSeat:-1,emptyTimeoutSeconds:null,persistentRooms:true,foregroundOnly:false,backgroundAudio:'android_foreground_service'});return true;
     }
@@ -141,8 +146,10 @@ export function createVoiceRooms({database,provider,readJson,respond,limit,users
     }
     if(path==='/v1/rooms'&&method==='GET'){
       const before=url.searchParams.get('before');if(before&&!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[a-f0-9-]{36}$/.test(before))fail(400,'VALIDATION','صفحة الغرف غير صحيحة.');
+      const scope=url.searchParams.get('scope')||'all';if(!['all','favorites','following'].includes(scope))fail(400,'VALIDATION','قائمة الغرف غير صحيحة.');
       const values=[current.id,current.id];let page='';
-      if(before){const [time,key]=before.split('|');if(!uuid(key))fail(400,'VALIDATION','صفحة الغرف غير صحيحة.');page=' AND (r.created_at<? OR (r.created_at=? AND r.id<?))';values.push(time,time,key);}
+      if(scope!=='all'){page+=' AND EXISTS(SELECT 1 FROM tomi_room_preferences p WHERE p.room_id=r.id AND p.user_id=? AND p.'+(scope==='favorites'?'favorite':'following')+'=1)';values.push(current.id);}
+      if(before){const [time,key]=before.split('|');if(!uuid(key))fail(400,'VALIDATION','صفحة الغرف غير صحيحة.');page+=' AND (r.created_at<? OR (r.created_at=? AND r.id<?))';values.push(time,time,key);}
       const rows=(await database.query(`SELECT r.* FROM tomi_voice_rooms r WHERE r.state='open' AND
         NOT EXISTS(SELECT 1 FROM tomi_user_blocks b WHERE (b.blocker_id=? AND b.blocked_id=r.owner_id) OR (b.blocked_id=? AND b.blocker_id=r.owner_id))${page}
         ORDER BY r.created_at DESC,r.id DESC LIMIT 21`,values)).rows;
@@ -163,19 +170,29 @@ export function createVoiceRooms({database,provider,readJson,respond,limit,users
         if(old){if(old.owner_id!==current.id||old.title!==title||Number(old.capacity)!==d.capacity||Number(old.seat_count)!==d.seatCount)fail(409,'REQUEST_CHANGED','طلب إنشاء الغرفة تغيّر.');return old;}
         if((await db.query("SELECT 1 FROM tomi_voice_rooms WHERE owner_id=? AND state='open'",[current.id])).rows.length)fail(409,'ROOM_OWNED','عندك غرفة مفتوحة؛ افتحها من قائمة الغرف.');
         await db.query('INSERT INTO tomi_voice_rooms(id,title,owner_id,capacity,seat_count,created_at,empty_since) VALUES(?,?,?,?,?,?,?)',[d.requestId,title,current.id,d.capacity,d.seatCount,stamp(),stamp()]);
+        await db.query('INSERT INTO tomi_user_progress(user_id,rooms_created) VALUES(?,1) ON CONFLICT(user_id) DO UPDATE SET rooms_created=tomi_user_progress.rooms_created+1',[current.id]);
         return lock(db,d.requestId);
       });respond(response,201,{room:await snapshot(database,r,current)});return true;
     }
-    const match=/^\/v1\/rooms\/([a-f0-9-]{36})(?:\/(join|leave|heartbeat|request-mic|cancel-request|take-seat|leave-seat|moderate|close|gift|message|settings|seat-control|invite|answer-invite|administration|ranking))?$/.exec(path);
+    const receipt=/^\/v1\/rooms\/([a-f0-9-]{36})\/requests\/([a-f0-9-]{36})$/.exec(path);
+    if(method==='GET'&&receipt&&uuid(receipt[1])&&uuid(receipt[2])){respond(response,200,await features.receipt(database,receipt[1],current,receipt[2]));return true;}
+    const match=/^\/v1\/rooms\/([a-f0-9-]{36})(?:\/(join|leave|heartbeat|request-mic|cancel-request|take-seat|leave-seat|moderate|close|gift|message|settings|seat-control|invite|answer-invite|administration|ranking|events))?$/.exec(path);
     if(!match)return false;const [,roomId,action]=match;if(!uuid(roomId))fail(400,'VALIDATION','معرّف الغرفة غير صحيح.');
     if(!action&&method==='GET'){
       const room=await database.transaction(async db=>snapshot(db,await lock(db,roomId),current));respond(response,200,{room});return true;
+    }
+    if(method==='GET'&&action==='events'){
+      const raw=url.searchParams.get('before'),before=raw===null?null:Number(raw);
+      if(raw!==null&&(!/^\d{1,16}$/.test(raw)||!Number.isSafeInteger(before)||before<1))fail(400,'VALIDATION','صفحة الرسائل غير صحيحة.');
+      await limit('room-history:'+current.id,60);
+      const data=await database.transaction(async db=>{const r=await lock(db,roomId);await member(db,r,current);if(r.state!=='open')fail(410,'ROOM_CLOSED','انغلقت الغرفة.');return features.history(db,r,current,before);});respond(response,200,data);return true;
     }
     if(method==='GET'&&['administration','ranking'].includes(action)){
       const data=await database.transaction(async db=>{
         const r=await lock(db,roomId),m=await member(db,r,current);
         if(action==='administration'&&!['owner','moderator'].includes(m.role))fail(403,'ROOM_FORBIDDEN','هذا الإجراء للإدارة فقط.');
-        const data=await features.readAdministration(db,r,current);return action==='ranking'?{leaders:data.leaders}:data;
+        if(action==='ranking')return giftRanking(db,current.id,usersByIds,{roomId:r.id,period:url.searchParams.get('period')||'all'});
+        return features.readAdministration(db,r,current);
       });respond(response,200,data);return true;
     }
     if(method!=='POST')return false;
@@ -226,7 +243,7 @@ export function createVoiceRooms({database,provider,readJson,respond,limit,users
             role=excluded.role,state='active',seat=excluded.seat,mic_allowed=excluded.mic_allowed,requested_at=NULL,joined_at=excluded.joined_at,last_seen=excluded.last_seen`,
           [r.id,current.id,m.identity,current.tokenHash,role,m.seat,m.mic_allowed,stamp(),stamp()]);
           await db.query('INSERT INTO tomi_voice_presence(user_id,room_id) VALUES(?,?) ON CONFLICT(user_id) DO NOTHING',[current.id,r.id]);
-          await db.query('UPDATE tomi_voice_rooms SET empty_since=NULL WHERE id=?',[r.id]);await bump(db,r);
+          await db.query('UPDATE tomi_voice_rooms SET empty_since=NULL WHERE id=?',[r.id]);await features.entry(db,r,current);await bump(db,r);
         }else await db.query('UPDATE tomi_voice_members SET last_seen=? WHERE room_id=? AND user_id=?',[stamp(),r.id,current.id]);
         connection={...await provider.grant(r,m),highQuality:Number((await features.options(db,r)).high_quality)===1};
         return lock(db,r.id);
@@ -284,5 +301,11 @@ export function createVoiceRooms({database,provider,readJson,respond,limit,users
     respond(response,200,{room,...extra,...(connection?{connection}:{})});return true;
   }
   const timer=autoSweep?setInterval(()=>void sweep().catch(()=>console.error('Voice room cleanup deferred')),5000):null;timer?.unref();
-  return {handle,sweep,flush,invalidateSession,close(){stopped=true;if(timer)clearInterval(timer);}};
+  return {handle,sweep,flush,invalidateSession,
+    async adminClose(db,id){const r=await lock(db,id);if(r.state==='closed')return false;await closeRoom(db,r);return true;},
+    async suspendUser(db,userId){
+      const list=(await db.query("SELECT id room_id FROM tomi_voice_rooms WHERE owner_id=? AND state='open' UNION SELECT room_id FROM tomi_voice_members WHERE user_id=? AND state='active' ORDER BY room_id",[userId,userId])).rows;
+      for(const item of list){const r=await lock(db,item.room_id);if(r.owner_id===userId&&r.state==='open'){await closeRoom(db,r);continue;}const m=(await db.query("SELECT * FROM tomi_voice_members WHERE room_id=? AND user_id=? AND state='active'",[r.id,userId])).rows[0];if(m)await remove(db,r,m);}
+    },
+    close(){stopped=true;if(timer)clearInterval(timer);}};
 }

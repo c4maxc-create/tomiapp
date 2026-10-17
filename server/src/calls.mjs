@@ -86,6 +86,9 @@ export function createCalls({database,iceProvider,readJson,respond,limit,userByI
         const t=(await db.query('SELECT * FROM tomi_chat_threads WHERE id=? AND (low_user_id=? OR high_user_id=?)',[d.conversationId,current.id,current.id])).rows[0];
         if(!t)fail(404,'CHAT_NOT_FOUND','المحادثة غير موجودة.');
         for(const user of [t.low_user_id,t.high_user_id])await db.query('UPDATE tomi_users SET updated_at=updated_at WHERE id=? RETURNING id',[user]);
+        // A suspension may commit while this request is still reading its body.
+        if(!(await db.query('SELECT 1 FROM tomi_sessions s JOIN tomi_users u ON u.id=s.user_id AND u.auth_version=s.auth_version WHERE s.user_id=? AND s.token_hash=? AND s.expires_at>?',[current.id,current.tokenHash,stamp()])).rows.length)fail(401,'UNAUTHORIZED','انتهت جلسة الدخول.');
+        if((await db.query('SELECT 1 FROM tomi_account_restrictions WHERE user_id IN (?,?) AND suspended=1',[t.low_user_id,t.high_user_id])).rows.length)fail(403,'CALL_UNAVAILABLE','الاتصال بهذا الحساب غير متاح.');
         const old=(await db.query('SELECT * FROM tomi_calls WHERE caller_id=? AND request_id=?',[current.id,d.requestId])).rows[0];
         if(old){if(old.thread_id!==d.conversationId||old.kind!==d.kind)fail(409,'REQUEST_CHANGED','طلب المكالمة تغيّر.');if(old.caller_session!==current.tokenHash)fail(409,'CALL_OTHER_DEVICE','المكالمة بدأت من جهاز آخر.');return {r:old,replay:true};}
         const callee=t.low_user_id===current.id?t.high_user_id:t.low_user_id;
@@ -214,5 +217,11 @@ export function createCalls({database,iceProvider,readJson,respond,limit,userByI
     for(const v of rows){const r=await database.transaction(async db=>end(db,await row(db,v.caller_id,v.id,true),'session_ended'));notify(r);}
   }
   const timer=autoSweep?setInterval(()=>void sweep().catch(()=>console.error('Call cleanup deferred')),5000):null;timer?.unref();
-  return {handle,sweep,invalidateSession,close(){closed=true;if(timer)clearInterval(timer);iceCache.clear();},async cleanup(){await sweep();await database.query("DELETE FROM tomi_calls WHERE state='ended' AND ended_at<?",[stamp(-90*86400000)]);}};
+  return {handle,sweep,invalidateSession,notify,
+    async suspendUser(db,userId){
+      const list=(await db.query("SELECT id,caller_id FROM tomi_calls WHERE state<>'ended' AND (caller_id=? OR callee_id=?) ORDER BY id",[userId,userId])).rows,ended=[];
+      for(const item of list)ended.push(await end(db,await row(db,item.caller_id,item.id,true),'session_ended'));
+      return ended;
+    },
+    close(){closed=true;if(timer)clearInterval(timer);iceCache.clear();},async cleanup(){await sweep();await database.query("DELETE FROM tomi_calls WHERE state='ended' AND ended_at<?",[stamp(-90*86400000)]);}};
 }

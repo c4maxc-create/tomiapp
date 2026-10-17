@@ -94,6 +94,16 @@ class ChatFakeApi extends AccountApi {
       if (gate != null) await gate.future;
       return saved;
     }
+    if (path.contains('/requests/')) {
+      final found = byNonce[path.split('/').last];
+      if (found == null)
+        throw const AccountFailure(
+          'REQUEST_NOT_FOUND',
+          'Not sent',
+          status: 404,
+        );
+      return {'message': found, 'conversation': conversation};
+    }
     if (path.endsWith('/read')) {
       puts++;
       ownRead = body!['sequence'] as int;
@@ -428,7 +438,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.rows.last['text'], 'مرحبا');
       expect(tester.takeException(), isNull);
-      await tester.tap(find.byTooltip('خيارات الرسالة'));
+      await tester.tap(
+        find.byKey(ValueKey('message-options:${api.rows.last['id']}')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('حذف الرسالة'));
       await tester.pumpAndSettle();
