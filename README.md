@@ -1,12 +1,44 @@
-# TOMI 0.9.0 — Android mobile calls and background audio
+# TOMI0.12.0 — reports, platform administration and operations
 
-Arabic Android social app, Node 24 API and persistent PostgreSQL. The user accepted
-0.7 on their devices; 0.8 phone acceptance has not been reported. The user
-authorized the 0.9 implementation. Start with
-[START_HERE_AR.md](START_HERE_AR.md) for the existing GitHub/Northflank deployment.
-This ZIP contains source; it is not an APK or a deployed service.
+Arabic Android social app, Node24 API and persistent PostgreSQL. User authorized
+0.12 with «الان ابدا بالمرحلة التطوير القادمة» on2026-10-16. This extends the exact
+final0.11 source. Start with START_HERE_AR.md, MODERATION_0.12_AR.md and
+OPERATIONS_0.12_AR.md. This is source, not an APK or hosted deployment. New Flutter
+runtime tests and real PostgreSQL restore remain CI checks; see VALIDATION.md.
 
 ## Included
+
+- Private account/post/room reports, tracked statuses, separate staff/public notes,
+  immutable minimal evidence and stable report request receipts.
+- Server-configured platform owner and live moderator permissions, independent of
+  room roles. Hide/restore posts, close rooms, owner-only account suspension and
+  role grants; revision guards, idempotent actions and private durable audit.
+- Suspension revokes sessions and push bindings, ends calls and schedules durable
+  SFU removal/owned-room closure. Protected staff/owner targets cannot be bypassed.
+- Per-process bounded HTTP/latency/error/memory monitoring and database/media-size
+  estimates. No claim of provider billing totals or global multi-instance telemetry.
+- AES256GCM encrypted database backups, authenticated no-clobber files, private
+  PostgreSQL passfiles, guarded empty-local restore and a PostgreSQL17 CI drill.
+- Bounded local-only HTTP load tool and measured isolated sample; no real RTP or
+  production load was performed. R2 object backups and scheduling need separate setup.
+
+- Private per-account room favorites and follows, versioned selections and keyset filtered lists.
+- Daily, Monday-based weekly and all-time top20 contributor rankings using Asia/Baghdad calendar boundaries.
+- Separate server-owned user XP/levels1–10, four earned badges and level-unlocked frames, animated preset portraits and entry styles.
+- Three-second gift/entry effects with bounded queues, no historical replay and reduced-motion support.
+  New photo selection restores the photo without removing the frame or entrance. No additional native permissions.
+- Exact0.10 additive schema upgrade, one-time historical gift backfill and existing call/message behavior retained.
+
+- App-private per-account drafts for chat text/replies/selected files, pending
+  messages, posts and room message/gift requests. Atomic checksummed journals
+  reference immutable media blobs; all sends persist before HTTP begins.
+- Stable request identifiers, upload initialization replay, file SHA256 verification,
+  receipt lookup after uncertain commits and bounded foreground chat retries.
+  Restored room gifts require explicit user retry; checking a receipt never spends coins.
+- Chat replies, six reactions, a shared pin, literal text search with older pages,
+  and member/session-authorized older room events. Deleted quoted text stays hidden.
+- MP4/H.264 video with optional AAC in chats and posts:25 MB,3 minutes,1080p maximum.
+  Playback is opened and started by the user; minimizing or entering a call pauses it.
 
 - Android incoming call cards with answer/decline, session-bound FCM delivery,
   deadline expiry and durable cancellation on all receiving devices.
@@ -33,11 +65,13 @@ This ZIP contains source; it is not an APK or a deployed service.
 
 ## Runtime setup
 
-Flutter **3.47.7** / Dart **3.13.5**; app **0.9.0+9**. Dependencies are locked.
+Flutter **3.47.7** / Dart **3.13.5**; app **0.12.0+13**. Dependencies are locked.
 `livekit_client 2.13.1` shares the existing `flutter_webrtc 1.6.2+hotfix.4` version.
 API `livekit-server-sdk 2.19.1`, Node **24**, PostgreSQL **17** in CI.
 
 Keep existing DATABASE_URL, R2, TURN, Firebase and LiveKit configuration.
+Set optional server-only TOMI_OWNER_USER_ID to an existing active account UUID
+to enable its owner dashboard. Never use a username/token or grant the first registrant.
 The existing server-only LiveKit names remain:
 
 ```
@@ -53,8 +87,8 @@ fail startup. Cloud-only validation is deliberate: this release relies on
 Cloud token revocation to enforce moderation against stale join tokens.
 `server/.env.example` documents names and is not loaded automatically.
 
-Use the same database. `schema.sql` keeps the exact verified 0.8 schema prefix
-and appends call-device capability and cancellation tables. No reset or new database is required.
+Use the same database. `schema.sql` keeps the exact verified0.11 schema prefix
+and appends moderation, reports, restrictions, role revisions and audit/receipt tables. No reset is required.
 
 ## Build and check
 
@@ -68,11 +102,11 @@ python3 tool/configure_firebase.py
 flutter pub get
 flutter analyze
 flutter test
-TOMI_CALL_INTEGRATION=1 flutter test test/call_api_integration_test.dart test/room_api_integration_test.dart
+TOMI_CALL_INTEGRATION=1 TOMI_MESSAGING_INTEGRATION=1 TOMI_IDENTITY_INTEGRATION=1 TOMI_MODERATION_INTEGRATION=1 flutter test --concurrency=1
 ```
 
-Run GitHub Actions **TOMI 0.9.0 Android** in `accounts` mode. The workflow also
-checks PostgreSQL and produces **TOMI-0.9.0.apk**. The API health version is 0.9.0.
+Run GitHub Actions **TOMI 0.12.0 Android** in `accounts` mode. The workflow also
+checks PostgreSQL and builds **TOMI-0.12.0.apk**. The API health version is0.12.0.
 Local loopback contract tests use real Node HTTP/SQLite and explicit fake media
 adapters; they do not prove real RTP or LiveKit connectivity. See
 [VALIDATION.md](VALIDATION.md) for the checks actually run and their limits.
@@ -130,13 +164,34 @@ Level starts1 at0 and reaches10 at25000 points. One trial coin spent on a gift a
 one room point; the recipient gets a recorded gift, not spendable credit. Ledger
 inserts, wallet debit, room XP and feed events commit together under a room lock.
 Changed retry bodies fail; a stable request ID returns the original receipt.
-A client keeps an uncertain send in memory and retries that same request, including
-automatic network retry; after restarting the app, review balance/feed first.
+The client durably stores the original request before sending. After restart,
+review and retry the saved gift explicitly; the server returns its existing receipt
+without another debit. Requests from closed rooms can be checked from the room list.
 
-Room state carries the most recent40 events. Gift receipts/rankings and room state
+Room state carries the most recent40 events; active members can page older history. Gift receipts/rankings and room state
 are durable. Room admin/history responses are bounded. Photo uploads reuse the
 existing verified media pipeline; replacements mark previous covers for cleanup.
 Owner seat -1 and companion -2 avoid collisions with every legacy0.7 seat0..7.
 Owner placement migrates lazily without changing an active SFU identity. Owner
 capacity is reserved too; an already-full legacy room makes space by removing the
 most recent guest on the owner's return. The 0.8 room ledger and moderation policy remain in place.
+
+## Draft and video limits
+
+Pending private chats allow20 requests,100 MB total and18 MB of queued voice notes.
+App-private stored media also has a100 MB per-account disk cap across scopes.
+Individual images remain10 MB, voice6 MB/5 minutes and video25 MB/3 minutes.
+Drafts stay on their original device/account/API origin; uninstalling or clearing app
+storage removes them. Web previews use memory storage. Text edits debounce250 ms;
+closing a composer, backgrounding chat and sending explicitly flush the journal.
+Chat auto retry runs in the foreground for the restored same session, up to5 attempts;
+a fresh login requires manual retry. Posts and room gifts never publish automatically
+after restart. Cancelling retry does not undo a server-accepted operation.
+
+Video checks stream length, MD5, optional SHA256 and bounded MP4 metadata. The server
+does not transcode or decode all frames. Unsupported codecs,4K,oversize and long
+clips are rejected; choose compatible MP4 on the phone. Private video GET links last
+5 minutes and refresh when opened. Feed videos use existing post storage policies.
+
+- https://pub.dev/packages/video_player/versions/2.14.1
+- https://developer.apple.com/documentation/quicktime-file-format/video_sample_description

@@ -1,0 +1,26 @@
+{
+  "kind": "bounded_local_http_sample",
+  "route": "/v1/rooms",
+  "requested": 60,
+  "completed": 60,
+  "concurrency": 4,
+  "success": 60,
+  "clientErrors": 0,
+  "serverErrors": 0,
+  "networkErrors": 0,
+  "elapsedMs": 153.38,
+  "requestsPerSecond": 391.19,
+  "p50Ms": 7.38,
+  "p95Ms": 24.73,
+  "p99Ms": 31.65,
+  "maxMs": 31.65,
+  "rssBeforeBytes": 52137984,
+  "rssAfterBytes": 80642048,
+  "createdAt": "2026-10-16T20:38:44.715Z",
+  "limits": "Local HTTP and database only; no real audio, SFU, storage transfer, production traffic or capacity guarantee.",
+  "fixture": {
+    "database": "in_memory_sqlite",
+    "rooms": 12,
+    "media": "explicit_test_adapter"
+  }
+}
