@@ -1,3 +1,14 @@
+# Current correction — CI disk exhaustion,2026-10-22
+
+User uploaded screenshots/run24 and kjj.txt with No space left on device.
+Work: tomi_10_ci_fix_work. Source14 baseline is unchanged runtime/API/native code.
+Fix: guarded hosted-Linux/android-only toolchain cleanup, actual Flutter NDK
+preservation/pruning,20GiB APK and10GiB AAB gates,2Gradle workers/no task-output
+cache, disk diagnostics,8 safety cases. No external push or hosted APK build.
+Deliver TOMI-1.0-beta1-build-fix.zip, upload contents to SAME main, start a NEW
+workflow with accounts/debug. Old reruns use old source. CI_BUILD_FIX_AR.md is
+entry point for this correction; latest standalone progress carries save receipt.
+
 # TOMI1.0 beta1 — implementation and continuation
 
 Authorized2026-10-17: «اكمل التطورات و التحديثات». Finalized2026-10-22 Baghdad.

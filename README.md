@@ -3,6 +3,10 @@
 Arabic Flutter social app with Node24/PostgreSQL API. Source version
 **1.0.0-beta.1+14**, API **1.0.0-beta.1**, extending the exact final0.12 ZIP.
 User authorized this phase on2026-10-17; delivery completed on2026-10-22 (Baghdad).
+CI disk fix (2026-10-22): TOMI-1.0-beta1-build-fix.zip adds hosted-runner cleanup,
+required-NDK preservation and free-space gates. See CI_BUILD_FIX_AR.md. Runtime code
+and app/API versions are unchanged. The new hosted build remains pending.
+
 Start with START_HERE_AR.md, PRIVACY_1.0_BETA_AR.md and RELEASE_1.0_BETA_AR.md.
 
 This is a source delivery. Full Flutter checks, PostgreSQL restore, APK/AAB builds

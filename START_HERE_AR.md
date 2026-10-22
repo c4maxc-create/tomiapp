@@ -6,9 +6,15 @@
 المحلية وأدوات التوقيع؛ تبقى فحوص Flutter وPostgreSQL والبناء في Actions وتجربة
 الهاتفين. التفاصيل وحدود كل فحص في VALIDATION.md.
 
+## تصحيح مساحة GitHub — 22أكتوبر2026
+
+هذه الحزمة تعالج No space left on device بجهاز البناء المؤقت. بعد الرفع ابدأ
+تشغيلًا جديدًا من main عبر Run workflow مع accounts وdebug. تفاصيل التصحيح
+في CI_BUILD_FIX_AR.md. إعادة تشغيل محاولة قديمة تستعمل مصدرها القديم.
+
 ## 1. رفع المصدر وفحصه
 
-1. فك **TOMI-1.0-beta1.zip** وارفع **محتوياته** إلى جذر نفس المستودع
+1. فك **TOMI-1.0-beta1-build-fix.zip** وارفع **محتوياته** إلى جذر نفس المستودع
    https://github.com/ToLo10/tomiapp على main، بما فيها `.github`.
    لا ترفع ZIP وحده ولا تضع المحتويات داخل مجلد إضافي.
 2. GitHub → Actions → **TOMI 1.0.0-beta.1 Android** → Run workflow على main.

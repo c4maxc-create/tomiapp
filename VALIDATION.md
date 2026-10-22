@@ -6,6 +6,24 @@ recovered and finalized2026-10-22, Asia/Baghdad. Exact0.12 source SHA256:
 Earlier0.12 results remain in VALIDATION-0.12.md. This file distinguishes source
 checks from device/provider/build evidence; source delivery is not public launch.
 
+## CI disk correction — 2026-10-22
+
+User run24/commit29b07b9 screenshots show the accounts/database job successful,
+then APK Gradle compilation failed with No space left on device. The uploaded
+log confirms both dependency downloads and native-library merging hit disk
+exhaustion. Detailed earlier CI test counts/logs were not supplied; do not claim
+a successful APK or assistant-executed PostgreSQL/Flutter run from these images.
+
+The corrected workflow reclaims unused hosted-runner tools and NDKs, retains the
+actual Flutter-required NDK and compile tools, bounds Gradle workers/cache and
+checks20GiB before APK/10GiB before AAB. All application/native/API code and locks
+are byte-identical to source14.8 new cleanup-boundary tests,6 release-tool tests
+and Bootstrap/YAML/preservation checks passed locally. Actual disk reclamation
+and APK/AAB build remain pending a NEW GitHub run. CI_BUILD_FIX_AR.md and
+validation/1.0-beta1-ci-fix/ contain the details and evidence. The executed checks
+below are the retained source14 evidence; unchanged application tests were not
+repeated solely for this workflow correction.
+
 ## Executed checks
 
 - **129 Node tests passed, zero failures/skips**, actual SQLite/HTTP on Node24.19.0.
