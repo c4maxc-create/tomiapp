@@ -81,8 +81,6 @@ jobs:
     needs: accounts-api
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    env:
-      TOMI_CI_RUNNER_ENV: ${{ runner.environment }}
     steps:
       - name: Download project source
         uses: actions/checkout@v6.1.0
@@ -96,6 +94,8 @@ jobs:
         run: python3 tool/check_android_ci.py
 
       - name: Free unused hosted-runner toolchains
+        env:
+          TOMI_CI_RUNNER_ENV: ${{ runner.environment }}
         run: python3 tool/prepare_android_ci.py early
 
       - name: Validate build configuration
@@ -133,6 +133,8 @@ jobs:
         run: bash tool/bootstrap_android.sh
 
       - name: Keep Flutter NDK and reserve Android build space
+        env:
+          TOMI_CI_RUNNER_ENV: ${{ runner.environment }}
         run: python3 tool/prepare_android_ci.py android --minimum-gib 20
 
       - name: Optional Firebase client setup
