@@ -1,0 +1,1 @@
+PASS: real loopback privacy HTTP fixture, SQLite self-erasure, revoked session, signed-out private receipt and peer message/post removal. No live provider.

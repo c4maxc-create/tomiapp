@@ -1,12 +1,27 @@
-# TOMI0.12.0 — reports, platform administration and operations
+# TOMI 1.0 beta1 — privacy, account erasure and Android release preparation
 
-Arabic Android social app, Node24 API and persistent PostgreSQL. User authorized
-0.12 with «الان ابدا بالمرحلة التطوير القادمة» on2026-10-16. This extends the exact
-final0.11 source. Start with START_HERE_AR.md, MODERATION_0.12_AR.md and
-OPERATIONS_0.12_AR.md. This is source, not an APK or hosted deployment. New Flutter
-runtime tests and real PostgreSQL restore remain CI checks; see VALIDATION.md.
+Arabic Flutter social app with Node24/PostgreSQL API. Source version
+**1.0.0-beta.1+14**, API **1.0.0-beta.1**, extending the exact final0.12 ZIP.
+User authorized this phase on2026-10-17; delivery completed on2026-10-22 (Baghdad).
+Start with START_HERE_AR.md, PRIVACY_1.0_BETA_AR.md and RELEASE_1.0_BETA_AR.md.
+
+This is a source delivery. Full Flutter checks, PostgreSQL restore, APK/AAB builds
+and physical-device acceptance remain required through Actions and test phones.
+VALIDATION.md separates executed checks from those still pending. Earlier0.12
+moderation/operations and prior room/call/messaging features remain included.
 
 ## Included
+
+- Password-confirmed account erasure in the app and public browser page, immediate
+  session/push revocation and call/room shutdown, private receipt recovery after
+  a lost response, and account-specific device draft/session cleanup.
+- Durable media cleanup across restarts, independent public/private stores, a
+  second deletion after old upload URLs expire, and bounded security retention.
+- Public Arabic privacy/terms/community/deletion resources, recorded registration
+  policy version, and explicit operator/support/retention configuration.
+- Optional supplied-key Android APK+AAB signing, pinned certificate verification,
+  matching deployed policy/API and device-acceptance gates. Default is debug.
+  No production deployment, account erasure or store upload was performed.
 
 - Private account/post/room reports, tracked statuses, separate staff/public notes,
   immutable minimal evidence and stable report request receipts.
@@ -65,7 +80,7 @@ runtime tests and real PostgreSQL restore remain CI checks; see VALIDATION.md.
 
 ## Runtime setup
 
-Flutter **3.47.7** / Dart **3.13.5**; app **0.12.0+13**. Dependencies are locked.
+Flutter **3.47.7** / Dart **3.13.5**; app **1.0.0-beta.1+14**. Dependencies are locked.
 `livekit_client 2.13.1` shares the existing `flutter_webrtc 1.6.2+hotfix.4` version.
 API `livekit-server-sdk 2.19.1`, Node **24**, PostgreSQL **17** in CI.
 
@@ -87,8 +102,8 @@ fail startup. Cloud-only validation is deliberate: this release relies on
 Cloud token revocation to enforce moderation against stale join tokens.
 `server/.env.example` documents names and is not loaded automatically.
 
-Use the same database. `schema.sql` keeps the exact verified0.11 schema prefix
-and appends moderation, reports, restrictions, role revisions and audit/receipt tables. No reset is required.
+Use the same database. `schema.sql` keeps the exact final0.12 schema prefix
+and appends account-erasure receipts, cleanup jobs and policy acceptance tables. No reset is required.
 
 ## Build and check
 
@@ -102,11 +117,11 @@ python3 tool/configure_firebase.py
 flutter pub get
 flutter analyze
 flutter test
-TOMI_CALL_INTEGRATION=1 TOMI_MESSAGING_INTEGRATION=1 TOMI_IDENTITY_INTEGRATION=1 TOMI_MODERATION_INTEGRATION=1 flutter test --concurrency=1
+TOMI_CALL_INTEGRATION=1 TOMI_MESSAGING_INTEGRATION=1 TOMI_IDENTITY_INTEGRATION=1 TOMI_MODERATION_INTEGRATION=1 TOMI_PRIVACY_INTEGRATION=1 flutter test --concurrency=1
 ```
 
-Run GitHub Actions **TOMI 0.12.0 Android** in `accounts` mode. The workflow also
-checks PostgreSQL and builds **TOMI-0.12.0.apk**. The API health version is0.12.0.
+Run GitHub Actions **TOMI 1.0.0-beta.1 Android** in `accounts` mode. The workflow also
+checks PostgreSQL and builds **TOMI-1.0.0-beta.1.apk**. The API health version is1.0.0-beta.1.
 Local loopback contract tests use real Node HTTP/SQLite and explicit fake media
 adapters; they do not prove real RTP or LiveKit connectivity. See
 [VALIDATION.md](VALIDATION.md) for the checks actually run and their limits.

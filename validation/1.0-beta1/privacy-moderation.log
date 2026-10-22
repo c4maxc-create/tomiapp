@@ -1,0 +1,37 @@
+✔ 0.12 owner is explicit server configuration and no ordinary account can grant itself a role (1206.386016ms)
+✔ 0.12 reports are private, concurrent retries are unique and active duplicates share the tracked report (1776.584083ms)
+✔ 0.12 report receipt survives target deletion and private evidence stays available to staff (1691.67593ms)
+✔ 0.12 platform moderator permissions are distinct, versioned, protected and revoked live (2026.64893ms)
+✔ 0.12 hidden posts disappear from reads, likes, comments and every feed without losing their rows (1826.234872ms)
+✔ 0.12 stable admin receipts cannot undo a later restore and replay remains available after deletion (1662.473522ms)
+✔ 0.12 report transitions use revisions, separate notes, linked targets and safe reopen rules (1812.708909ms)
+✔ 0.12 suspending an account atomically revokes sessions, ends calls and closes owned rooms with durable provider jobs (3778.224567ms)
+✔ 0.12 suspension hides account search, feed posts and ranking entries without erasing gifts (1934.479232ms)
+✔ 0.12 a call request authenticated before suspension cannot create a late call after the ban commits (1884.450919ms)
+✔ 0.12 room closure works without joining and provider failures do not clear pending revocations (1737.222403ms)
+✔ 0.12 report and audit keyset pages are private and do not skip equal timestamps (1811.459691ms)
+Request failed: Error
+✔ 0.12 metrics are authorized aggregate measurements and never include request URLs, bodies or credentials (1788.297437ms)
+✔ 0.12 strict report/action validation never changes ledger or audit on denied inputs (1839.284475ms)
+✔ 0.12 exact additive0.11 upgrade retains account credentials, identity and user progress (136.617764ms)
+✔ 1.0 account erasure requires the current password, exact confirmation and a private receipt proof (2064.289409ms)
+✔ 1.0 erasure clears authored data and private links while preserving the peer and opaque shared gift ledger (1779.420167ms)
+✔ 1.0 file cleanup survives provider failure and restart and deletes again after signed PUT expiry (1312.687187ms)
+✔ 1.0 protected owner must transfer ownership; suspended members can delete with browser credentials (2005.384243ms)
+✔ 1.0 same accepted deletion receipt is safe under concurrent retry (1352.831756ms)
+✔ 1.0 authenticated delayed writes cannot recreate posts after account erasure commits (1065.437985ms)
+✔ 1.0 report and audit content is scrubbed and bounded security retention and receipt expiry are enforced (1745.920508ms)
+✔ 1.0 public privacy/terms/deletion resources need no app and prevent cross-origin credential submission (1032.207595ms)
+✔ 1.0 public policy configuration validates contact and retention and escapes operator supplied markup (0.961206ms)
+✔ 1.0 deletion routes image/audio/video cleanup to the correct private bucket and preserves other users files (1410.524937ms)
+✔ 1.0 delayed follow cannot recreate a relationship with an erased target (1408.656283ms)
+✔ 1.0 policy acceptance stores only the current version and erases its account-bound receipt (1005.337117ms)
+✔ 1.0 upgrades the exact0.12 SQLite schema without changing live credentials, roles, reports or gift progress (135.302301ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 43481.085655

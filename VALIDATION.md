@@ -1,121 +1,102 @@
-# TOMI 0.12.0 validation
+# TOMI 1.0 beta1 validation
 
-Completed source review: 2026-10-17, Asia/Baghdad. App0.12.0+13, API0.12.0,
-Node24.19.0; local SDK Flutter3.47.7 / Dart3.13.5. User authorized0.12 with
-«الان ابدا بالمرحلة التطوير القادمة» and requested continuation.
-Exact final0.11 baseline SHA256:
-6f6a11bb3acf1d259a4c63cc607002d836de5f8653e2225d497aa29c4037e763.
-Earlier results are archived in VALIDATION-0.11.md through VALIDATION-0.8.md.
+Source: app1.0.0-beta.1+14, API1.0.0-beta.1. Authorized2026-10-17;
+recovered and finalized2026-10-22, Asia/Baghdad. Exact0.12 source SHA256:
+`5c87061e4fd14259ee4067c04373234e816db1db7d906908a38c55537934da8a`.
+Earlier0.12 results remain in VALIDATION-0.12.md. This file distinguishes source
+checks from device/provider/build evidence; source delivery is not public launch.
 
-## Checks actually run
+## Executed checks
 
-- **116 Node tests passed, 0 skipped, 0 failures**, against actual local SQLite:
-  93 existing tests plus15 moderation and8 operations cases. A final focused
-  rerun of all15 moderation cases also passed after strengthening the additive
-  upgrade assertion. Expected injected5xx errors in metrics tests are deliberate.
-- The real loopback moderation client fixture was separately smoke-tested with
-  owner/moderator/member roles, ordinary-member403 and API health0.12.0.
-- **New lib/src/moderation Dart analysis: no issues** using the local Dart SDK
-  and available dependencies. Whole-lib offline analysis reports97 diagnostics
-  caused by missing dependencies; normalized diagnostics match the exact0.11
-  baseline under the same partial package cache, with no added diagnostics.
-  This is not a successful full `flutter analyze` run. Targeted test-file analysis
-  is also blocked by missing test API/matcher bindings; it is not a passing test run.
-- Changed Dart files and the2 new Flutter test files are formatted.
-- **11 JVM notification-policy cases passed** on JDK17. The7 native production
-  Java files and policy test match final0.11 byte for byte. Bootstrap preservation,
-  optional Firebase, public HTTPS/accounts and preview configuration checks passed.
-- The0.12 schema preserves the exact0.11 prefix. A real0.11 SQLite database upgrades
-  without losing credential hashes, identity selection or user gift progress.
-- Backup tests actually restored a real encrypted SQLite database and compared
-  credentials, gift request identity, identity selection, private report notes
-  and audit records. This verifies encryption/record restoration locally; it is
-  not a PostgreSQL pg_restore result.
-- The bounded isolated local load sample completed60/60 reads with4 workers and
-  no errors; p95=24.73ms in this environment. OPERATIONS_LOAD_SAMPLE.json records
-  the sample. Its12 SQLite rooms and fake provider do not measure RTP, hosted
-  database performance, production capacity or provider bills.
-- Final delivery checks verify required source/tests/guides, CRC, every manifest
-  digest, workspace-byte equality, unchanged native files and schema prefix;
-  exclude credentials, backup files, SDKs, generated platforms and caches.
-  SOURCE-FILES.sha256 excludes itself.
+- **129 Node tests passed, zero failures/skips**, actual SQLite/HTTP on Node24.19.0.
+  Re-executed after checkpoint recovery, duration152420ms. The116 existing cases
+  plus13 privacy cases passed. After adding the report-target erasure gate,
+  **all28 privacy/moderation cases passed again**, duration43481ms.
+- **6 release-tool tests passed**, including a real isolated disposable JKS key,
+  pinned certificate/private-key password checks, private permissions, cleanup,
+  idempotent Gradle changes and negative release-readiness gates. No user signing
+  key was generated, read or changed. These are not APK/AAB signature results.
+- **11 JVM notification-policy scenarios passed**, JDK17. Bootstrap source
+  preservation, optional Firebase configuration and HTTPS/accounts/preview
+  configuration checks passed again in the recovered workspace.
+- The privacy HTTP fixture was smoke-tested during this task with real local
+  SQLite, self-erasure, signed-out receipt status and peer-side message removal.
+  No production account, external media store or live SFU was used.
+- The exact0.12 schema prefix and fixture are preserved. A real0.12 SQLite
+  database upgrades without changing password hashes, staff roles, reports or XP.
+- The archive verifier checks base paths retained, ZIP CRC, every source digest,
+  workspace/archive byte equality, unchanged8 native files and Flutter lock,
+  schema prefix and absence of private/generated/cache files. Manifest excludes
+  itself. Test evidence is retained in validation/1.0-beta1/.
 
-## Evidence exercised
+## Privacy cases exercised
 
-| Area | Local cases |
+| Area | Evidence |
 | --- | --- |
-| Reports | Reporter-only lists/details; separate public response/private notes; minimal evidence survives deletion; no self-report; strict reasons/lengths; duplicate active report and concurrent nonce replay; rate limits and changed-payload rejection. |
-| Permissions | Explicit existing owner UUID; startup rejects absent/suspended owner; room moderator is not platform staff; ordinary users cannot grant themselves roles; protected owner/staff targets; live role revocation and owner-only suspension/grants. |
-| Decisions | Expected-revision conflicts; linked-report target checks; safe report reopen; old receipt cannot undo later decision; replay after target deletion; denied input leaves audit/ledgers unchanged. |
-| Posts | Hidden or suspended-author posts disappear from feeds, reads, likes and comments; retained rows allow restore; existing author deletion still works. |
-| Suspension | Session/auth-version/push invalidation, call termination, owned-room closure, removal elsewhere, durable provider retries, recovery transaction rollback, restore permits only a new login. A request authenticated before ban cannot create a call after ban commits. |
-| Lists/metrics | Report/audit keyset pagination with25 tied timestamps; staff authorization; aggregates, status/latency and injected5xx; URLs, queries, request bodies and credentials absent from metrics. |
-| Backup tools | AES256GCM round trip/0600, tampering of header/IV/ciphertext/tag, wrong key, truncation, authenticated empty file, no-clobber output, passfile escaping/cleanup, child failure prevents publishing a partial dump, local empty-target guards. PostgreSQL child tests use explicit fake clients locally. |
-| Local load | Loopback/read-only/redirect/request/concurrency/body/time bounds; actual isolated HTTP sample; no production requests. |
+| Erasure authority | Current password, exact Arabic confirmation, strict input fields, session requirement and private43-character proof; wrong/reused proof, lost ACK, concurrent replay, username reuse and rejection of new reports on erased targets. |
+| Authored data | Posts/comments/follows/profile/identity/XP/wallet/session removal; authored chat bodies and attachments scrubbed while peer messages and opaque shared gift ledgers remain; restart does not backfill erased XP. |
+| Media | Image/audio/video public/private stores independently routed; provider failure, durable retry after restart, second deletion after16-minute old-PUT expiry, unrelated files retained. |
+| Races and roles | Delayed authenticated writes and target follows cannot recreate data; platform owner must transfer ownership; suspended member browser deletion; admin cannot restore/grant an erased account. New report snapshots share the target's PostgreSQL erasure gate and are re-read after it. |
+| Retention | Report/audit content scrubbed,90-day expiry,30-day receipt expiry, current registration-policy version only, acceptance erased with account. |
+| Public pages | Arabic documents available signed out, escaped operator markup, strict contact/retention configuration, CSP/nonce/frame protection, same-origin vs hostile-origin requests, inline JS syntax and explicit POST form fallback. |
 
-## Prepared checks that could not run here
+## Flutter evidence and limits
 
-The global Flutter package cache was lost between continuations. Only a partial
-pinned cache remains; downloads of missing dependencies were denied. Full Flutter
-analysis, widget tests and APK build could not run in this environment. No existing
-source or dependency lock was reset to work around the missing cache.
+During the earlier implementation session, Dart analysis of the new privacy
+folder reported no issues. Full-lib raw Dart analysis had97 diagnostics with
+missing packages; normalized diagnostics matched exact0.12 under the same partial
+cache. That was **not** a successful full flutter analyze. The restored runtime
+no longer has the Flutter SDK/cache, so this historical analysis was not repeated.
 
-- 8 new Flutter/controller/widget cases cover frozen retries, role revocation with
- a late privileged response, logout guards, reverse-order filters, report dialog
- retry, private own-report rendering and compact Arabic admin/settings layouts.
-- 1 new real-HTTP Flutter contract covers report, staff review/public response,
- hide/restore, role revocation and banned-session rejection.
-- The existing137 Flutter cases are historical0.11 results, not0.12 results.
- There are146 intended cases including the9 additions. None of the146 was claimed
- as passed for0.12. CI runs the normal suite and explicitly enables all5 HTTP
- contracts (calls, rooms, messaging, identity, moderation).
-- Real PostgreSQL17 tests and an encrypted pg_dump/pg_restore drill are configured
- in Actions, using its ephemeral container and a newly created localhost database
- named tomi_restore_check. No PostgreSQL server/client is installed here, so the
- actual drill has not run. CI must pass before distributing the APK.
+Eight new privacy unit/widget cases and one real HTTP contract are prepared,
+bringing the intended suite to155 cases. They cover durable receipts before
+HTTP, storage failure, lost ACK/controller restoration, logout while storage
+waits, late acceptance vs newer account login, retry after local vault failure,
+disk cleanup and compact Arabic UI. **These9 new Flutter cases have not run.**
+The registration mock now handles the0.12 moderation-access metadata request.
 
-## Operational and device limits
+Actions configures full Flutter analysis/tests and6 real HTTP contracts for
+calls, rooms, messaging, identity, moderation and privacy. Calls/rooms still use
+explicit fake media/providers. Do not report155 passing tests or a rendered UI
+until the actual CI/device results exist. Flutter3.47.7 and locked dependencies
+must resolve in Actions; a missing SDK/package/build is a blocking CI failure.
 
-This is source, not an APK or hosted deployment. No GitHub, Northflank, PostgreSQL,
-R2, TURN, LiveKit or Firebase account was changed. No production data/backup/key
-was obtained. No actual phones/emulator, RTP/SFU, background FCM, Bluetooth,
-network handoff, native gallery/decoder or battery performance was exercised.
-Previous device acceptance results have not been reported.
+## Still required
 
-HTTP metrics are per process/last60 minutes; DB counts are cached10 seconds.
-Media-size records are estimates, not actual object inventory or billing.
-Suspension schedules durable SFU removal; revoking an API session alone does not
-prove instant RTP disconnection. Previously downloaded content and old media URLs
-are not globally erased by hiding a post. Pending actions are retried only with
-their original nonce/body; after app restart review target state and audit first.
+- Actual PostgreSQL17 test suite and encrypted pg_dump/pg_restore drill in CI.
+  The drill now preserves the erasure marker and pending cleanup rows present
+  at backup time. It does not replay erasures made after that backup.
+- Full Flutter analysis/tests, Gradle compilation, debug APK, optional signed
+  APK+AAB and actual apksigner/jarsigner artifact verification.
+- Two-phone acceptance: permissions, background audio/camera behavior, Bluetooth,
+  network changes, voice/video upgrade consent, account deletion while connected,
+  notifications, local drafts and upgrade with a compatible signing certificate.
+- Live SFU/TURN/R2/FCM behavior, expired provider cache/URLs and production load.
+  Local SQLite tests do not establish1000-user capacity or provider costs.
+- Real operator/support/public-origin/backup-retention settings before signed
+  distribution. Declared retention is not an automated backup schedule; database,
+  R2 and secrets need scheduled backups, expiry and isolated restore acceptance.
+- Before opening an old restored database, reapply newer erasures and verify
+  cleanup. Do not roll back/mix old APIs against a database containing erasures.
 
-Database backups do not copy R2 objects or service secrets. Automatic scheduling,
-retention, offsite storage and a live object/secret recovery drill remain operator
-setup. A checksum alone is not an application recovery test. The local HTTP sample
-cannot establish a safe production user count.
-
-## Reproduce and rollout
+## Reproduction
 
 ```bash
 cd server
 npm ci --ignore-scripts --no-audit --no-fund
 npm test
 cd ..
-bash tool/bootstrap_android.sh
-python3 tool/configure_firebase.py
-flutter pub get
-flutter analyze
-TOMI_CALL_INTEGRATION=1 TOMI_MESSAGING_INTEGRATION=1 TOMI_IDENTITY_INTEGRATION=1 TOMI_MODERATION_INTEGRATION=1 flutter test --concurrency=1 --reporter expanded
+python3 tool/check_release_tools.py
 python3 tool/check_mobile_policy.py
 python3 tool/check_bootstrap.py
 python3 tool/check_firebase.py
+TOMI_API_URL=https://api.example.test python3 tool/check_build_config.py
+bash tool/bootstrap_android.sh
+flutter pub get
+flutter analyze
+flutter test --reporter expanded
+TOMI_CALL_INTEGRATION=1 TOMI_MESSAGING_INTEGRATION=1 TOMI_IDENTITY_INTEGRATION=1 TOMI_MODERATION_INTEGRATION=1 TOMI_PRIVACY_INTEGRATION=1 flutter test --no-pub test/call_api_integration_test.dart test/room_api_integration_test.dart test/messaging_api_integration_test.dart test/identity_api_integration_test.dart test/moderation_api_integration_test.dart test/privacy_api_integration_test.dart --reporter expanded
 ```
 
-Actions reruns Node tests with guarded localhost/tomi_test PostgreSQL17 and then
-server/test/pg-restore-drill.mjs. Never use production as a test target.
-Upload source to the same repository; deploy API0.12.0 before clients and retain
-DATABASE_URL and existing service keys. Set optional TOMI_OWNER_USER_ID to an
-existing account UUID after copying it from the profile. Do not run mixed API
-versions while upgrading. Workflow/artifact: TOMI0.12.0 Android / TOMI-0.12.0.apk.
-Follow START_HERE_AR.md, MODERATION_0.12_AR.md and OPERATIONS_0.12_AR.md; test
-moderation plus prior call/message/room acceptance on phones before wider release.
+No external repository push, hosted deployment, user deletion, production load,
+store publishing, purchased service or real signing-key change was performed.
