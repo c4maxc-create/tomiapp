@@ -81,6 +81,8 @@ jobs:
     needs: accounts-api
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    env:
+      TOMI_CI_RUNNER_ENV: ${{ runner.environment }}
     steps:
       - name: Download project source
         uses: actions/checkout@v6.1.0
@@ -89,6 +91,12 @@ jobs:
 
       - name: Show source revision
         run: git rev-parse HEAD
+
+      - name: Verify Android CI disk safeguards
+        run: python3 tool/check_android_ci.py
+
+      - name: Free unused hosted-runner toolchains
+        run: python3 tool/prepare_android_ci.py early
 
       - name: Validate build configuration
         env:
@@ -123,6 +131,9 @@ jobs:
 
       - name: Generate Android scaffold
         run: bash tool/bootstrap_android.sh
+
+      - name: Keep Flutter NDK and reserve Android build space
+        run: python3 tool/prepare_android_ci.py android --minimum-gib 20
 
       - name: Optional Firebase client setup
         env:
@@ -176,6 +187,7 @@ jobs:
       - name: Build debug APK
         if: inputs.distribution != 'signed_beta'
         run: |
+          python3 tool/prepare_android_ci.py check --minimum-gib 20
           flutter build apk --debug --no-pub \
             --dart-define="TOMI_API_URL=$TOMI_API_URL" \
             --dart-define="TOMI_PREVIEW_MODE=$TOMI_PREVIEW_MODE" \
@@ -191,10 +203,12 @@ jobs:
           TOMI_ANDROID_KEY_ALIAS: ${{ secrets.TOMI_ANDROID_KEY_ALIAS }}
           TOMI_ANDROID_KEY_PASSWORD: ${{ secrets.TOMI_ANDROID_KEY_PASSWORD }}
         run: |
+          python3 tool/prepare_android_ci.py check --minimum-gib 20
           flutter build apk --release --no-pub \
             --dart-define="TOMI_API_URL=$TOMI_API_URL" \
             --dart-define="TOMI_PREVIEW_MODE=false" \
             --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED"
+          python3 tool/prepare_android_ci.py check --minimum-gib 10
           flutter build appbundle --release --no-pub \
             --dart-define="TOMI_API_URL=$TOMI_API_URL" \
             --dart-define="TOMI_PREVIEW_MODE=false" \
@@ -220,3 +234,7 @@ jobs:
           path: output/
           if-no-files-found: error
           retention-days: 7
+
+      - name: Report remaining build disk space
+        if: always() && hashFiles('tool/prepare_android_ci.py') != ''
+        run: python3 tool/prepare_android_ci.py report
