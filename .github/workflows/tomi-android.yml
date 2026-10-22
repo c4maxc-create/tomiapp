@@ -1,4 +1,4 @@
-name: TOMI 0.12.0 Android
+name: TOMI 1.0.0-beta.1 Android
 
 "on":
   workflow_dispatch:
@@ -8,6 +8,11 @@ name: TOMI 0.12.0 Android
         type: choice
         options: [accounts, preview]
         default: accounts
+      distribution:
+        description: 'debug = private testing; signed_beta = verified APK+AAB using your existing key'
+        type: choice
+        options: [debug, signed_beta]
+        default: debug
       api_url:
         description: 'HTTPS server URL (or set repository variable TOMI_API_URL)'
         type: string
@@ -72,7 +77,7 @@ jobs:
         run: node server/test/pg-restore-drill.mjs
 
   android:
-    name: Build TOMI 0.12.0 APK
+    name: Build TOMI 1.0.0-beta.1 APK
     needs: accounts-api
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -136,6 +141,9 @@ jobs:
           python3 tool/check_bootstrap.py
           python3 tool/check_firebase.py
 
+      - name: Check release configuration safeguards
+        run: python3 tool/check_release_tools.py
+
       - name: Test accounts, posts and compact screens
         run: flutter test --reporter expanded
 
@@ -145,21 +153,70 @@ jobs:
           TOMI_MESSAGING_INTEGRATION: '1'
           TOMI_IDENTITY_INTEGRATION: '1'
           TOMI_MODERATION_INTEGRATION: '1'
-        run: flutter test --no-pub test/call_api_integration_test.dart test/room_api_integration_test.dart test/messaging_api_integration_test.dart test/identity_api_integration_test.dart test/moderation_api_integration_test.dart --reporter expanded
+          TOMI_PRIVACY_INTEGRATION: '1'
+        run: flutter test --no-pub test/call_api_integration_test.dart test/room_api_integration_test.dart test/messaging_api_integration_test.dart test/identity_api_integration_test.dart test/moderation_api_integration_test.dart test/privacy_api_integration_test.dart --reporter expanded
 
-      - name: Build TOMI APK
+      - name: Check signed beta deployment and phone acceptance
+        if: inputs.distribution == 'signed_beta'
+        env:
+          TOMI_BETA_DEVICE_ACCEPTED: ${{ vars.TOMI_BETA_DEVICE_ACCEPTED }}
+        run: python3 tool/check_release_readiness.py
+
+      - name: Prepare verified signing key
+        if: inputs.distribution == 'signed_beta'
+        env:
+          TOMI_RELEASE_BUILD: '1'
+          TOMI_ANDROID_KEYSTORE_BASE64: ${{ secrets.TOMI_ANDROID_KEYSTORE_BASE64 }}
+          TOMI_ANDROID_STORE_PASSWORD: ${{ secrets.TOMI_ANDROID_STORE_PASSWORD }}
+          TOMI_ANDROID_KEY_ALIAS: ${{ secrets.TOMI_ANDROID_KEY_ALIAS }}
+          TOMI_ANDROID_KEY_PASSWORD: ${{ secrets.TOMI_ANDROID_KEY_PASSWORD }}
+          TOMI_SIGNING_CERT_SHA256: ${{ vars.TOMI_SIGNING_CERT_SHA256 }}
+        run: python3 tool/configure_release.py
+
+      - name: Build debug APK
+        if: inputs.distribution != 'signed_beta'
         run: |
           flutter build apk --debug --no-pub \
             --dart-define="TOMI_API_URL=$TOMI_API_URL" \
             --dart-define="TOMI_PREVIEW_MODE=$TOMI_PREVIEW_MODE" \
             --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED"
           mkdir -p output
-          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-0.12.0.apk
+          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-1.0.0-beta.1.apk
 
-      - name: Upload TOMI APK
+      - name: Build signed beta APK and AAB
+        if: inputs.distribution == 'signed_beta'
+        env:
+          TOMI_RELEASE_BUILD: '1'
+          TOMI_ANDROID_STORE_PASSWORD: ${{ secrets.TOMI_ANDROID_STORE_PASSWORD }}
+          TOMI_ANDROID_KEY_ALIAS: ${{ secrets.TOMI_ANDROID_KEY_ALIAS }}
+          TOMI_ANDROID_KEY_PASSWORD: ${{ secrets.TOMI_ANDROID_KEY_PASSWORD }}
+        run: |
+          flutter build apk --release --no-pub \
+            --dart-define="TOMI_API_URL=$TOMI_API_URL" \
+            --dart-define="TOMI_PREVIEW_MODE=false" \
+            --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED"
+          flutter build appbundle --release --no-pub \
+            --dart-define="TOMI_API_URL=$TOMI_API_URL" \
+            --dart-define="TOMI_PREVIEW_MODE=false" \
+            --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED"
+          mkdir -p output
+          cp build/app/outputs/flutter-apk/app-release.apk output/TOMI-1.0.0-beta.1.apk
+          cp build/app/outputs/bundle/release/app-release.aab output/TOMI-1.0.0-beta.1.aab
+
+      - name: Verify release signatures and artifact hashes
+        if: inputs.distribution == 'signed_beta'
+        env:
+          TOMI_SIGNING_CERT_SHA256: ${{ vars.TOMI_SIGNING_CERT_SHA256 }}
+        run: python3 tool/check_release_artifacts.py
+
+      - name: Remove temporary signing material
+        if: always() && inputs.distribution == 'signed_beta'
+        run: python3 tool/configure_release.py --cleanup
+
+      - name: Upload verified TOMI artifacts
         uses: actions/upload-artifact@v7
         with:
-          path: output/TOMI-0.12.0.apk
-          archive: false
+          name: TOMI-1.0-beta1-${{ inputs.distribution }}
+          path: output/
           if-no-files-found: error
           retention-days: 7
