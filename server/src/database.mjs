@@ -29,6 +29,7 @@ export async function openDatabase({ connectionString, sqliteFile, production = 
       return { rows: result.rows, changes: result.rowCount };
     };
     return {
+      dialect: 'postgres',
       query: adapt(pool),
       async transaction(work) {
         const client = await pool.connect();
@@ -67,6 +68,7 @@ export async function openDatabase({ connectionString, sqliteFile, production = 
     return { rows: [], changes: statement.run(...values).changes };
   };
   return {
+    dialect: 'sqlite',
     query: (sql, values) => serialized(() => query(sql, values)),
     transaction: (work) => serialized(async () => {
       db.exec('BEGIN IMMEDIATE');

@@ -26,8 +26,10 @@ export function createOperations(){
     for(let i=0;i<limits.length;i++){count+=total.histogram[i];if(total.requests&&count>=total.requests*.95){p95UpperMs=Number.isFinite(limits[i])?limits[i]:null;break;}}
     if(!cache||Date.now()-cachedAt>10000){
       const row=(await db.query(`SELECT
-        (SELECT COUNT(*) FROM tomi_users) users,
-        (SELECT COUNT(*) FROM tomi_account_restrictions WHERE suspended=1) suspended_users,
+        (SELECT COUNT(*) FROM tomi_users u WHERE NOT EXISTS(SELECT 1 FROM tomi_deleted_accounts d WHERE d.user_id=u.id)) users,
+        (SELECT COUNT(*) FROM tomi_deleted_accounts) deleted_accounts,
+        (SELECT COUNT(*) FROM tomi_erasure_media) pending_erasure_media,
+        (SELECT COUNT(*) FROM tomi_account_restrictions a WHERE suspended=1 AND NOT EXISTS(SELECT 1 FROM tomi_deleted_accounts d WHERE d.user_id=a.user_id)) suspended_users,
         (SELECT COUNT(*) FROM tomi_posts) posts,
         (SELECT COUNT(*) FROM tomi_content_moderation x JOIN tomi_posts p ON p.id=x.target_id WHERE x.target_type='post' AND x.hidden=1) hidden_posts,
         (SELECT COUNT(*) FROM tomi_voice_rooms WHERE state='open') open_rooms,

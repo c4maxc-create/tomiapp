@@ -18,13 +18,13 @@ const threads=`SELECT t.*,(SELECT p.message_id FROM tomi_chat_pins p WHERE p.thr
  EXISTS(SELECT 1 FROM tomi_chat_video v WHERE v.message_id=lm.id) AS last_video,lm.body AS last_body,lm.image_upload_id AS last_image,EXISTS(SELECT 1 FROM tomi_chat_audio a WHERE a.message_id=lm.id) AS last_audio,lm.deleted_at AS last_deleted,lm.created_at AS last_created,lm.sender_id AS last_sender,
  (SELECT COUNT(*) FROM tomi_chat_messages x WHERE x.thread_id=t.id AND x.sender_id<>self.user_id AND x.sequence>self.last_read_seq AND x.deleted_at IS NULL) AS unread_count,
  (SELECT COUNT(*) FROM tomi_user_blocks b WHERE b.blocker_id=self.user_id AND b.blocked_id=u.id) AS blocked_by_me,
- (SELECT COUNT(*) FROM tomi_user_blocks b WHERE b.blocker_id=u.id AND b.blocked_id=self.user_id) AS blocked_by_peer
+ ((SELECT COUNT(*) FROM tomi_user_blocks b WHERE b.blocker_id=u.id AND b.blocked_id=self.user_id)+(SELECT COUNT(*) FROM tomi_deleted_accounts d WHERE d.user_id=u.id)) AS blocked_by_peer
  FROM tomi_chat_threads t JOIN tomi_chat_members self ON self.thread_id=t.id AND self.user_id=?
  JOIN tomi_chat_members pm ON pm.thread_id=t.id AND pm.user_id<>self.user_id JOIN tomi_users u ON u.id=pm.user_id
  ${avatarJoins} LEFT JOIN tomi_chat_messages lm ON lm.thread_id=t.id AND lm.sequence=t.next_seq `;
 const messages=`SELECT m.*,COALESCE(meta.revision,0) AS meta_revision,u.username,u.display_name,u.avatar_preset,media.object_key,media.width,media.height,audio.object_key AS audio_key,audio.duration_ms,video.object_key AS video_key,video.width AS video_width,video.height AS video_height,video.duration_ms AS video_duration${avatarColumns}
  FROM tomi_chat_messages m JOIN tomi_users u ON u.id=m.sender_id LEFT JOIN tomi_chat_message_meta meta ON meta.message_id=m.id LEFT JOIN tomi_image_uploads media ON media.id=m.image_upload_id LEFT JOIN tomi_chat_audio ca ON ca.message_id=m.id LEFT JOIN tomi_audio_uploads audio ON audio.id=ca.upload_id LEFT JOIN tomi_chat_video cv ON cv.message_id=m.id LEFT JOIN tomi_video_uploads video ON video.id=cv.upload_id ${avatarJoins} `;
-export function createChat({database,storage,avatarStorage=storage,readJson,respond,limit,userById,enqueuePush=async()=>{}}){
+export function createChat({database,storage,avatarStorage=storage,readJson,respond,limit,userById,enqueuePush=async()=>{},accountGate=async()=>{}}){
  let realtime;
  const threadJson=(r,viewer)=>({id:r.id,peer:{id:r.peer_id,username:r.username,displayName:r.display_name,avatarPreset:r.avatar_preset,...avatarFields(r,avatarStorage)},updatedAt:r.updated_at,
   unreadCount:Number(r.unread_count),sequence:Number(r.next_seq),myReadSequence:Number(r.last_read_seq),peerReadSequence:Number(r.peer_read_seq),
@@ -38,7 +38,7 @@ export function createChat({database,storage,avatarStorage=storage,readJson,resp
   image:!r.deleted_at&&r.object_key?{url:storage?.privateReadUrl(r.object_key)??null,width:Number(r.width),height:Number(r.height)}:null});
  async function thread(viewer,threadId,db=database){const{rows}=await db.query(threads+'WHERE t.id=?',[viewer,threadId]);if(!rows[0])fail(404,'CHAT_NOT_FOUND','المحادثة غير موجودة.');return rows[0];}
  async function message(viewer,threadId,messageId){const{rows}=await database.query(messages+'WHERE m.thread_id=? AND m.id=?',[threadId,messageId]);if(!rows[0])fail(404,'MESSAGE_NOT_FOUND','الرسالة غير موجودة.');return messageJson((await tools.enrich(rows,viewer))[0],viewer);}
- async function pair(db,viewer,target){const[low,high]=[viewer,target].sort(),stamp=now();const{rows}=await db.query(`INSERT INTO tomi_chat_threads(id,low_user_id,high_user_id,created_at,updated_at) VALUES(?,?,?,?,?)
+ async function pair(db,viewer,target){await accountGate(db,target);if((await db.query('SELECT 1 FROM tomi_deleted_accounts WHERE user_id=?',[target])).rows.length)fail(410,'ACCOUNT_DELETED','حُذف الحساب ولا يمكن مراسلته.');const[low,high]=[viewer,target].sort(),stamp=now();const{rows}=await db.query(`INSERT INTO tomi_chat_threads(id,low_user_id,high_user_id,created_at,updated_at) VALUES(?,?,?,?,?)
   ON CONFLICT(low_user_id,high_user_id) DO UPDATE SET updated_at=tomi_chat_threads.updated_at RETURNING id`,[randomUUID(),low,high,stamp,stamp]);
   for(const user of [low,high])await db.query('INSERT INTO tomi_chat_members(thread_id,user_id) VALUES(?,?) ON CONFLICT(thread_id,user_id) DO NOTHING',[rows[0].id,user]);return rows[0].id;}
  async function lock(db,viewer,threadId){const r=await db.query('UPDATE tomi_chat_threads SET updated_at=updated_at WHERE id=? AND (low_user_id=? OR high_user_id=?) RETURNING id',[threadId,viewer,viewer]);if(!r.rows[0])fail(404,'CHAT_NOT_FOUND','المحادثة غير موجودة.');return thread(viewer,threadId,db);}

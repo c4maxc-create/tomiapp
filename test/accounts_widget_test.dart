@@ -96,6 +96,8 @@ void main() {
           client: MockClient((request) async {
             if (request.url.path == '/health')
               return response({'status': 'ok'});
+            if (request.url.path == '/v1/moderation/access')
+              return response({'role': 'member', 'ownerConfigured': false});
             if (request.url.path == '/v1/posts')
               return response({
                 'posts': [],

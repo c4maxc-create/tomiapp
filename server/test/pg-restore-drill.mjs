@@ -15,8 +15,11 @@ const directory=await mkdtemp(join(tmpdir(),'tomi-pg-drill12-')),key=randomBytes
 let db,admin,restored,created=false;
 try{
   db=await openDatabase({connectionString:source});
-  const user=randomUUID(),reporter=randomUUID(),room=randomUUID(),gift=randomUUID(),nonce=randomUUID(),report=randomUUID(),stamp=new Date().toISOString();
-  for(const uid of [user,reporter])await db.query('INSERT INTO tomi_users(id,username,display_name,password_hash,recovery_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',[uid,'drill_'+uid.slice(0,12), 'Restore drill','test-only-password-hash','test-only-recovery-hash',stamp,stamp]);
+  const user=randomUUID(),reporter=randomUUID(),erased=randomUUID(),room=randomUUID(),gift=randomUUID(),nonce=randomUUID(),report=randomUUID(),stamp=new Date().toISOString();
+  for(const uid of [user,reporter,erased])await db.query('INSERT INTO tomi_users(id,username,display_name,password_hash,recovery_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',[uid,'drill_'+uid.slice(0,12), 'Restore drill','test-only-password-hash','test-only-recovery-hash',stamp,stamp]);
+  await db.query("UPDATE tomi_users SET username=?,display_name='حساب محذوف',password_hash='erased:test-only',recovery_hash='erased' WHERE id=?",['deleted_'+erased.replaceAll('-',''),erased]);
+  await db.query('INSERT INTO tomi_deleted_accounts(user_id,requested_at) VALUES(?,?)',[erased,stamp]);
+  await db.query("INSERT INTO tomi_erasure_media(id,user_id,media_type,upload_id,scope,object_key,final_after,next_at) VALUES(?,?,'image',?,'public',?,?,?)",[randomUUID(),erased,randomUUID(),'tomi/posts/'+erased+'/test-only.png',stamp,stamp]);
   await db.query('INSERT INTO tomi_voice_rooms(id,title,owner_id,capacity,seat_count,created_at) VALUES(?,?,?,?,?,?)',[room,'CI restore fixture',user,10,4,stamp]);
   await db.query('INSERT INTO tomi_room_gifts(id,room_id,sender_id,recipient_id,request_id,gift_id,quantity,unit_price,total,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[gift,room,user,reporter,nonce,'diamond',2,100,200,stamp]);
   await db.query("INSERT INTO tomi_user_identity(user_id,frame_id) VALUES(?,'rose')",[user]);
@@ -35,7 +38,10 @@ try{
   assert.equal((await restored.query('SELECT request_id FROM tomi_room_gifts WHERE id=$1',[gift])).rows[0].request_id,nonce);
   assert.equal((await restored.query('SELECT frame_id FROM tomi_user_identity WHERE user_id=$1',[user])).rows[0].frame_id,'rose');
   assert.equal((await restored.query('SELECT review_note FROM tomi_reports WHERE id=$1',[report])).rows[0].review_note,'private note preserved');
-  console.log('PASS: PostgreSQL encrypted dump, authenticated local restore, row counts and moderation/gift/identity records.');
+  assert.equal((await restored.query('SELECT 1 FROM tomi_deleted_accounts WHERE user_id=$1',[erased])).rows.length,1);
+  assert.equal((await restored.query('SELECT 1 FROM tomi_erasure_media WHERE user_id=$1',[erased])).rows.length,1);
+  assert.equal((await restored.query('SELECT password_hash FROM tomi_users WHERE id=$1',[erased])).rows[0].password_hash,'erased:test-only');
+  console.log('PASS: PostgreSQL encrypted dump, authenticated local restore, row counts, deletion tombstone/cleanup jobs and moderation/gift/identity records.');
 }finally{
   if(db)await db.close();if(restored)await restored.end();
   if(created&&admin)await admin.query('DROP DATABASE tomi_restore_check');

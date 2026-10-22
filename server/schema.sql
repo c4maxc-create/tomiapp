@@ -440,3 +440,31 @@ CREATE TABLE IF NOT EXISTS tomi_admin_requests (
  actor_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,request_id TEXT NOT NULL,
  payload_hash TEXT NOT NULL,result TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(actor_id,request_id)
 );
+
+-- 1.0 beta: personal data is erased; opaque stubs keep shared gift references.
+CREATE TABLE IF NOT EXISTS tomi_deleted_accounts (
+ user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,
+ requested_at TEXT NOT NULL,completed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS tomi_deletion_receipts (
+ id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES tomi_deleted_accounts(user_id) ON DELETE CASCADE,
+ token_hash TEXT NOT NULL,created_at TEXT NOT NULL,expires_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tomi_erasure_media (
+ id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES tomi_deleted_accounts(user_id) ON DELETE CASCADE,
+ media_type TEXT NOT NULL CHECK(media_type IN('image','audio','video')),upload_id TEXT NOT NULL,
+ scope TEXT NOT NULL CHECK(scope IN('public','private')),object_key TEXT NOT NULL,
+ final_after TEXT NOT NULL,next_at TEXT NOT NULL,lease_until TEXT NOT NULL DEFAULT '',attempts INTEGER NOT NULL DEFAULT 0,
+ UNIQUE(scope,object_key)
+);
+CREATE INDEX IF NOT EXISTS tomi_erasure_pending ON tomi_erasure_media(next_at,lease_until);
+CREATE TABLE IF NOT EXISTS tomi_privacy_retention (
+ kind TEXT NOT NULL CHECK(kind IN('report','audit')),id TEXT NOT NULL,expires_at TEXT NOT NULL,
+ PRIMARY KEY(kind,id)
+);
+-- The earlier historical-gift backfill must never recreate erased identity data.
+DELETE FROM tomi_user_progress WHERE user_id IN(SELECT user_id FROM tomi_deleted_accounts);
+CREATE TABLE IF NOT EXISTS tomi_policy_acceptances (
+ user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,
+ policy_version TEXT NOT NULL,accepted_at TEXT NOT NULL
+);

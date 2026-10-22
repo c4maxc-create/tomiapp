@@ -24,9 +24,10 @@ export function moderationOwner(env=process.env){
   return value||null;
 }
 
-export function createModeration({database,ownerUserId=null,storage,readJson,respond,limit,userById,usersByIds,rooms,calls,chat,operations}){
+export function createModeration({database,ownerUserId=null,storage,readJson,respond,limit,userById,usersByIds,rooms,calls,chat,operations,accountGate=async()=>{}}){
   if(ownerUserId&&!uuid.test(ownerUserId))throw Error('Invalid platform owner UUID');
   async function active(db,userId){
+    if((await db.query('SELECT 1 FROM tomi_deleted_accounts WHERE user_id=?',[userId])).rows.length)fail(401,'ACCOUNT_DELETED','حُذف الحساب ولا يمكن استعادته.');
     const r=(await db.query('SELECT suspended FROM tomi_account_restrictions WHERE user_id=?',[userId])).rows[0];
     if(Number(r?.suspended??0))fail(403,'ACCOUNT_SUSPENDED','الحساب موقوف من إدارة تومي.');
   }
@@ -84,7 +85,12 @@ export function createModeration({database,ownerUserId=null,storage,readJson,res
       await lockUsers(db,current);
       const old=(await db.query('SELECT report_id,payload_hash FROM tomi_report_requests WHERE reporter_id=? AND request_id=?',[current.id,d.requestId])).rows[0];
       if(old){if(old.payload_hash!==hash)fail(409,'REQUEST_CHANGED','محتوى البلاغ تغيّر؛ استخدم طلبًا جديدًا.');return {report:ownReport((await db.query('SELECT * FROM tomi_reports WHERE id=?',[old.report_id])).rows[0]),replayed:true};}
+      const subject=await target(db,d.targetType,d.targetId);
+      await accountGate(db,subject.subjectUserId);
+      // Re-read after the erasure gate: a concurrent delete may have scrubbed
+      // the target while this request was waiting in PostgreSQL.
       const snapshot=await target(db,d.targetType,d.targetId);
+      if((await db.query('SELECT 1 FROM tomi_deleted_accounts WHERE user_id=?',[snapshot.subjectUserId])).rows.length)fail(410,'ACCOUNT_DELETED','حُذف الحساب أو محتواه؛ لا يمكن إنشاء بلاغ جديد عليه.');
       if(snapshot.subjectUserId===current.id)fail(400,'REPORT_SELF','لا يمكن الإبلاغ عن حسابك أو محتواك.');
       let r=(await db.query("SELECT * FROM tomi_reports WHERE reporter_id=? AND target_type=? AND target_id=? AND status IN('open','reviewing')",[current.id,d.targetType,d.targetId])).rows[0];
       const duplicate=!!r,stamp=now();
@@ -112,6 +118,7 @@ export function createModeration({database,ownerUserId=null,storage,readJson,res
       if(replay){if(replay.payload_hash!==hash)fail(409,'REQUEST_CHANGED','محتوى الإجراء تغيّر؛ استخدم طلبًا جديدًا.');return {...JSON.parse(replay.result),replayed:true};}
       if(type!=='report'&&!selected)fail(404,'REPORT_TARGET_MISSING','المحتوى غير موجود أو انحذف.');
       if(selected){
+        if((await db.query('SELECT 1 FROM tomi_deleted_accounts WHERE user_id=?',[selected.subjectUserId])).rows.length)fail(410,'ACCOUNT_DELETED','حُذفت بيانات الحساب؛ لا يمكن إعادته أو منحه صلاحية.');
         await target(db,type,d.targetId);
         const subjectRole=await role(db,selected.subjectUserId);
         if(selected.subjectUserId===ownerUserId&&ownRole!=='owner'||ownRole==='moderator'&&subjectRole!=='member')fail(403,'ADMIN_PROTECTED','هذا الحساب أو المحتوى محمي من إجراء المشرف.');

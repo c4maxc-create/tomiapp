@@ -1,0 +1,66 @@
+import {randomBytes} from 'node:crypto';
+
+export const policyVersion='2026-10-17';
+export function privacyEnvironment(env=process.env){
+  const operatorName=(env.TOMI_OPERATOR_NAME??'').trim(),supportEmail=(env.TOMI_SUPPORT_EMAIL??'').trim(),raw=(env.TOMI_PUBLIC_URL??'').trim();
+  if(operatorName&&([...operatorName].length>100||/[\u0000-\u001f]/.test(operatorName)))throw Error('Invalid TOMI_OPERATOR_NAME');
+  if(supportEmail&&!/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$/.test(supportEmail))throw Error('Invalid TOMI_SUPPORT_EMAIL');
+  let publicOrigin='';if(raw){const u=new URL(raw);if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash||u.pathname!=='/')throw Error('TOMI_PUBLIC_URL must be an HTTPS origin');publicOrigin=u.origin;}
+  const value=env.TOMI_BACKUP_RETENTION_DAYS??'',backupRetentionDays=value===''?null:Number(value);
+  if(backupRetentionDays!==null&&(!/^\d{1,3}$/.test(value)||!Number.isInteger(backupRetentionDays)||backupRetentionDays<1||backupRetentionDays>365))throw Error('Invalid declared backup retention');
+  return {operatorName,supportEmail,publicOrigin,backupRetentionDays,publicationReady:!!(operatorName&&supportEmail&&publicOrigin&&backupRetentionDays)};
+}
+export function privacyDocuments(config){
+  return {version:policyVersion,operatorName:config.operatorName||null,supportEmail:config.supportEmail||null,publicationReady:config.publicationReady,
+    documents:[
+      {id:'privacy',title:'سياسة الخصوصية',sections:[
+        {title:'بيانات الحساب والاستخدام',text:'تومي يستعمل اليوزر والاسم والنبذة والصورة والهوية المختارة، وبصمة كلمة المرور ورمز الاسترجاع. لا يطلب بريدًا أو رقم هاتف لإنشاء الحساب. تُحفظ المتابعات والمفضلة والمنشورات والتعليقات والرسائل ومرفقاتها وسجلات المكالمات والغرف والهدايا التجريبية والبلاغات وإجراءات الإدارة.'},
+        {title:'الميكروفون والكاميرا والإشعارات',text:'يُستخدم الميكروفون والكاميرا عند اختيار الاتصال أو التسجيل وفتح الإذن. الكاميرا تتوقف عند تصغير التطبيق. الإشعارات اختيارية وقد تستخدم Firebase ورمز الجهاز. لا يطلب التطبيق جهات الاتصال أو الموقع. تومي لا يسجل صوت الغرف أو المكالمات على الخادم في هذا الإصدار.'},
+        {title:'من يشاهد البيانات',text:'الملف والمنشورات والغرف العامة يراها مستخدمون آخرون. المحادثة الخاصة لطرفيها، والبلاغات لصاحبها والإدارة المخولة. تعالج الاستضافة وPostgreSQL وCloudflare R2 وTURN وLiveKit وFirebase البيانات اللازمة للخدمة؛ قد تعالج هذه الجهات سجلات اتصال وفق إعداداتها. المحادثات والغرف ليست مشفرة من الطرف إلى الطرف.'},
+        {title:'الجهاز والحماية',text:'تُحفظ جلسة الدخول في مخزن آمن، والمسودات والملفات المعلقة في مساحة التطبيق لكل حساب. القياسات الداخلية مجمعة ولا تضم نص الرسائل أو كلمات المرور. تقليل محاولات الإساءة يستعمل بصمات لمفاتيح المعدل. لا تضمن أي خدمة منع الوصول غير المصرح به في كل الظروف.'},
+        {title:'الحذف والاحتفاظ',text:'حذف الحساب يزيل بيانات الملف وبيانات الدخول والمنشورات والتعليقات والمتابعات والمفضلة والرصيد، ويفرغ رسائلك ومرفقاتك لدى الخادم. تبقى رسائل الطرف الآخر ومعرفات عشوائية وتواريخ وسجلات هدايا مشتركة باسم حساب محذوف. تُنقح بيانات البلاغ والسجل المتعلقة بالحساب ثم تزال بعد90 يومًا؛ سجلات المكالمات تنتهي وفق تنظيف90 يومًا. إيصال متابعة الحذف صالح30 يومًا. تنظيف الصوت والملفات يستمر عند تعذر المزود؛ يعاد حذف الملفات بعد16 دقيقة لإغلاق مهلة روابط الرفع القديمة.'},
+        {title:'النسخ وروابط الملفات',text:(config.backupRetentionDays?'مدة الاحتفاظ المعلنة للنسخ الاحتياطية '+config.backupRetentionDays+' يومًا، ويطبقها مشغل الخدمة. ':'لم تُعتمد مدة احتفاظ النسخ الاحتياطية بعد؛ النسخة مخصصة لاختبار خاص. ')+'قد تبقى البيانات داخل نسخة احتياطية حتى انتهاء مدتها، ويلزم إعادة تطبيق سجل الحذف قبل تشغيل نسخة مستعادة. الحذف لا يمحو نسخًا حملها الآخرون أو لقطات الشاشة أو ذاكرة متصفحهم. قد تبقى روابط أو نسخ مخزنة مؤقتًا حتى انتهاء صلاحيتها أو مسحها من المخزن.'},
+        {title:'التواصل',text:config.supportEmail?'لطلب مساعدة أو حذف أو اعتراض: '+config.supportEmail:'بيانات تواصل الجهة المشغلة لم تُعتمد بعد. لا توزع هذه النسخة للعامة قبل إضافتها.'},
+      ]},
+      {id:'terms',title:'شروط الاستخدام',sections:[
+        {title:'نسخة تجريبية',text:'تومي خدمة اجتماعية تجريبية للتواصل. قد تتغير الميزات أو تتوقف أثناء الاختبار. ليست خدمة طوارئ، ولا تستخدمها بدل وسائل الاتصال العاجل. احتفظ برمز الاسترجاع ولا تشارك كلمة المرور.'},
+        {title:'المحتوى والحساب',text:'انشر ما تملك حق مشاركته واحترم خصوصية الآخرين. تتحمل مسؤولية حسابك ومحتواك. للإدارة مراجعة البلاغات وإخفاء محتوى مخالف أو إغلاق غرفة أو إيقاف حساب، مع سجل للإجراء وإمكانية التواصل للاعتراض.'},
+        {title:'العملة والميزات',text:'العملات والهدايا الحالية تجريبية ولا تمثل أموالًا أو حقًا في سحب أو تحويل أو ربح. لا توجد مشتريات أو اشتراكات مدفوعة بهذا الإصدار. حذف الحساب يلغي رصيده التجريبي واختياراته ولا يعيد الغرف المغلقة.'},
+        {title:'الانتهاء والتغييرات',text:'تستطيع طلب حذف حسابك من إعداداته أو صفحة الحذف في المتصفح. راجع سياسة الخصوصية لمعرفة ما يحذف وما يحتفظ به. تُعرض نسخة مؤرخة من الشروط؛ يجب مراجعة تغييراتها قبل الاستمرار باستخدام الخدمة.'},
+      ]},
+      {id:'community',title:'قواعد المجتمع والاعتراض',sections:[
+        {title:'احترام وسلامة',text:'يُمنع التحرش والتهديد والابتزاز والإباحية وانتحال الشخصيات وكشف بيانات الآخرين والاحتيال والرسائل المزعجة. لا تشارك محتوى يستغل الأطفال أو يعرّضهم للأذى. أبلغ عن المخالفة من الحساب أو المنشور أو معلومات الغرفة.'},
+        {title:'البلاغ والمراجعة',text:'تتابع الحالة والرد العام من بلاغاتي. ملاحظات الإدارة خاصة. مراجعة بلاغ لا تعني اتخاذ إجراء تلقائي، ولا تمنح مشرف الغرفة صلاحية إدارة التطبيق.'},
+        {title:'الاعتراض',text:config.supportEmail?'للاعتراض أرسل رقم البلاغ أو الإجراء والشرح إلى '+config.supportEmail+'، دون كلمة المرور أو رمز الاسترجاع. يراجع المشغل الطلب؛ لا يوجد تعهد بنتيجة مسبقة.':'مسار التواصل للاعتراض يحتاج اعتماد جهة الدعم قبل التوزيع العام. لا ترسل كلمة المرور أو رمز الاسترجاع لأي مشرف.'},
+      ]},
+      {id:'deletion',title:'حذف الحساب والبيانات',sections:[
+        {title:'قبل الحذف',text:'القرار نهائي بعد قبوله. اكتب كلمة المرور الحالية وعبارة «حذف حسابي». تُلغى جميع جلساتك وتنتهي مكالماتك وتغلق غرفك. لا يمكن استرجاع الحساب أو الرصيد التجريبي بعد ذلك. مالك التطبيق ينقل الملكية لحساب آخر أولًا.'},
+        {title:'المتابعة',text:'الطلب يصدر إيصالًا خاصًا لا يحمل كلمة مرور. عند انقطاع الرد تحقّق بنفس الإيصال؛ لا تبدأ طلبًا آخر قبل معرفة النتيجة. يظهر إن كان تنظيف الملفات أو سحب الصوت ينتظر مزود الخدمة. لا ترسل الإيصال لأحد.'},
+        {title:'حدود الحذف',text:'تُمحى بياناتك ونصوصك ومرفقاتك لدى الخدمة، وتبقى رسائل الآخرين والمعرفات العشوائية وسجلات الهدايا المشتركة. راجع سياسة الخصوصية لمدة السجلات الأمنية والنسخ المؤقتة والاحتياطية. حذف التطبيق وحده لا يحذف الحساب.'},
+      ]},
+    ]};
+}
+const escape=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const browserScript=`const form=document.querySelector('form'),message=document.querySelector('#message'),check=document.querySelector('#check'),reset=document.querySelector('#reset');
+let pending=null;try{pending=JSON.parse(localStorage.getItem('tomi-delete-v1')||'null')}catch{};
+function save(){try{pending?localStorage.setItem('tomi-delete-v1',JSON.stringify(pending)):localStorage.removeItem('tomi-delete-v1')}catch{message.textContent='تعذر حفظ الإيصال في هذا المتصفح؛ احتفظ بالصفحة مفتوحة وتحقق من النتيجة قبل إغلاقها.'}}
+function controls(){check.hidden=!pending;reset.hidden=!pending;if(pending?.username){form.elements.username.value=pending.username;form.elements.username.readOnly=true}else form.elements.username.readOnly=false;form.hidden=!!pending&&!pending.username;form.querySelector('button').textContent=pending?'إعادة الطلب نفسه':'حذف حسابي نهائيًا'}controls();
+async function send(path,body){const r=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),credentials:'omit',redirect:'error',signal:AbortSignal.timeout(75000)});const d=await r.json();if(!r.ok)throw Error(d.error?.message||'تعذر إكمال الطلب');return d}
+function accepted(d){message.textContent=d.message+' '+d.retained;form.elements.password.value='';form.elements.confirmation.value='';delete pending.username;save();form.hidden=true;controls()}
+form.addEventListener('submit',async e=>{e.preventDefault();if(!pending){const bytes=crypto.getRandomValues(new Uint8Array(32));pending={requestId:crypto.randomUUID(),receiptToken:btoa(String.fromCharCode(...bytes)).replaceAll('+','-').replaceAll('/','_').replaceAll('=',''),username:form.elements.username.value.trim()};save()}form.querySelector('button').disabled=true;message.textContent='جارٍ التحقق من الطلب…';try{accepted(await send('/v1/account/deletion/web',{...pending,password:form.elements.password.value,confirmation:form.elements.confirmation.value}))}catch(e){message.textContent=e.message+' تحقّق من النتيجة بنفس الإيصال؛ لا تعتبر الحذف مؤكدًا بعد.'}finally{form.elements.password.value='';form.querySelector('button').disabled=false;controls()}});
+check.addEventListener('click',async()=>{check.disabled=true;try{accepted(await send('/v1/account/deletion/status',{requestId:pending.requestId,receiptToken:pending.receiptToken}))}catch(e){message.textContent=e.message+' إذا لم يقبل الطلب يمكنك إعادة إدخال بيانات الحساب وإعادة الطلب نفسه.'}finally{check.disabled=false}});
+reset.addEventListener('click',()=>{if(!confirm('حذف إيصال هذا المتصفح لا يلغي حذفًا قبله الخادم. هل تريد إزالة الإيصال؟'))return;pending=null;save();form.hidden=false;form.reset();controls();message.textContent='أزيل إيصال المتصفح فقط.'});`;
+export function createPrivacy(config={...privacyEnvironment({})}){
+  const data=privacyDocuments(config);
+  function sameOrigin(request,origin){try{const u=new URL(origin);return !u.username&&!u.password&&(config.publicOrigin?u.origin===config.publicOrigin:(u.protocol==='https:'||u.protocol==='http:'&&['localhost','127.0.0.1'].includes(u.hostname))&&u.host===request.headers.host);}catch{return false;}}
+  function handle(request,response,url){
+    if(request.method!=='GET')return false;
+    if(url.pathname==='/v1/privacy/documents'){response.writeHead(200,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});response.end(JSON.stringify(data));return true;}
+    const ids={'/privacy':'privacy','/terms':'terms','/community-guidelines':'community','/account/delete':'deletion'},doc=data.documents.find(d=>d.id===ids[url.pathname]);if(!doc)return false;
+    const nonce=randomBytes(18).toString('base64url'),deletion=doc.id==='deletion';
+    const form=deletion?'<form method="post"><label>اليوزر<input name="username" maxlength="20" autocomplete="username" required dir="ltr"></label><label>كلمة المرور الحالية<input name="password" type="password" maxlength="128" autocomplete="current-password" required></label><label>اكتب «حذف حسابي»<input name="confirmation" maxlength="30" autocomplete="off" required></label><button type="submit">حذف حسابي نهائيًا</button></form><p id="message" role="status" aria-live="polite"></p><button id="check" hidden>التحقق من نتيجة الطلب</button><button id="reset" hidden>حذف إيصال هذا المتصفح</button><p>يحفظ المتصفح رقم الطلب وإيصال المتابعة واليوزر حتى القبول؛ لا يحفظ كلمة المرور. استعمل جهازًا تثق به.</p>':'';
+    const html='<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escape(doc.title)+' | TOMI</title><style nonce="'+nonce+'">body{margin:0;background:#111626;color:#f1f1f8;font-family:system-ui,sans-serif;line-height:1.9}main{max-width:760px;margin:auto;padding:24px}a{color:#c3adff}nav{display:flex;gap:16px;flex-wrap:wrap}section,form{background:#1c2338;border-radius:18px;padding:20px;margin-top:18px}label{display:block}input{box-sizing:border-box;width:100%;padding:12px;margin:6px 0 18px;border-radius:9px;border:1px solid #74669a;background:#111626;color:white;font:inherit}button{max-width:100%;padding:12px 18px;background:#b69dfb;border:0;border-radius:12px;color:#131526;font:inherit;margin:6px;cursor:pointer}button:disabled{opacity:.6}p{overflow-wrap:anywhere}[hidden]{display:none!important}</style><main><nav><a href="/privacy">الخصوصية</a><a href="/terms">الشروط</a><a href="/community-guidelines">قواعد المجتمع</a><a href="/account/delete">حذف الحساب</a></nav><h1>TOMI — '+escape(doc.title)+'</h1><p>نسخة الوثيقة '+policyVersion+' • '+escape(config.operatorName||'تجربة خاصة؛ الجهة المشغلة لم تعتمد بعد')+'</p>'+(!config.publicationReady?'<p>هذه نسخة اختبار خاصة؛ إعدادات الدعم والاحتفاظ لم تكتمل للتوزيع العام.</p>':'')+doc.sections.map(s=>'<section><h2>'+escape(s.title)+'</h2><p>'+escape(s.text)+'</p></section>').join('')+form+(config.supportEmail?'<p>التواصل: <a href="mailto:'+escape(config.supportEmail)+'">'+escape(config.supportEmail)+'</a></p>':'')+'</main>'+(deletion?'<script nonce="'+nonce+'">'+browserScript+'</script>':'')+'</html>';
+    response.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store','content-security-policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; connect-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'",'x-frame-options':'DENY','x-content-type-options':'nosniff','referrer-policy':'no-referrer','permissions-policy':'camera=(), microphone=(), geolocation=()'});response.end(html);return true;
+  }
+  return {handle,sameOrigin,data};
+}
