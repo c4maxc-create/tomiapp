@@ -39,6 +39,12 @@ class AccountApi {
   final String baseUrl;
   final http.Client _client;
 
+  Future<Map<String, dynamic>> publicRequest(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+  }) => _request(method, path, body: body);
+
   Future<Map<String, dynamic>> _request(
     String method,
     String path, {
@@ -49,7 +55,8 @@ class AccountApi {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     try {
       final request = http.Request(method, uri)
-        ..headers['accept'] = 'application/json';
+        ..headers['accept'] = 'application/json'
+        ..followRedirects = false;
       if (token != null) request.headers['authorization'] = 'Bearer $token';
       if (body != null) {
         request.headers['content-type'] = 'application/json; charset=utf-8';
@@ -123,6 +130,7 @@ class AccountApi {
         'username': username.trim(),
         'displayName': name.trim(),
         'password': password,
+        'policyVersion': '2026-10-17',
       },
     ),
   );

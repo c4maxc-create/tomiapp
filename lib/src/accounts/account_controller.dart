@@ -138,6 +138,13 @@ class AccountController extends ChangeNotifier {
   }
 
   final TokenVault _vault;
+  Future<void> _vaultTail = Future<void>.value();
+  Future<void> _mutateVault(Future<void> Function() work) {
+    final result = _vaultTail.then((_) => work());
+    _vaultTail = result.catchError((Object _) {});
+    return result;
+  }
+
   AccountPhase _phase = AccountPhase.restoring;
   AccountUser? _user;
   String? _token;
@@ -203,14 +210,16 @@ class AccountController extends ChangeNotifier {
   }
 
   Future<void> _clearLocal() async {
+    final revision = _revision;
     try {
-      await _vault.clear();
+      await _mutateVault(_vault.clear);
     } catch (_) {
       throw const AccountFailure(
         'STORAGE',
         'تعذّر إنهاء الجلسة على الجهاز؛ جرّب مرة ثانية.',
       );
     }
+    if (revision != _revision || _disposed) return;
     _token = null;
     _user = null;
     _pendingRecoveryCode = null;
@@ -218,14 +227,16 @@ class AccountController extends ChangeNotifier {
   }
 
   Future<String?> _accept(AccountGrant grant) async {
-    ++_revision;
+    final revision = ++_revision;
     storageWarning = null;
     try {
-      await _vault.write(grant.token);
+      await _mutateVault(() => _vault.write(grant.token));
     } catch (_) {
       storageWarning =
           'دخلت لحسابك، لكن تعذّر حفظ الجلسة على الجهاز؛ قد تحتاج تسجّل دخولك لاحقًا.';
     }
+    if (revision != _revision || _disposed)
+      throw const AccountFailure('SESSION_CHANGED', 'جلسة الدخول تغيّرت.');
     _token = grant.token;
     _user = grant.user;
     _pendingRecoveryCode = grant.recoveryCode;
@@ -398,6 +409,49 @@ class AccountController extends ChangeNotifier {
     ++_revision;
     await _clearLocal();
     _notify();
+  }
+
+  Future<Map<String, dynamic>> requestAccountDeletion(
+    Map<String, dynamic> body,
+    String userId,
+    int revision,
+  ) {
+    final token = _token;
+    if (_disposed ||
+        token == null ||
+        _user?.id != userId ||
+        revision != _revision)
+      throw const AccountFailure(
+        'SESSION_CHANGED',
+        'جلسة الحساب تغيّرت؛ لم نرسل طلب حذف جديد.',
+      );
+    // An accepted deletion can revoke this session before its ACK arrives.
+    return api.chatRequest(token, 'POST', '/v1/account/deletion', body: body);
+  }
+
+  Future<void> finishDeletedAccount(
+    String userId, {
+    String? sessionFence,
+  }) async {
+    final owner = draftOwner(api.baseUrl, userId);
+    final expectedFence =
+        sessionFence ?? (_user?.id == userId ? draftSessionFence : null);
+    if (_user?.id == userId) {
+      ++_revision;
+      _token = null;
+      _user = null;
+      _pendingRecoveryCode = null;
+      _phase = AccountPhase.signedOut;
+      // Listeners release microphones, sockets and cached account views now.
+      _notify();
+    }
+    if (expectedFence != null)
+      await _mutateVault(() async {
+        final stored = await _vault.read();
+        if (stored != null && draftOwner('session', stored) == expectedFence)
+          await _vault.clear();
+      });
+    await draftStore.erase(owner);
   }
 
   @override

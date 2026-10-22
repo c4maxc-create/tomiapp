@@ -9,6 +9,7 @@ import '../social/social_models.dart';
 /// App-private, account/origin scoped storage. Never contains bearer tokens.
 /// Metadata commits after immutable media files, before any send is attempted.
 abstract class DraftStore {
+  Future<void> erase(String owner);
   Future<Map<String, dynamic>?> read(String owner, String scope);
   Future<Map<String, Map<String, dynamic>>> list(String owner);
   Future<bool> write(
@@ -38,6 +39,12 @@ class DraftStorageFailure implements Exception {
 class MemoryDraftStore implements DraftStore {
   final records = <String, Map<String, dynamic>>{};
   final media = <String, Uint8List>{};
+  @override
+  Future<void> erase(String owner) async {
+    records.removeWhere((key, _) => key.startsWith('$owner/'));
+    media.removeWhere((key, _) => key.startsWith('$owner/'));
+  }
+
   @override
   Future<Map<String, dynamic>?> read(String owner, String scope) async {
     final d = records['$owner/$scope'];
@@ -83,6 +90,10 @@ class FileDraftStore implements DraftStore {
   final Future<Directory> Function() directory;
   static final tails = <String, Future<void>>{};
   static const maxBytes = 100 * 1024 * 1024;
+  @override
+  Future<void> erase(String owner) => serial(owner, (dir) async {
+    if (await dir.exists()) await dir.delete(recursive: true);
+  });
   Future<T> serial<T>(String owner, Future<T> Function(Directory) work) async {
     if (!RegExp(r'^[a-f0-9]{64}$').hasMatch(owner))
       throw ArgumentError('draft owner');

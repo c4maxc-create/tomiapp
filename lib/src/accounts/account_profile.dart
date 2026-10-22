@@ -1,6 +1,7 @@
 import '../identity/identity_screens.dart';
 import '../moderation/reports_page.dart';
 import '../moderation/report_dialog.dart';
+import '../privacy/privacy_screens.dart';
 import '../identity/ranking_screen.dart';
 import '../calling/call_screens.dart';
 import '../messaging/chat_screens.dart';
@@ -178,6 +179,17 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
             ),
             const SizedBox(height: 16),
             ModerationSettingsEntry(accounts: widget.accounts),
+            OutlinedButton.icon(
+              key: const Key('privacy-center'),
+              icon: const Icon(Icons.privacy_tip_outlined),
+              label: const Text('الخصوصية وحذف الحساب'),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => PrivacyCenterPage(accounts: widget.accounts),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
             TomiCard(
               child: Column(
