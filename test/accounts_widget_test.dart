@@ -104,7 +104,22 @@ void main() {
                 'nextCursor': null,
                 'imageUploadEnabled': false,
               });
+            if (request.method == 'GET' && request.url.path == '/v1/stories')
+              return response({'groups': []});
+            if (request.method == 'GET' && request.url.path == '/v1/activity')
+              return response({
+                'items': [],
+                'unreadCount': 0,
+                'nextCursor': null,
+              });
+            if (request.method == 'GET' &&
+                request.url.path ==
+                    '/v1/users/11111111-1111-4111-8111-111111111111')
+              return response({
+                'user': accountJson(username: 'new_user', name: 'مستخدم جديد'),
+              });
             expect(request.url.path, '/v1/auth/register');
+            expect(request.method, 'POST');
             final body = jsonDecode(request.body);
             expect(body['username'], 'new_user');
             return response({
@@ -315,7 +330,9 @@ void main() {
       await accounts.restore();
       await tester.pumpWidget(TomiApp(accounts: accounts));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('البحث'));
+      await tester.tap(find.byTooltip('قائمة المنشورات'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('البحث عن حساب'));
       await tester.pumpAndSettle();
       expired = true;
       await tester.enterText(

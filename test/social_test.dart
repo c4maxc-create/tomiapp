@@ -156,6 +156,7 @@ void main() {
       );
       await t.pumpAndSettle();
       await tapVisible(t, find.byKey(const Key('compose-post')));
+      await tapVisible(t, find.text('منشور جديد'));
       await t.enterText(find.byKey(const Key('post-input')), 'لحظتي الحلوة');
       t.binding.focusManager.primaryFocus?.unfocus();
       await t.pumpAndSettle();

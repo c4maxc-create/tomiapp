@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -15,6 +16,7 @@ import 'package:tomi_app/src/social/social_models.dart';
 import 'package:tomi_app/src/social/story_screens.dart';
 import 'package:tomi_app/src/messaging/draft_store.dart';
 import 'package:tomi_app/src/notifications/push_controller.dart';
+
 import 'account_fakes.dart';
 import 'media05_test.dart' show FakeDevice;
 
@@ -49,7 +51,7 @@ Map<String, dynamic> storyJson({
 class HomeService {
   List<Map<String, dynamic>> stories = [storyJson()];
   Completer<http.Response>? delayedStories;
-  int views = 0, saves = 0;
+  int views = 0, saves = 0, storyReads = 0;
   bool saved = false;
   List<String> publishedIds = [];
   Map<String, dynamic> get peer => {
@@ -82,6 +84,7 @@ class HomeService {
       if (path == '/v1/me')
         return response({'user': accountJson(followers: 2, following: 1)});
       if (path == '/v1/stories' && r.method == 'GET') {
+        storyReads++;
         if (delayedStories != null) return delayedStories!.future;
         return response({
           'groups': stories.isEmpty
@@ -173,8 +176,8 @@ Future<void> settleHome(HomeController h) async {
   }
 }
 
-void screen(WidgetTester t) {
-  t.view.physicalSize = const Size(360, 780);
+void screen(WidgetTester t, [Size size = const Size(360, 780)]) {
+  t.view.physicalSize = size;
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.resetPhysicalSize);
   addTearDown(t.view.resetDevicePixelRatio);
@@ -182,6 +185,69 @@ void screen(WidgetTester t) {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  for (final size in [const Size(320, 640), const Size(800, 420)]) {
+    for (final scale in [1.0, 1.5, 2.0]) {
+      testWidgets(
+        'story labels fit at ${size.width}x${size.height} with text scale $scale',
+        (t) async {
+          screen(t, size);
+          final s = HomeService(), a = await account(s);
+          await a.home.refresh();
+          await t.pumpWidget(
+            MaterialApp(
+              theme: ThemeData.dark(),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: TextScaler.linear(scale),
+                  boldText: scale == 2.0,
+                ),
+                child: child!,
+              ),
+              home: Scaffold(body: StoriesStrip(accounts: a)),
+            ),
+          );
+          await t.pumpAndSettle();
+          final strip = t.getRect(find.byKey(const Key('story-strip')));
+          for (final id in [a.user!.id, peerId]) {
+            final label = t.getRect(find.byKey(ValueKey('story-label-$id')));
+            expect(label.top, greaterThanOrEqualTo(strip.top));
+            expect(label.bottom, lessThanOrEqualTo(strip.bottom));
+          }
+          expect(t.takeException(), isNull);
+        },
+      );
+    }
+  }
+  testWidgets('disabled realtime keeps manual story refresh available', (
+    t,
+  ) async {
+    final s = HomeService(), a = await account(s), h = a.home;
+    await h.refresh();
+    final initialReads = s.storyReads;
+    expect(initialReads, greaterThan(0));
+    await t.pump(const Duration(seconds: 46));
+    expect(s.storyReads, initialReads);
+    await h.loadStories();
+    expect(s.storyReads, initialReads + 1);
+  });
+  testWidgets('live home polling refreshes and stops on logout', (t) async {
+    t.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final s = HomeService(), a = await account(s), h = HomeController(a);
+    try {
+      await h.refresh();
+      final initialReads = s.storyReads;
+      await t.pump(const Duration(seconds: 45));
+      await t.pump();
+      expect(s.storyReads, initialReads + 1);
+      await a.logout();
+      final readsAtLogout = s.storyReads;
+      await t.pump(const Duration(seconds: 45));
+      expect(s.storyReads, readsAtLogout);
+      expect(h.groups, isEmpty);
+    } finally {
+      h.dispose();
+    }
+  });
   test(
     'old story/activity responses after logout cannot restore another session',
     () async {
