@@ -69,6 +69,8 @@ Path("README.md").write_text("template readme")
         for permission in ['android.permission.RECORD_AUDIO','android.permission.POST_NOTIFICATIONS','android.permission.CAMERA','android.permission.MODIFY_AUDIO_SETTINGS','android.permission.ACCESS_NETWORK_STATE']:
             assert any(item.get(ns+'name')==permission for item in manifest.getroot().findall('uses-permission'))
         assert any(item.get(ns+'name')=='firebase_messaging_auto_init_enabled' and item.get(ns+'value')=='false' for item in app.findall('meta-data'))
+        channels=[e for e in app.findall('meta-data') if e.get(ns+'name')=='com.google.firebase.messaging.default_notification_channel_id']
+        assert len(channels)==1 and channels[0].get(ns+'value')=='tomi_updates'
         services={e.get(ns+'name'):e for e in app.findall('service')}
         assert services['.TomiAudioService'].get(ns+'foregroundServiceType') == 'microphone|mediaPlayback'
         assert services['.TomiMessagingService'].find('intent-filter').get(ns+'priority') == '10'

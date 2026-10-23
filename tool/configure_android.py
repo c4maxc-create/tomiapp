@@ -36,7 +36,7 @@ def configure_android(root: Path = ROOT) -> None:
         ET.SubElement(tree.getroot(),'uses-feature',{f'{{{ANDROID_NS}}}name':'android.hardware.camera.any',f'{{{ANDROID_NS}}}required':'false'})
     if not any(item.get(f'{{{ANDROID_NS}}}name')=='android.hardware.microphone' for item in tree.getroot().findall('uses-feature')):
         ET.SubElement(tree.getroot(),'uses-feature',{f'{{{ANDROID_NS}}}name':'android.hardware.microphone',f'{{{ANDROID_NS}}}required':'false'})
-    for name,value in [('firebase_messaging_auto_init_enabled','false'),('com.google.firebase.messaging.default_notification_icon','@drawable/tomi_notification')]:
+    for name,value in [('firebase_messaging_auto_init_enabled','false'),('com.google.firebase.messaging.default_notification_channel_id','tomi_updates'),('com.google.firebase.messaging.default_notification_icon','@drawable/tomi_notification')]:
         if not any(item.get(f'{{{ANDROID_NS}}}name')==name for item in application.findall('meta-data')):
             ET.SubElement(application,'meta-data',{f'{{{ANDROID_NS}}}name':name,f'{{{ANDROID_NS}}}'+('resource' if value.startswith('@') else 'value'):value})
     # Source lives outside generated android/ so bootstrap cannot overwrite it.

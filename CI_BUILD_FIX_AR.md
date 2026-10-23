@@ -1,8 +1,52 @@
 # إصلاح امتلاء مساحة GitHub Actions — TOMI 1.0 beta1
 
-الحزمة المصححة: **TOMI-1.0-beta1-build-fix.zip**، بتاريخ22 أكتوبر2026، بغداد.
+الحزمة المصححة: **TOMI-1.0-beta1-ci-timeout-fix.zip**، بتاريخ22 أكتوبر2026، بغداد.
 إصدار التطبيق والسيرفر يبقى `1.0.0-beta.1+14` / `1.0.0-beta.1`.
 هذا تصحيح لمسار البناء في GitHub؛ ملفات التطبيق والسيرفر وقاعدة البيانات لم تتغير.
+
+## آخر تحديث — مهلة فحوص قاعدة البيانات
+
+الصورة الجديدة للتشغيل39832689907 تبين إلغاء مهمةالحسابات بعد10دقائق18ثانية،
+خلال PostgreSQL بعد7دقائق17ثانية من تلك الخطوة. الفحوص الظاهرة بعلامة نجاح؛
+الرسالة The operation was canceled، وبناءAPK لم يبدأ بعد. الصورة الثانية لملخصrun28،Commitd609686،تؤكد السبب نصًا:
+The job has exceeded the maximum execution time of 10m0s.
+إذًا الإلغاء بسبب مهلة المهمة، وبناءAPK لم يبدأ.
+
+رُفع فقط `jobs.accounts-api.timeout-minutes` من10 إلى30دقيقة حتى يتسع الوقت
+لفحوصSQLite وPostgreSQL والاستعادة. هذه مهلة قصوى وليست مدة مطلوبة لكل تشغيل.
+مهمةAndroid تبقى45دقيقة؛ كل الاختبارات وخطوات الاستعادة وشروط التوقيع موجودة.
+إذا ظهر فشل فعلي أو تكررالإلغاء بعدالتحديث، نحتاج سجل المهمة من بدايته ونهايته
+لمعرفة إن كان هناك إلغاء يدوي أو مهلة أو تعليق؛ لا نتجاوز الفحوص لمجرد البطء.
+
+استبدل نفس `.github/workflows/tomi-android.yml` بالملف الأخير، ثمCommitعلىmain
+وبدءRun workflow جديد معaccounts/debug. الملف فُحص مجددًا بمحللGitHubالرسمي
+بلا أخطاء، وتأكدنا أن التغيير التنفيذي الوحيد قيمةالمهلة. التطبيق والسيرفر
+والاعتماديات لم تتغير. اكتمال الفحوص وAPK يبقى مطلوبًا بالتشغيل الجديد.
+الأدلة في`validation/1.0-beta1-ci-timeout/workflow-parser.log`.
+مرجع المهلة الرسمي:
+https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idtimeout-minutes
+
+## تصحيح run27 — ملف Actions كان غير صالح
+
+الخطأ الذي ظهر عند السطر85 هو وضع `runner.environment` في `jobs.android.env`،
+وهو سياق غير مسموح هناك. نُقل المتغير نفسه إلى `env` في خطوتَي التنظيف فقط.
+هذه خطوات تعمل بعد اختيار جهاز البناء، وتسمح بسياقrunner. بقيت حماية التنظيف
+وكل الخطوات والمعماريات والفحوص والتوقيع كما هي.
+
+فحصنا الملف بمحلل GitHub الرسمي `@actions/workflow-parser 0.3.61`: أعاد الملف
+السابق نفس خطأrunner في السطر85/العمود27، بينما الملف المصحح أعطى صفر أخطاء
+بعد parsing وconversion. هذا يتحقق من قواعد Actions والتعبيرات، ولا يعادل
+نجاح تشغيل مستضاف أو بناءAPK. بقيت8 فحوص أمان التنظيف ناجحة.
+
+إذا رفعت حزمة إصلاح المساحة السابقة، يكفي استبدال ملف واحد:
+`.github/workflows/tomi-android.yml`. افتح Code ثم `.github` ثم `workflows`،
+واختر Add file → Upload files، وارفع `tomi-android.yml` المصحح، ثم Commit changes
+علىmain. بعدها ابدأ Run workflow جديدًا معaccounts/debug. الحزمة الكاملة
+المحدثة تحتوي التصحيح أيضًا إذا احتجت استعادة المشروع.
+
+الأدلة: `validation/1.0-beta1-ci-context/workflow-parser.log`.
+مرجع السياقات الرسمي:
+https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#context-availability
 
 ## سبب الفشل
 
@@ -33,7 +77,7 @@
 
 ## الخطوات عندك
 
-1. فك **TOMI-1.0-beta1-build-fix.zip** وارفع **محتوياته** فوق الملفات الحالية
+1. فك **TOMI-1.0-beta1-ci-timeout-fix.zip** وارفع **محتوياته** فوق الملفات الحالية
    في نفس https://github.com/ToLo10/tomiapp على الفرع `main`، بما فيها `.github`.
 2. تأكد من وصول هذه الملفات الثلاثة مع بقية الحزمة:
    `.github/workflows/tomi-android.yml` و`tool/prepare_android_ci.py`

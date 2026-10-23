@@ -1,0 +1,4 @@
+Validator: @actions/workflow-parser0.3.61, official actions/languageservices; Node24.19.0. No parser/schema changes.
+BEFORE: [{"rawMessage":"Unrecognized named-value: 'runner'","prefix":".github/workflows/tomi-android.yml (Line: 85, Col: 27)","range":{"start":{"line":85,"column":27},"end":{"line":85,"column":52}}}]
+AFTER: []
+PASS: reproduces supplied run27 line85/column27 and accepts the corrected full workflow schema and expressions. Hosted execution/APK still pending.

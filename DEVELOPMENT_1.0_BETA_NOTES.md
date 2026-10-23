@@ -1,3 +1,28 @@
+# Latest correction — accounts/API CI timeout
+
+Work: tomi_10_ci_timeout_fix_work. New user screenshot/run39832689907 shows
+accounts-api cancellation at10m18s while PG7m17s cases shown are successful.
+Follow-up run28/commitd609686 summary explicitly confirms exceeding10m0s;
+timeout is confirmed, while complete test results remain unavailable. Only change: accounts-api timeout-minutes10->30. Android stays45.
+All runtime/API/native/tool code, checks and signing gates unchanged. Full
+workflow official parser0.3.61 returns0errors; structural diff only1numericvalue.
+Standalone tomi-android.yml updated; canonical full source is
+TOMI-1.0-beta1-ci-timeout-fix.zip. Upload the single workflow, commitmain, NEW
+accounts/debug run. Do not claim hosted tests/restore/disk/APK complete. Use the
+latest standalone progress/source receipt; older corrections below are history.
+
+# Latest correction — invalid runner context, run27
+
+Work: tomi_10_ci_context_fix_work. User screenshot shows line85:27 rejects
+runner.environment in job env. Move value into the two cleanup step env maps.
+Official @actions/workflow-parser0.3.61 reproduces previous failure and returns
+zero corrected errors.8 cleanup tests passed; all runtime/tool code unchanged.
+Standalone tomi-android.yml is the minimal replacement after source15 upload;
+full current source is TOMI-1.0-beta1-workflow-fix.zip. Upload corrected workflow
+into SAME .github/workflows on main, then start a NEW accounts/debug run.
+Do not claim hosted execution, reclaimed disk or APK success. Continue from latest
+standalone progress and source identity; source15/14 receipts below are historical.
+
 # Current correction — CI disk exhaustion,2026-10-22
 
 User uploaded screenshots/run24 and kjj.txt with No space left on device.

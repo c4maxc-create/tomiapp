@@ -1,9 +1,29 @@
+# TOMI 1.1 — home, stories and profile
+
+App1.1.0-beta.1+15 / API1.1.0-beta.1. This update implements the supplied home/profile references:24h image/video/text stories, full-screen story navigation and real rings, edge-to-edge posts with inline video, saved posts, follower lists and a3-column profile grid. A persistent activity inbox and foreground/background push paths replace the old notification placeholder. Profile menu links settings and the four upcoming subscription services; pricing/payment is deferred.
+
+Start with **START_HERE_AR.md**, **HOME_PROFILE_1.1_AR.md** and **VALIDATION-1.1.md**. Upload the full source and update the existing API before building the app. Source-only delivery: Flutter analysis/build, PostgreSQL and device acceptance run in GitHub/phones. The current workflow preserves the earlier CI fixes and enables the new home contract. Flutter dependency versions are unchanged; schema upgrade is additive.
+
+The following sections document earlier features and remain reference material.
+
+---
+
 # TOMI 1.0 beta1 — privacy, account erasure and Android release preparation
 
 Arabic Flutter social app with Node24/PostgreSQL API. Source version
 **1.0.0-beta.1+14**, API **1.0.0-beta.1**, extending the exact final0.12 ZIP.
 User authorized this phase on2026-10-17; delivery completed on2026-10-22 (Baghdad).
-CI disk fix (2026-10-22): TOMI-1.0-beta1-build-fix.zip adds hosted-runner cleanup,
+Latest timeout correction: accounts-api job budget raised10->30min after a
+user screenshot showed cancellation at10m18s while PostgreSQL cases were passing.
+Only this numeric workflow setting changed. Official parser returns zero errors;
+all test/restore steps remain, hosted completion/APK remain pending.
+
+Previous workflow correction: run27 rejected runner.environment at job-level env.
+The value now lives only in the two cleanup step env maps. The official GitHub
+workflow parser reproduces the prior line85 error and accepts the corrected
+workflow with zero errors; see CI_BUILD_FIX_AR.md. Existing disk safeguards remain.
+
+CI disk fix (2026-10-22): TOMI-1.0-beta1-ci-timeout-fix.zip adds hosted-runner cleanup,
 required-NDK preservation and free-space gates. See CI_BUILD_FIX_AR.md. Runtime code
 and app/API versions are unchanged. The new hosted build remains pending.
 
