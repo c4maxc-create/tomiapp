@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter/widgets.dart';
+
 import '../accounts/account_api.dart';
 import '../accounts/account_controller.dart';
 import '../accounts/account_models.dart';
@@ -58,12 +60,13 @@ class ActivityItem {
 
 /// One session-scoped source of truth for rings and the activity badge.
 class HomeController extends ChangeNotifier with WidgetsBindingObserver {
-  HomeController(this.accounts) {
+  HomeController(this.accounts, {this.autoPoll = true}) {
     accounts.addListener(accountChanged);
     WidgetsBinding.instance.addObserver(this);
     accountChanged();
   }
   final AccountController accounts;
+  final bool autoPoll;
   List<StoryGroup> groups = [];
   List<ActivityItem> activity = [];
   int unreadCount = 0, revision = 0;
@@ -95,11 +98,13 @@ class HomeController extends ChangeNotifier with WidgetsBindingObserver {
     activityOperation = null;
     if (next != null) {
       unawaited(refresh());
-      poll = Timer.periodic(const Duration(seconds: 45), (_) {
-        final state = WidgetsBinding.instance.lifecycleState;
-        if (state == null || state == AppLifecycleState.resumed)
-          unawaited(refresh());
-      });
+      if (autoPoll) {
+        poll = Timer.periodic(const Duration(seconds: 45), (_) {
+          final state = WidgetsBinding.instance.lifecycleState;
+          if (state == null || state == AppLifecycleState.resumed)
+            unawaited(refresh());
+        });
+      }
     }
     notify();
   }

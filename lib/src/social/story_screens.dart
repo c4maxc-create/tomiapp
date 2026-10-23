@@ -1,10 +1,13 @@
 import '../identity/identity_avatar.dart';
 import '../identity/identity_models.dart';
+
 import 'dart:async';
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
+
 import '../accounts/account_controller.dart';
 import '../accounts/account_api.dart';
 import '../accounts/account_models.dart';
@@ -231,6 +234,30 @@ Future<void> composeStory(
 class StoriesStrip extends StatelessWidget {
   const StoriesStrip({super.key, required this.accounts});
   final AccountController accounts;
+  static const labelStyle = TextStyle(fontSize: 11, color: Colors.white);
+
+  double stripHeight(BuildContext context, Iterable<String> labels) {
+    var style = DefaultTextStyle.of(context).style.merge(labelStyle);
+    if (MediaQuery.boldTextOf(context)) {
+      style = style.merge(const TextStyle(fontWeight: FontWeight.bold));
+    }
+    double labelHeight = 0;
+    for (final label in labels) {
+      final painter = TextPainter(
+        text: TextSpan(text: label, style: style),
+        textDirection: TextDirection.ltr,
+        textScaler: MediaQuery.textScalerOf(context),
+        locale: Localizations.maybeLocaleOf(context),
+        maxLines: 1,
+        ellipsis: '…',
+      )..layout(maxWidth: 76);
+      labelHeight = math.max(labelHeight, painter.height);
+      painter.dispose();
+    }
+    // Avatar72 + gap5 + padding16, with room for fractional text metrics.
+    return math.max(113.0, 94 + labelHeight.ceilToDouble());
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: accounts.home,
@@ -240,7 +267,13 @@ class StoriesStrip extends StatelessWidget {
       return Column(
         children: [
           SizedBox(
-            height: 113,
+            key: const Key('story-strip'),
+            height: stripHeight(c, [
+              'قصتك',
+              for (final g in accounts.home.groups)
+                if (g.author.id != me.id && g.stories.any((s) => s.active))
+                  g.author.username,
+            ]),
             child: Directionality(
               textDirection: TextDirection.ltr,
               child: ListView(
@@ -290,9 +323,10 @@ class StoriesStrip extends StatelessWidget {
           const SizedBox(height: 5),
           Text(
             label,
+            key: ValueKey('story-label-${u.id}'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 11, color: Colors.white),
+            style: labelStyle,
           ),
         ],
       ),

@@ -76,7 +76,8 @@ class AccountController extends ChangeNotifier {
   bool get liveAudioBusy =>
       _calls?.active?.ended == false || _voiceRooms?.active != null;
   HomeController? _home;
-  HomeController get home => _home ??= HomeController(this);
+  HomeController get home =>
+      _home ??= HomeController(this, autoPoll: realtimeEnabled);
   PushController? _push;
   PushController get push => _push ??= PushController(accounts: this);
   ChatController? _chats;
