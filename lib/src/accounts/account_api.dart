@@ -130,7 +130,7 @@ class AccountApi {
         'username': username.trim(),
         'displayName': name.trim(),
         'password': password,
-        'policyVersion': '2026-10-17',
+        'policyVersion': '2026-10-23',
       },
     ),
   );

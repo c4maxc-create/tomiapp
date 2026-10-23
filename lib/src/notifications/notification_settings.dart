@@ -15,9 +15,9 @@ class NotificationSettingsPage extends StatelessWidget {
         children: [
           SwitchListTile(
             key: const Key('push-enabled'),
-            title: const Text('إشعارات المحادثات والمكالمات'),
+            title: const Text('تنبيهات TOMI'),
             subtitle: const Text(
-              'تنبيه بالرسائل والمكالمات الواردة عندما يكون التطبيق بالخلفية.',
+              'تنبيه بالرسائل والمكالمات والمتابعين والتفاعلات الجديدة.',
             ),
             value:
                 controller.enabled &&
@@ -31,11 +31,32 @@ class NotificationSettingsPage extends StatelessWidget {
           const Text(
             'لحماية خصوصيتك، الإشعار ما يعرض نص الرسالة أو محتوى الصورة والتسجيل.',
           ),
-          if (!controller.configured && !controller.busy)
+          if (!controller.configured &&
+              !controller.busy &&
+              controller.error == null)
             const AccountErrorMessage(
-              'الإشعارات غير متاحة حاليًا في هذه النسخة.',
+              'تنبيهات الهاتف تحتاج إلى تفعيل الخدمة؛ الإشعارات داخل التطبيق متاحة.',
             ),
           if (controller.error != null) AccountErrorMessage(controller.error!),
+          if (controller.configured &&
+              !controller.permissionGranted &&
+              !controller.busy)
+            TextButton.icon(
+              onPressed: controller.openSystemSettings,
+              icon: const Icon(Icons.open_in_new),
+              label: const Text('فتح إعدادات إشعارات الهاتف'),
+            ),
+          if (controller.configured &&
+              controller.permissionGranted &&
+              controller.enabled &&
+              controller.registeredToken != null)
+            const ListTile(
+              leading: Icon(
+                Icons.check_circle_outline,
+                color: Colors.greenAccent,
+              ),
+              title: Text('الإشعارات مفعّلة على هذا الهاتف'),
+            ),
           if (controller.busy)
             const Center(child: CircularProgressIndicator())
           else

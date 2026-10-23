@@ -11,6 +11,7 @@ class AccountUser {
     required this.followingCount,
     this.postsCount = 0,
     this.isFollowing = false,
+    this.storyExpiresAt,
     this.avatarUrl,
     this.avatarId,
     this.identity = const UserIdentity(),
@@ -22,6 +23,8 @@ class AccountUser {
   final String bio;
   final String avatarPreset;
   final String? avatarUrl, avatarId;
+  final DateTime? storyExpiresAt;
+  bool get hasStory => storyExpiresAt?.isAfter(DateTime.now()) ?? false;
   final UserIdentity identity;
   final int followersCount;
   final int followingCount;
@@ -36,6 +39,7 @@ class AccountUser {
     avatarPreset: avatarPreset,
     avatarUrl: avatarUrl,
     avatarId: avatarId,
+    storyExpiresAt: storyExpiresAt,
     followersCount: followersCount,
     followingCount: followingCount,
     postsCount: postsCount,
@@ -51,6 +55,7 @@ class AccountUser {
     avatarPreset: json['avatarPreset'] as String,
     avatarUrl: json['avatarUrl'] as String?,
     avatarId: json['avatarId'] as String?,
+    storyExpiresAt: DateTime.tryParse(json['storyExpiresAt'] as String? ?? ''),
     identity: UserIdentity(
       json['identity'] as Map<String, dynamic>? ?? const {},
     ),

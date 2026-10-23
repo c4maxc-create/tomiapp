@@ -30,12 +30,15 @@ class PostAuthor {
     required this.username,
     required this.displayName,
     required this.avatarPreset,
+    this.storyExpiresAt,
     this.avatarUrl,
     this.avatarId,
     this.identity = const UserIdentity(),
   });
   final String id, username, displayName, avatarPreset;
   final String? avatarUrl, avatarId;
+  final DateTime? storyExpiresAt;
+  bool get hasStory => storyExpiresAt?.isAfter(DateTime.now()) ?? false;
   final UserIdentity identity;
   factory PostAuthor.fromJson(Map<String, dynamic> d) => PostAuthor(
     id: d['id'] as String,
@@ -44,6 +47,7 @@ class PostAuthor {
     avatarPreset: d['avatarPreset'] as String,
     avatarUrl: d['avatarUrl'] as String?,
     avatarId: d['avatarId'] as String?,
+    storyExpiresAt: DateTime.tryParse(d['storyExpiresAt'] as String? ?? ''),
     identity: UserIdentity(d['identity'] as Map<String, dynamic>? ?? const {}),
   );
   AccountUser get avatarUser => AccountUser(
@@ -54,6 +58,7 @@ class PostAuthor {
     avatarPreset: avatarPreset,
     avatarUrl: avatarUrl,
     avatarId: avatarId,
+    storyExpiresAt: storyExpiresAt,
     identity: identity,
     followersCount: 0,
     followingCount: 0,
@@ -79,6 +84,7 @@ class SocialPost {
     required this.author,
     this.image,
     this.video,
+    this.saved = false,
     required this.likesCount,
     required this.commentsCount,
     required this.liked,
@@ -90,7 +96,7 @@ class SocialPost {
   final PostImage? image;
   final PostVideo? video;
   final int likesCount, commentsCount;
-  final bool liked, isMine;
+  final bool liked, isMine, saved;
   factory SocialPost.fromJson(Map<String, dynamic> d) => SocialPost(
     id: d['id'] as String,
     text: d['text'] as String,
@@ -104,6 +110,7 @@ class SocialPost {
         : PostVideo(d['video'] as Map<String, dynamic>),
     likesCount: (d['likesCount'] as num).toInt(),
     commentsCount: (d['commentsCount'] as num).toInt(),
+    saved: d['saved'] == true,
     liked: d['liked'] as bool,
     isMine: d['isMine'] as bool,
   );

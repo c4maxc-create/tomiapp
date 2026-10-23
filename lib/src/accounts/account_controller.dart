@@ -1,3 +1,4 @@
+import '../social/home_controller.dart';
 import '../messaging/chat_controller.dart';
 import '../messaging/draft_store.dart';
 import '../messaging/chat_connection.dart';
@@ -72,6 +73,10 @@ class AccountController extends ChangeNotifier {
     mediaFactory: callMediaFactory,
     autoPoll: realtimeEnabled,
   );
+  bool get liveAudioBusy =>
+      _calls?.active?.ended == false || _voiceRooms?.active != null;
+  HomeController? _home;
+  HomeController get home => _home ??= HomeController(this);
   PushController? _push;
   PushController get push => _push ??= PushController(accounts: this);
   ChatController? _chats;
@@ -462,6 +467,7 @@ class AccountController extends ChangeNotifier {
     _calls?.dispose();
     _chats?.dispose();
     _push?.dispose();
+    _home?.dispose();
     api.close();
     super.dispose();
   }

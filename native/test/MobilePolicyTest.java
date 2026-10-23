@@ -15,6 +15,13 @@ public final class MobilePolicyTest {
         check(MobilePolicy.action("immutable-pending-intent-secret","immutable-pending-intent-secret"),"owned notification action");
         check(!MobilePolicy.action("forged", "immutable-pending-intent-secret"),"external intent injection");
         check(!MobilePolicy.action(null,null),"uninitialized secret");
-        System.out.println("PASS: 11 native notification policy scenarios.");
+        String id="11111111-1111-4111-8111-111111111111";
+        check(MobilePolicy.update(true,"alice","alice","chat",id),"foreground chat alert");
+        check(MobilePolicy.update(true,"alice","alice","activity",id),"foreground social alert");
+        check(!MobilePolicy.update(false,"alice","alice","chat",id),"foreground opt out");
+        check(!MobilePolicy.update(true,"alice","bob","chat",id),"foreground old account");
+        check(!MobilePolicy.update(true,"alice","alice","call",id),"calls keep their consent path");
+        check(!MobilePolicy.update(true,"alice","alice","chat","forged"),"invalid foreground route");
+        System.out.println("PASS: 17 native notification policy scenarios.");
     }
 }

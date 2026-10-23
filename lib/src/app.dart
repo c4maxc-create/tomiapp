@@ -1,3 +1,5 @@
+import 'social/activity_screen.dart';
+import 'social/story_screens.dart' show socialBackground;
 import 'messaging/chat_screens.dart';
 import 'messaging/chat_models.dart';
 import 'calling/call_models.dart';
@@ -68,6 +70,7 @@ class _TomiAppState extends State<TomiApp> {
       accounts!.calls.onShow = showCall;
       accounts!.push.onOpen = openPushChat;
       accounts!.push.onOpenCall = openPushCall;
+      accounts!.push.onOpenActivity = openPushActivity;
     }
     if (accounts?.phase == AccountPhase.restoring)
       unawaited(accounts!.restore());
@@ -100,6 +103,16 @@ class _TomiAppState extends State<TomiApp> {
             }),
       );
     });
+  }
+
+  Future<void> openPushActivity(String accountId) async {
+    final a = accounts;
+    if (!mounted || a?.user?.id != accountId) return;
+    final nav = navigator.currentState;
+    if (nav == null) return;
+    await nav.push(
+      MaterialPageRoute<void>(builder: (_) => ActivityPage(accounts: a!)),
+    );
   }
 
   Future<void> openPushCall(String callId, String accountId) async {
@@ -268,6 +281,7 @@ class _TomiAppState extends State<TomiApp> {
     if (accounts != null) {
       accounts!.push.onOpen = null;
       accounts!.push.onOpenCall = null;
+      accounts!.push.onOpenActivity = null;
       accounts!.calls.onShow = null;
     }
     if (widget.accounts == null) accounts?.dispose();
@@ -394,61 +408,69 @@ class _TomiShellState extends State<TomiShell> {
       if (widget.accounts != null) widget.accounts!.chats,
     ]),
     builder: (context, _) => Scaffold(
-      appBar: AppBar(
-        titleSpacing: 18,
-        title: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerRight,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'TOMI',
-                textDirection: TextDirection.ltr,
-                style: TextStyle(
-                  fontSize: 23,
-                  letterSpacing: 2.8,
-                  fontWeight: FontWeight.w900,
+      appBar: widget.accounts != null && (selected == 0 || selected == 4)
+          ? null
+          : AppBar(
+              titleSpacing: 18,
+              title: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'TOMI',
+                      textDirection: TextDirection.ltr,
+                      style: TextStyle(
+                        fontSize: 23,
+                        letterSpacing: 2.8,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(width: 9),
+                    TinyLabel(widget.accounts == null ? 'تجريبي' : '1.1'),
+                  ],
                 ),
               ),
-              const SizedBox(width: 9),
-              TinyLabel(widget.accounts == null ? 'تجريبي' : '0.12'),
-            ],
-          ),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'البحث',
-            icon: const Icon(Icons.search_rounded),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => widget.accounts == null
-                    ? SearchPage(store: widget.store)
-                    : AccountSearchPage(accounts: widget.accounts!),
-              ),
+              actions: [
+                IconButton(
+                  tooltip: 'البحث',
+                  icon: const Icon(Icons.search_rounded),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => widget.accounts == null
+                          ? SearchPage(store: widget.store)
+                          : AccountSearchPage(accounts: widget.accounts!),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'الإشعارات',
+                  icon: const Icon(Icons.favorite_border_rounded),
+                  onPressed: () => widget.accounts == null
+                      ? showInfo(
+                          context,
+                          'الإشعارات',
+                          'أهلًا بيك في معاينة TOMI 💜',
+                        )
+                      : Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                ActivityPage(accounts: widget.accounts!),
+                          ),
+                        ),
+                ),
+                if (widget.onExitPreview != null)
+                  IconButton(
+                    tooltip: 'الرجوع للحسابات',
+                    onPressed: widget.onExitPreview,
+                    icon: const Icon(Icons.person_outline_rounded),
+                  ),
+                const SizedBox(width: 7),
+              ],
             ),
-          ),
-          IconButton(
-            tooltip: 'الإشعارات',
-            icon: const Icon(Icons.notifications_none_rounded),
-            onPressed: () => showInfo(
-              context,
-              'الإشعارات',
-              widget.accounts == null
-                  ? 'أهلًا بيك في معاينة TOMI 💜\nتغييرات المعاينة تبقى خلال جلسة تشغيل التطبيق فقط.'
-                  : 'الإشعارات تتفعّل في تحديث قادم.',
-            ),
-          ),
-          if (widget.onExitPreview != null)
-            IconButton(
-              tooltip: 'الرجوع للحسابات',
-              onPressed: widget.onExitPreview,
-              icon: const Icon(Icons.person_outline_rounded),
-            ),
-          const SizedBox(width: 7),
-        ],
-      ),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -471,7 +493,10 @@ class _TomiShellState extends State<TomiShell> {
                 children: [
                   widget.accounts == null
                       ? HomeScreen(store: widget.store)
-                      : SocialFeedScreen(accounts: widget.accounts!),
+                      : SocialFeedScreen(
+                          accounts: widget.accounts!,
+                          visible: selected == 0,
+                        ),
                   widget.accounts == null
                       ? ChatsScreen(store: widget.store)
                       : PrivateChatsScreen(accounts: widget.accounts!),
@@ -484,7 +509,10 @@ class _TomiShellState extends State<TomiShell> {
                   GamesScreen(store: widget.store),
                   widget.accounts == null
                       ? ProfileScreen(store: widget.store)
-                      : AccountProfileScreen(accounts: widget.accounts!),
+                      : AccountProfileScreen(
+                          accounts: widget.accounts!,
+                          visible: selected == 4,
+                        ),
                 ],
               ),
             ),
@@ -492,6 +520,10 @@ class _TomiShellState extends State<TomiShell> {
         ),
       ),
       bottomNavigationBar: NavigationBar(
+        backgroundColor:
+            widget.accounts != null && (selected == 0 || selected == 4)
+            ? socialBackground
+            : null,
         selectedIndex: selected,
         onDestinationSelected: (value) => setState(() => selected = value),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,

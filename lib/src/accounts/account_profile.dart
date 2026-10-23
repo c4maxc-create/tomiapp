@@ -1,266 +1,35 @@
-import '../identity/identity_screens.dart';
-import '../moderation/reports_page.dart';
-import '../moderation/report_dialog.dart';
-import '../privacy/privacy_screens.dart';
-import '../identity/ranking_screen.dart';
-import '../calling/call_screens.dart';
-import '../messaging/chat_screens.dart';
+import 'social_profile.dart';
+import '../social/story_screens.dart' show socialBackground;
 
 import 'package:flutter/material.dart';
 
 import '../widgets.dart';
-import '../social/social_screens.dart';
 import 'account_api.dart';
 import 'account_controller.dart';
 import 'account_models.dart';
 import 'account_widgets.dart';
-import 'avatar_editor.dart';
-import '../notifications/notification_settings.dart';
 
-class AccountProfileScreen extends StatefulWidget {
-  const AccountProfileScreen({super.key, required this.accounts});
+class AccountProfileScreen extends StatelessWidget {
+  const AccountProfileScreen({
+    super.key,
+    required this.accounts,
+    this.visible = true,
+  });
   final AccountController accounts;
+  final bool visible;
   @override
-  State<AccountProfileScreen> createState() => _AccountProfileScreenState();
-}
-
-class _AccountProfileScreenState extends State<AccountProfileScreen> {
-  String? error;
-  bool loggingOut = false;
-
-  Future<void> refresh() async {
-    try {
-      await widget.accounts.reloadMe();
-      if (mounted) setState(() => error = null);
-    } on AccountFailure catch (failure) {
-      if (mounted) setState(() => error = failure.message);
-    }
+  Widget build(BuildContext context) {
+    final user = accounts.user;
+    return user == null
+        ? const SizedBox.shrink()
+        : SocialProfileView(
+            key: ValueKey(user.id),
+            accounts: accounts,
+            initialUser: user,
+            own: true,
+            visible: visible,
+          );
   }
-
-  Future<void> logout() async {
-    if (loggingOut) return;
-    setState(() {
-      loggingOut = true;
-      error = null;
-    });
-    try {
-      await widget.accounts.logout();
-    } on AccountFailure catch (failure) {
-      if (mounted) setState(() => error = failure.message);
-    } catch (_) {
-      if (mounted)
-        setState(() => error = 'تعذّر إنهاء جلسة الدخول؛ جرّب مرة ثانية.');
-    } finally {
-      if (mounted) setState(() => loggingOut = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: widget.accounts,
-    builder: (context, _) {
-      final user = widget.accounts.user;
-      if (user == null) return const SizedBox.shrink();
-      return RefreshIndicator(
-        onRefresh: refresh,
-        child: ListView(
-          key: const PageStorageKey('account-profile-scroll'),
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(18),
-          children: [
-            const SectionHeading(
-              'حسابي',
-              subtitle: 'بياناتك محفوظة، وترافقك بكل جهاز',
-            ),
-            ListTile(
-              key: const Key('open-community-ranking'),
-              leading: const Icon(Icons.leaderboard_outlined),
-              title: const Text('نجوم تومي'),
-              subtitle: const Text('المساهمون اليوم وهذا الأسبوع'),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) =>
-                      ContributionRankingPage(accounts: widget.accounts),
-                ),
-              ),
-            ),
-            if (error != null) AccountErrorMessage(error!),
-            if (widget.accounts.storageWarning != null)
-              AccountErrorMessage(widget.accounts.storageWarning!),
-            TomiCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(child: AccountAvatar(user, size: 90)),
-                  IdentitySummary(
-                    user,
-                    onCustomize: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            IdentityStudioPage(accounts: widget.accounts),
-                      ),
-                    ),
-                  ),
-                  TextButton.icon(
-                    key: const Key('edit-avatar'),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            AvatarEditorPage(accounts: widget.accounts),
-                      ),
-                    ),
-                    icon: const Icon(Icons.photo_camera_outlined),
-                    label: const Text('تغيير الصورة الشخصية'),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    user.displayName,
-                    key: const Key('saved-profile-name'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 25,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '@${user.username}',
-                    textDirection: TextDirection.ltr,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: TomiColors.muted),
-                  ),
-                  if (user.bio.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      user.bio,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(height: 1.6),
-                    ),
-                  ],
-                  const SizedBox(height: 22),
-                  AccountStats(user),
-                  const SizedBox(height: 20),
-                  OutlinedButton.icon(
-                    key: const Key('edit-account'),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            EditAccountPage(accounts: widget.accounts),
-                      ),
-                    ),
-                    icon: const Icon(Icons.edit_outlined),
-                    label: const Text('تعديل البروفايل'),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              key: const Key('my-posts'),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => Scaffold(
-                    appBar: AppBar(title: const Text('منشوراتي')),
-                    body: SocialFeedScreen(
-                      accounts: widget.accounts,
-                      userId: user.id,
-                      title: 'منشوراتي',
-                    ),
-                  ),
-                ),
-              ),
-              icon: const Icon(Icons.grid_view_rounded),
-              label: const Text('عرض منشوراتي'),
-            ),
-            const SizedBox(height: 16),
-            ModerationSettingsEntry(accounts: widget.accounts),
-            OutlinedButton.icon(
-              key: const Key('privacy-center'),
-              icon: const Icon(Icons.privacy_tip_outlined),
-              label: const Text('الخصوصية وحذف الحساب'),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => PrivacyCenterPage(accounts: widget.accounts),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TomiCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  OutlinedButton.icon(
-                    key: const Key('call-history'),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            CallHistoryPage(calls: widget.accounts.calls),
-                      ),
-                    ),
-                    icon: const Icon(Icons.history),
-                    label: const Text('سجل المكالمات'),
-                  ),
-                  OutlinedButton.icon(
-                    key: const Key('notification-settings'),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => NotificationSettingsPage(
-                          controller: widget.accounts.push,
-                        ),
-                      ),
-                    ),
-                    icon: const Icon(Icons.notifications_outlined),
-                    label: const Text('إعدادات الإشعارات'),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'أمان الحساب',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            ChangePasswordPage(accounts: widget.accounts),
-                      ),
-                    ),
-                    icon: const Icon(Icons.lock_outline_rounded),
-                    label: const Text('تغيير كلمة المرور'),
-                  ),
-                  const SizedBox(height: 10),
-                  TextButton.icon(
-                    key: const Key('account-logout'),
-                    onPressed: loggingOut ? null : logout,
-                    icon: const Icon(Icons.logout_rounded),
-                    label: Text(
-                      loggingOut ? 'جارٍ تسجيل الخروج…' : 'تسجيل الخروج',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            const TomiCard(
-              child: Text(
-                'الحساب والمنشورات واللايكات والتعليقات فعّالة. المحادثات الخاصة فعّالة. الغرف والألعاب والأرصدة تبقى معاينة.',
-                style: TextStyle(color: TomiColors.muted, height: 1.7),
-              ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
 }
 
 class EditAccountPage extends StatefulWidget {
@@ -488,7 +257,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   );
 }
 
-class UserAccountPage extends StatefulWidget {
+class UserAccountPage extends StatelessWidget {
   const UserAccountPage({
     super.key,
     required this.accounts,
@@ -497,158 +266,13 @@ class UserAccountPage extends StatefulWidget {
   final AccountController accounts;
   final AccountUser initialUser;
   @override
-  State<UserAccountPage> createState() => _UserAccountPageState();
-}
-
-class _UserAccountPageState extends State<UserAccountPage> {
-  late AccountUser user = widget.initialUser;
-  bool busy = false;
-  String? error;
-  @override
-  void initState() {
-    super.initState();
-    reload();
-  }
-
-  Future<void> reload() async {
-    try {
-      final fresh = await widget.accounts.userById(user.id);
-      if (mounted)
-        setState(() {
-          user = fresh;
-          error = null;
-        });
-    } on AccountFailure catch (failure) {
-      if (mounted) setState(() => error = failure.message);
-    }
-  }
-
-  Future<void> toggleFollow() async {
-    if (busy) return;
-    setState(() {
-      busy = true;
-      error = null;
-    });
-    try {
-      final updated = await widget.accounts.follow(user.id, !user.isFollowing);
-      if (mounted) setState(() => user = updated);
-    } on AccountFailure catch (failure) {
-      if (mounted) setState(() => error = failure.message);
-    } finally {
-      if (mounted) setState(() => busy = false);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('البروفايل'),
-      actions: [
-        if (user.id != widget.accounts.user?.id)
-          IconButton(
-            tooltip: 'إبلاغ الإدارة',
-            icon: const Icon(Icons.flag_outlined),
-            onPressed: () => showReportDialog(
-              context,
-              widget.accounts,
-              targetType: 'account',
-              targetId: user.id,
-              title: 'الإبلاغ عن حساب ${user.displayName}',
-            ),
-          ),
-      ],
-    ),
-    body: RefreshIndicator(
-      onRefresh: reload,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(22),
-        children: [
-          if (error != null) AccountErrorMessage(error!),
-          TomiCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(child: AccountAvatar(user, size: 90)),
-                IdentitySummary(user),
-                const SizedBox(height: 18),
-                Text(
-                  user.displayName,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 25,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '@${user.username}',
-                  textDirection: TextDirection.ltr,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: TomiColors.muted),
-                ),
-                if (user.bio.isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  Text(
-                    user.bio,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(height: 1.7),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                AccountStats(user),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: () =>
-                      openPrivateChat(context, widget.accounts, user.id),
-                  icon: const Icon(Icons.chat_bubble_outline),
-                  label: const Text('مراسلة'),
-                ),
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                  key: const Key('follow-account'),
-                  onPressed: busy ? null : toggleFollow,
-                  icon: Icon(
-                    user.isFollowing
-                        ? Icons.person_remove_outlined
-                        : Icons.person_add_outlined,
-                  ),
-                  label: Text(
-                    busy
-                        ? 'جارٍ الحفظ…'
-                        : user.isFollowing
-                        ? 'إلغاء المتابعة'
-                        : 'متابعة',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          OutlinedButton.icon(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => Scaffold(
-                  appBar: AppBar(title: Text('منشورات ' + user.displayName)),
-                  body: SocialFeedScreen(
-                    accounts: widget.accounts,
-                    userId: user.id,
-                    title: 'منشوراته',
-                  ),
-                ),
-              ),
-            ),
-            icon: const Icon(Icons.grid_view_rounded),
-            label: const Text('عرض المنشورات'),
-          ),
-          const SizedBox(height: 18),
-          const Text(
-            'المحادثات بين الحسابات تتفعّل في التحديث القادم.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: TomiColors.muted, height: 1.6),
-          ),
-        ],
+    backgroundColor: socialBackground,
+    body: SafeArea(
+      child: SocialProfileView(
+        accounts: accounts,
+        initialUser: initialUser,
+        own: initialUser.id == accounts.user?.id,
       ),
     ),
   );

@@ -31,6 +31,29 @@ public class MainActivity extends FlutterActivity {
             try {
                 String id = call.argument("id");
                 switch (call.method) {
+                    case "shareText":
+                        String sharedText=call.argument("text");
+                        if(sharedText==null || sharedText.length()>10000){result.error("INVALID_SHARE","تعذّر المشاركة.",null);break;}
+                        Intent share=new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,sharedText);
+                        startActivity(Intent.createChooser(share,"مشاركة عبر"));result.success(null);break;
+                    case "presentNotification":
+                        Map<String,String> notification=call.argument("data");
+                        if(notification!=null)TomiUpdateNotifications.show(this,notification);
+                        result.success(null);break;
+                    case "notificationSettings":
+                        Intent settings=new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,getPackageName());
+                        startActivity(settings);result.success(null);break;
+                    case "takeNotification":
+                        String pending=getPreferences(0).getString("pendingNotification",null);
+                        if(pending==null){result.success(null);break;}
+                        JSONObject pendingJson=new JSONObject(pending);
+                        String active=getSharedPreferences("tomi.mobile",0).getString("accountId",null);
+                        if(active==null){result.success(null);break;}
+                        getPreferences(0).edit().remove("pendingNotification").apply();
+                        if(!active.equals(pendingJson.optString("accountId"))){result.success(null);break;}
+                        Map<String,Object> openedNotification=new HashMap<>();
+                        for(java.util.Iterator<String> keys=pendingJson.keys();keys.hasNext();){String key=keys.next();openedNotification.put(key,pendingJson.get(key));}
+                        result.success(openedNotification);break;
                     case "startAudio":
                         if (!TomiCallNotifications.visible || id == null) { result.success(false); break; }
                         Intent service = new Intent(this, TomiAudioService.class)
@@ -76,7 +99,7 @@ public class MainActivity extends FlutterActivity {
             } catch (Exception e) { result.error("MOBILE_UNAVAILABLE", "تعذّر تفعيل خدمة الصوت أو الإشعار.", null); }
         });
     }
-    @Override protected void onCreate(Bundle state) { super.onCreate(state); capture(getIntent()); }
+    @Override protected void onCreate(Bundle state) { super.onCreate(state); TomiUpdateNotifications.channels(this); capture(getIntent()); }
     @Override protected void onNewIntent(@NonNull Intent intent) { super.onNewIntent(intent); setIntent(intent); capture(intent); }
     @Override protected void onResume() { super.onResume(); TomiCallNotifications.visible=true;resumeAudioStart(); }
     @Override protected void onPause() { TomiCallNotifications.visible=false; super.onPause(); }
@@ -97,6 +120,15 @@ public class MainActivity extends FlutterActivity {
     }
     @Override protected void onDestroy() { cancelAudioStart();super.onDestroy(); }
     private void capture(Intent intent) {
+        String notification=intent.getStringExtra("tomiNotification");
+        if(notification!=null){
+            String secret=getSharedPreferences("tomi.actions",0).getString("secret",null);
+            if(MobilePolicy.action(intent.getStringExtra("tomiNonce"),secret)){
+                getPreferences(0).edit().putString("pendingNotification",notification).apply();
+                Map<String,Object> event=new HashMap<>();event.put("type","notification");dispatch(event);
+            }
+            intent.removeExtra("tomiNotification");
+        }
         String action=intent.getStringExtra("tomiAction"), id=intent.getStringExtra("callId"), account=intent.getStringExtra("accountId");
         if (action == null || id == null || account == null) return;
         String nonce=getSharedPreferences("tomi.actions",0).getString("secret",null);

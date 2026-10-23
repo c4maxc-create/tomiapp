@@ -1,4 +1,9 @@
+import '../accounts/account_search.dart';
 import '../messaging/voice_note.dart' show voiceTime;
+import 'story_screens.dart';
+import 'social_media.dart';
+import 'activity_screen.dart';
+import 'package:flutter/services.dart';
 import '../messaging/gallery_intent.dart';
 import '../messaging/video_media.dart';
 import 'post_draft_controller.dart';
@@ -72,8 +77,8 @@ Future<void> openAuthor(
         MaterialPageRoute<void>(
           builder: (_) => user.id == a.user?.id
               ? Scaffold(
-                  appBar: AppBar(title: const Text('حسابي')),
-                  body: AccountProfileScreen(accounts: a),
+                  backgroundColor: socialBackground,
+                  body: SafeArea(child: AccountProfileScreen(accounts: a)),
                 )
               : UserAccountPage(accounts: a, initialUser: user),
         ),
@@ -89,9 +94,11 @@ class SocialFeedScreen extends StatefulWidget {
     required this.accounts,
     this.userId,
     this.title,
+    this.visible = true,
   });
   final AccountController accounts;
   final String? userId, title;
+  final bool visible;
   @override
   State<SocialFeedScreen> createState() => _SocialFeedScreenState();
 }
@@ -101,14 +108,32 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
     accounts: widget.accounts,
     userId: widget.userId,
   );
+  final scroll = ScrollController();
   @override
   void initState() {
     super.initState();
+    scroll.addListener(maybeMore);
     unawaited(feed.refresh());
     if (widget.userId == null &&
         !kIsWeb &&
         defaultTargetPlatform == TargetPlatform.android)
       unawaited(recoverPicker());
+  }
+
+  void maybeMore() {
+    if (scroll.hasClients &&
+        scroll.position.extentAfter < 600 &&
+        feed.nextCursor != null &&
+        !feed.loading &&
+        feed.error == null)
+      unawaited(feed.loadMore());
+  }
+
+  Future<void> refresh() async {
+    await Future.wait([
+      feed.refresh(),
+      if (widget.userId == null) widget.accounts.home.refresh(),
+    ]);
   }
 
   Future<void> recoverPicker() async {
@@ -142,6 +167,18 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
               ),
             ),
           );
+      } else if (destination['purpose'] == 'story' ||
+          destination['purpose'] == 'story-video') {
+        await composeStory(
+          context,
+          widget.accounts,
+          initialImage: destination['purpose'] == 'story'
+              ? lost.files!.first
+              : null,
+          initialVideo: destination['purpose'] == 'story-video'
+              ? lost.files!.first
+              : null,
+        );
       } else if (destination['purpose'] == 'avatar') {
         if (mounted)
           await Navigator.push(
@@ -203,141 +240,291 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
 
   @override
   void dispose() {
+    scroll.dispose();
     feed.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: feed,
-    builder: (context, _) => RefreshIndicator(
-      onRefresh: feed.refresh,
-      child: ListView(
-        key: PageStorageKey('social-' + (widget.userId ?? 'home')),
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(18, 6, 18, 24),
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.title ?? 'لحظاتك أقرب',
-                      style: const TextStyle(
-                        fontSize: 23,
-                        fontWeight: FontWeight.w800,
+  Widget build(BuildContext context) => ColoredBox(
+    color: socialBackground,
+    child: AnimatedBuilder(
+      animation: Listenable.merge([feed, widget.accounts.home]),
+      builder: (context, _) => RefreshIndicator(
+        onRefresh: refresh,
+        child: ListView.builder(
+          controller: scroll,
+          key: PageStorageKey('social-${widget.userId ?? 'home'}'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 24),
+          itemCount: feed.posts.length + 2,
+          itemBuilder: (c, index) {
+            if (index == 0)
+              return Column(
+                children: [
+                  if (widget.userId == null) ...[
+                    Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(5, 3, 7, 5),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              key: const Key('compose-post'),
+                              tooltip: 'إضافة',
+                              onPressed: () => showCreateMenu(
+                                context,
+                                widget.accounts,
+                                onPost: compose,
+                              ),
+                              icon: const Icon(
+                                Icons.add,
+                                size: 30,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const Spacer(),
+                            PopupMenuButton<String>(
+                              tooltip: 'قائمة المنشورات',
+                              onSelected: (value) async {
+                                if (value == 'search') {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => AccountSearchPage(
+                                        accounts: widget.accounts,
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  await feed.select(value);
+                                }
+                              },
+                              itemBuilder: (_) => [
+                                for (final e in {
+                                  'all': 'الرئيسية',
+                                  'following': 'متابعاتي',
+                                  'mine': 'منشوراتي',
+                                  'saved': 'المحفوظات',
+                                  'search': 'البحث عن حساب',
+                                }.entries)
+                                  PopupMenuItem(
+                                    value: e.key,
+                                    child: Text(e.value),
+                                  ),
+                              ],
+                              child: const Padding(
+                                padding: EdgeInsets.all(8),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'TOMI',
+                                      style: TextStyle(
+                                        fontSize: 29,
+                                        fontStyle: FontStyle.italic,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -1,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.keyboard_arrow_down,
+                                      color: Colors.white,
+                                      size: 19,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              tooltip: 'الإشعارات',
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      ActivityPage(accounts: widget.accounts),
+                                ),
+                              ),
+                              icon: Badge(
+                                isLabelVisible:
+                                    widget.accounts.home.unreadCount > 0,
+                                smallSize: 7,
+                                child: const Icon(
+                                  Icons.favorite_border_rounded,
+                                  size: 29,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'شارك لحظتك مع مجتمع TOMI',
-                      style: TextStyle(color: TomiColors.muted, fontSize: 13),
+                    StoriesStrip(accounts: widget.accounts),
+                  ] else
+                    Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Text(
+                        widget.title ?? 'المنشورات',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  if (feed.scope != 'all' && widget.userId == null)
+                    Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Row(
+                        children: [
+                          Text(
+                            {
+                                  'following': 'متابعاتي',
+                                  'mine': 'منشوراتي',
+                                  'saved': 'المحفوظات',
+                                }[feed.scope] ??
+                                '',
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () => feed.select('all'),
+                            child: const Text('عرض الكل'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (feed.loading && feed.posts.isEmpty)
+                    const LinearProgressIndicator(minHeight: 2),
+                  if (feed.posts.isEmpty && !feed.loading && feed.error == null)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(
+                        vertical: 60,
+                        horizontal: 24,
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.photo_camera_outlined,
+                            size: 48,
+                            color: Colors.white70,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'بعد ماكو منشورات هنا',
+                            style: TextStyle(fontSize: 17),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'شارك لحظة أو تابع أصدقاءك حتى تظهر منشوراتهم.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.white60),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              );
+            if (index == feed.posts.length + 1)
+              return Column(
+                children: [
+                  if (feed.error != null) ...[
+                    AccountErrorMessage(feed.error!),
+                    TextButton(
+                      key: const Key('feed-retry'),
+                      onPressed: feed.loading
+                          ? null
+                          : feed.nextCursor == null
+                          ? feed.refresh
+                          : feed.loadMore,
+                      child: const Text('إعادة المحاولة'),
                     ),
                   ],
-                ),
-              ),
-              if (widget.userId == null)
-                IconButton.filledTonal(
-                  key: const Key('compose-post'),
-                  tooltip: 'منشور جديد',
-                  onPressed: compose,
-                  icon: const Icon(Icons.add_rounded),
-                ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          if (widget.userId == null) ...[
-            const TomiCard(
-              child: Row(
-                children: [
-                  Icon(Icons.auto_awesome_rounded, color: TomiColors.gold),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'كلمة، صورة، أو لحظة حلوة… شاركها ويانا 💜',
-                      style: TextStyle(height: 1.7),
+                  if (feed.loading && feed.posts.isNotEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(18),
+                      child: CircularProgressIndicator(),
                     ),
-                  ),
+                  if (feed.nextCursor != null && !feed.loading)
+                    TextButton(
+                      onPressed: feed.loadMore,
+                      child: const Text('عرض المزيد'),
+                    ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                for (final e in {
-                  'all': 'عام',
-                  'following': 'متابعاتي',
-                  'mine': 'منشوراتي',
-                }.entries)
-                  ChoiceChip(
-                    key: Key('feed-' + e.key),
-                    label: Text(e.value),
-                    selected: feed.scope == e.key,
-                    onSelected: (_) => feed.select(e.key),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-          ],
-          if (feed.loading) const LinearProgressIndicator(minHeight: 2),
-          if (feed.error != null) ...[
-            AccountErrorMessage(feed.error!),
-            OutlinedButton.icon(
-              key: const Key('feed-retry'),
-              onPressed: feed.loading ? null : feed.refresh,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('إعادة المحاولة'),
-            ),
-          ],
-          if (feed.posts.isEmpty && !feed.loading && feed.error == null)
-            TomiCard(
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.forum_outlined,
-                    size: 38,
-                    color: TomiColors.accent,
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    feed.scope == 'following'
-                        ? 'تابع أشخاص حتى تشوف منشوراتهم هنا.'
-                        : 'بعد ماكو منشورات… شارك أول لحظة 💜',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(height: 1.7),
-                  ),
-                ],
-              ),
-            ),
-          for (final p in feed.posts)
-            Padding(
-              padding: const EdgeInsets.only(top: 14),
-              child: RealPostCard(
-                key: ValueKey(p.id),
-                accounts: widget.accounts,
-                post: p,
-                busy: feed.busyPosts.contains(p.id),
-                onLike: () => mutate(() => feed.like(p)),
-                onDelete: () => mutate(() => feed.delete(p)),
-                onUpdated: feed.replace,
-              ),
-            ),
-          if (feed.nextCursor != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 18),
-              child: OutlinedButton(
-                onPressed: feed.loading ? null : feed.loadMore,
-                child: const Text('عرض المزيد'),
-              ),
-            ),
+              );
+            final p = feed.posts[index - 1];
+            return RealPostCard(
+              key: ValueKey(p.id),
+              accounts: widget.accounts,
+              post: p,
+              active: widget.visible,
+              busy: feed.busyPosts.contains(p.id),
+              onLike: () => mutate(() => feed.like(p)),
+              onDelete: () => mutate(() => feed.delete(p)),
+              onUpdated: feed.replace,
+            );
+          },
+        ),
+      ),
+    ),
+  );
+}
+
+Future<void> showCreateMenu(
+  BuildContext context,
+  AccountController accounts, {
+  Future<void> Function()? onPost,
+}) async {
+  final action = await showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    backgroundColor: socialSurface,
+    builder: (c) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.grid_on_outlined),
+            title: const Text('منشور جديد'),
+            onTap: () => Navigator.pop(c, 'post'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.add_circle_outline),
+            title: const Text('ستوري جديدة'),
+            onTap: () => Navigator.pop(c, 'story'),
+          ),
         ],
       ),
     ),
   );
+  if (!context.mounted) return;
+  if (action == 'story') {
+    await composeStory(context, accounts);
+  } else if (action == 'post') {
+    if (onPost != null) {
+      await onPost();
+      return;
+    }
+    try {
+      final d = await accounts.chatRequest('GET', '/v1/media/status');
+      if (!context.mounted) return;
+      await showModalBottomSheet<SocialPost>(
+        context: context,
+        isScrollControlled: true,
+        isDismissible: false,
+        enableDrag: false,
+        showDragHandle: true,
+        builder: (_) => SocialComposer(
+          accounts: accounts,
+          imageEnabled: d['imageUploadEnabled'] == true,
+          videoEnabled: d['videoUploadEnabled'] == true,
+        ),
+      );
+    } on AccountFailure catch (e) {
+      if (context.mounted) showNote(context, e.message);
+    }
+  }
 }
 
 class RealPostCard extends StatelessWidget {
@@ -349,10 +536,11 @@ class RealPostCard extends StatelessWidget {
     required this.onLike,
     required this.onDelete,
     required this.onUpdated,
+    this.active = true,
   });
   final AccountController accounts;
   final SocialPost post;
-  final bool busy;
+  final bool busy, active;
   final VoidCallback onLike, onDelete;
   final ValueChanged<SocialPost> onUpdated;
   Future<void> confirmDelete(BuildContext c) async {
@@ -376,194 +564,372 @@ class RealPostCard extends StatelessWidget {
     if (ok == true && c.mounted) onDelete();
   }
 
+  Future<void> save(BuildContext c) async {
+    try {
+      final d = await accounts.chatRequest(
+        'PUT',
+        '/v1/posts/${post.id}/save',
+        body: {'saved': !post.saved},
+      );
+      onUpdated(SocialPost.fromJson(d['post'] as Map<String, dynamic>));
+    } on AccountFailure catch (e) {
+      if (c.mounted) showNote(c, e.message);
+    }
+  }
+
+  void comments(BuildContext c) => showModalBottomSheet<void>(
+    context: c,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (_) =>
+        RealCommentsSheet(accounts: accounts, post: post, onUpdated: onUpdated),
+  );
+  Future<void> share(BuildContext c) async => shareSocialText(
+    c,
+    '${post.author.displayName} (@${post.author.username}) على TOMI\n${post.text}',
+  );
   @override
-  Widget build(BuildContext c) => TomiCard(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            InkWell(
-              onTap: () => openAuthor(c, accounts, post.author),
-              child: AccountAvatar(post.author.avatarUser, size: 44),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: InkWell(
-                onTap: () => openAuthor(c, accounts, post.author),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      post.author.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+  Widget build(BuildContext c) => ColoredBox(
+    color: socialBackground,
+    child: Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+              child: Row(
+                children: [
+                  AnimatedBuilder(
+                    animation: accounts.home,
+                    builder: (c, _) => StoryAvatar(
+                      user: post.author.avatarUser,
+                      size: 38,
+                      hasStory:
+                          post.author.hasStory ||
+                          accounts.home.hasStory(post.author.id),
+                      unseen: accounts.home.hasStory(post.author.id)
+                          ? accounts.home.unseen(post.author.id)
+                          : true,
+                      onTap: () =>
+                          openStoryAvatar(c, accounts, post.author.avatarUser),
                     ),
-                    Text(
-                      '@' + post.author.username,
-                      textDirection: TextDirection.ltr,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: TomiColors.muted,
-                        fontSize: 12,
-                      ),
-                    ),
-                    Text(
-                      relativeTime(post.createdAt),
-                      style: const TextStyle(
-                        color: TomiColors.muted,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (post.isMine)
-              IconButton(
-                key: Key('delete-post-' + post.id),
-                tooltip: 'حذف المنشور',
-                onPressed: busy ? null : () => confirmDelete(c),
-                icon: const Icon(Icons.more_horiz_rounded),
-              ),
-            if (!post.isMine)
-              IconButton(
-                key: ValueKey('report-post-${post.id}'),
-                tooltip: 'إبلاغ الإدارة',
-                icon: const Icon(Icons.flag_outlined),
-                onPressed: () => showReportDialog(
-                  c,
-                  accounts,
-                  targetType: 'post',
-                  targetId: post.id,
-                  title: 'الإبلاغ عن منشور ${post.author.displayName}',
-                ),
-              ),
-          ],
-        ),
-        if (post.text.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          Text(post.text, style: const TextStyle(height: 1.7, fontSize: 15)),
-        ],
-        if (post.video != null)
-          VideoTile(
-            video: post.video!,
-            source: () async {
-              final d = await accounts.chatRequest(
-                'GET',
-                '/v1/posts/${post.id}',
-              );
-              final p = SocialPost.fromJson(d['post'] as Map<String, dynamic>);
-              return p.video?.url == null ? null : Uri.parse(p.video!.url!);
-            },
-          ),
-        if (post.image != null) ...[
-          const SizedBox(height: 14),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(18),
-            child: AspectRatio(
-              aspectRatio: (post.image!.width / post.image!.height)
-                  .clamp(.7, 1.8)
-                  .toDouble(),
-              child: post.image!.url == null
-                  ? const Center(
-                      child: Icon(Icons.image_not_supported_outlined),
-                    )
-                  : InkWell(
-                      onTap: () => showDialog<void>(
-                        context: c,
-                        builder: (d) => Dialog(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Align(
-                                alignment: Alignment.topLeft,
-                                child: IconButton(
-                                  tooltip: 'إغلاق',
-                                  onPressed: () => Navigator.pop(d),
-                                  icon: const Icon(Icons.close_rounded),
-                                ),
-                              ),
-                              Flexible(
-                                child: InteractiveViewer(
-                                  child: Image.network(
-                                    post.image!.url!,
-                                    errorBuilder: (_, _, _) => const Padding(
-                                      padding: EdgeInsets.all(24),
-                                      child: Text('تعذّر تحميل الصورة'),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => openAuthor(c, accounts, post.author),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            post.author.username,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
                           ),
+                          Text(
+                            post.author.displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    key: post.isMine
+                        ? Key('delete-post-${post.id}')
+                        : ValueKey('report-post-${post.id}'),
+                    tooltip: post.isMine ? 'حذف المنشور' : 'إبلاغ الإدارة',
+                    onPressed: busy
+                        ? null
+                        : () => post.isMine
+                              ? confirmDelete(c)
+                              : showReportDialog(
+                                  c,
+                                  accounts,
+                                  targetType: 'post',
+                                  targetId: post.id,
+                                  title:
+                                      'الإبلاغ عن منشور ${post.author.displayName}',
+                                ),
+                    icon: const Icon(Icons.more_horiz, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (post.video != null)
+            InlineSocialVideo(
+              video: post.video!,
+              active: active && !accounts.liveAudioBusy,
+              source: () async {
+                final d = await accounts.chatRequest(
+                  'GET',
+                  '/v1/posts/${post.id}',
+                );
+                final p = SocialPost.fromJson(
+                  d['post'] as Map<String, dynamic>,
+                );
+                return p.video?.url == null ? null : Uri.parse(p.video!.url!);
+              },
+            ),
+          if (post.image != null)
+            GestureDetector(
+              onDoubleTap: busy || post.liked ? null : onLike,
+              onTap: () => Navigator.push(
+                c,
+                MaterialPageRoute<void>(
+                  builder: (_) => Scaffold(
+                    backgroundColor: Colors.black,
+                    appBar: AppBar(
+                      backgroundColor: Colors.black,
+                      title: Text(post.author.username),
+                    ),
+                    body: Center(
+                      child: InteractiveViewer(
+                        child: Image.network(
+                          post.image!.url ?? '',
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, _, _) =>
+                              const Text('تعذّر تحميل الصورة'),
                         ),
                       ),
-                      child: Image.network(
+                    ),
+                  ),
+                ),
+              ),
+              child: AspectRatio(
+                aspectRatio: (post.image!.width / post.image!.height)
+                    .clamp(.8, 1.91)
+                    .toDouble(),
+                child: post.image!.url == null
+                    ? const ColoredBox(
+                        color: socialSurface,
+                        child: Icon(Icons.image_not_supported_outlined),
+                      )
+                    : Image.network(
                         post.image!.url!,
                         fit: BoxFit.cover,
                         cacheWidth: 1200,
-                        loadingBuilder: (_, child, progress) => progress == null
+                        loadingBuilder: (_, child, p) => p == null
                             ? child
-                            : const Center(
-                                child: Icon(
-                                  Icons.image_outlined,
-                                  color: TomiColors.muted,
+                            : const ColoredBox(
+                                color: socialSurface,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 ),
                               ),
-                        errorBuilder: (_, _, _) => const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Text(
-                              'تعذّر تحميل الصورة؛ حدّث المنشورات.',
-                              textAlign: TextAlign.center,
-                            ),
+                        errorBuilder: (_, _, _) => const ColoredBox(
+                          color: socialSurface,
+                          child: Center(
+                            child: Text('تعذّر تحميل الصورة؛ اسحب للتحديث.'),
                           ),
                         ),
                       ),
+              ),
+            ),
+          if (post.image == null && post.video == null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
+              child: Text(
+                post.text,
+                style: const TextStyle(
+                  fontSize: 20,
+                  height: 1.65,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: Row(
+                children: [
+                  IconButton(
+                    key: Key('like-${post.id}'),
+                    tooltip: post.liked ? 'إلغاء الإعجاب' : 'إعجاب',
+                    onPressed: busy ? null : onLike,
+                    icon: Icon(
+                      post.liked
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      size: 27,
+                      color: post.liked
+                          ? const Color(0xFFFF345F)
+                          : Colors.white,
                     ),
+                  ),
+                  IconButton(
+                    key: Key('comments-${post.id}'),
+                    tooltip: 'التعليقات',
+                    onPressed: () => comments(c),
+                    icon: const Icon(
+                      Icons.mode_comment_outlined,
+                      size: 25,
+                      color: Colors.white,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'مشاركة المنشور',
+                    onPressed: () => share(c),
+                    icon: const Icon(
+                      Icons.send_outlined,
+                      size: 26,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    key: Key('save-${post.id}'),
+                    tooltip: post.saved ? 'إلغاء الحفظ' : 'حفظ المنشور',
+                    onPressed: busy ? null : () => save(c),
+                    icon: Icon(
+                      post.saved ? Icons.bookmark : Icons.bookmark_border,
+                      size: 27,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${post.likesCount} إعجاب',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    fontSize: 13,
+                  ),
+                ),
+                if (post.text.isNotEmpty &&
+                    (post.image != null || post.video != null))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 5),
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '${post.author.username}  ',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          TextSpan(text: post.text),
+                        ],
+                      ),
+                      style: const TextStyle(
+                        height: 1.5,
+                        color: Colors.white,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                if (post.commentsCount > 0)
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 30),
+                      foregroundColor: Colors.white54,
+                    ),
+                    onPressed: () => comments(c),
+                    child: Text(
+                      'عرض التعليقات (${post.commentsCount})',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                Text(
+                  relativeTime(post.createdAt),
+                  style: const TextStyle(color: Colors.white54, fontSize: 10),
+                ),
+              ],
             ),
           ),
         ],
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            TextButton.icon(
-              key: Key('like-' + post.id),
-              onPressed: busy ? null : onLike,
-              icon: Icon(
-                post.liked
-                    ? Icons.favorite_rounded
-                    : Icons.favorite_border_rounded,
-                color: post.liked ? TomiColors.pink : TomiColors.muted,
-              ),
-              label: Text(post.likesCount.toString()),
-            ),
-            TextButton.icon(
-              key: Key('comments-' + post.id),
-              onPressed: () => showModalBottomSheet<void>(
-                context: c,
-                showDragHandle: true,
-                isScrollControlled: true,
-                builder: (_) => RealCommentsSheet(
-                  accounts: accounts,
-                  post: post,
-                  onUpdated: onUpdated,
-                ),
-              ),
-              icon: const Icon(
-                Icons.mode_comment_outlined,
-                color: TomiColors.muted,
-              ),
-              label: Text(post.commentsCount.toString()),
-            ),
-          ],
-        ),
-      ],
+      ),
+    ),
+  );
+}
+
+Future<void> shareSocialText(BuildContext c, String text) async {
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    try {
+      await const MethodChannel(
+        'tomi/mobile',
+      ).invokeMethod<void>('shareText', {'text': text});
+      return;
+    } catch (_) {}
+  }
+  await Clipboard.setData(ClipboardData(text: text));
+  if (c.mounted) showNote(c, 'تم النسخ للمشاركة');
+}
+
+class SocialPostPage extends StatefulWidget {
+  const SocialPostPage({
+    super.key,
+    required this.accounts,
+    required this.initialPost,
+  });
+  final AccountController accounts;
+  final SocialPost initialPost;
+  @override
+  State<SocialPostPage> createState() => _SocialPostPageState();
+}
+
+class _SocialPostPageState extends State<SocialPostPage> {
+  late SocialPost post = widget.initialPost;
+  bool busy = false;
+  Future<void> mutate(bool delete) async {
+    if (busy) return;
+    setState(() => busy = true);
+    try {
+      if (delete) {
+        await widget.accounts.deletePost(post.id);
+        if (mounted) Navigator.pop(context);
+      } else {
+        final next = await widget.accounts.likePost(post.id, !post.liked);
+        if (mounted) setState(() => post = next);
+      }
+    } on AccountFailure catch (e) {
+      if (mounted) showNote(context, e.message);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: socialBackground,
+    appBar: AppBar(
+      backgroundColor: socialBackground,
+      title: Text(post.author.username),
+    ),
+    body: SingleChildScrollView(
+      child: RealPostCard(
+        accounts: widget.accounts,
+        post: post,
+        busy: busy,
+        onLike: () => mutate(false),
+        onDelete: () => mutate(true),
+        onUpdated: (p) => setState(() => post = p),
+      ),
     ),
   );
 }

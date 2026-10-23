@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../accounts/account_controller.dart';
@@ -29,7 +30,15 @@ class FirebasePushDeviceClient implements PushDeviceClient {
         ].contains(defaultTargetPlatform))
       return false;
     try {
-      await Firebase.initializeApp().timeout(const Duration(seconds: 10));
+      if (Firebase.apps.isEmpty)
+        await Firebase.initializeApp().timeout(const Duration(seconds: 10));
+      if (defaultTargetPlatform == TargetPlatform.iOS)
+        await FirebaseMessaging.instance
+            .setForegroundNotificationPresentationOptions(
+              alert: true,
+              badge: true,
+              sound: true,
+            );
       return true;
     } catch (_) {
       return false;
@@ -41,7 +50,12 @@ class FirebasePushDeviceClient implements PushDeviceClient {
       defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android';
   @override
   Future<bool> permission({bool request = false}) async {
-    final s = request
+    final existing = await FirebaseMessaging.instance.getNotificationSettings();
+    // Request once while the app is visible. A refusal is respected on resume.
+    final shouldRequest =
+        request ||
+        existing.authorizationStatus == AuthorizationStatus.notDetermined;
+    final s = shouldRequest
         ? await FirebaseMessaging.instance.requestPermission(
             alert: true,
             badge: true,
@@ -97,10 +111,13 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
   bool initialHandled = false, draining = false, drainAgain = false;
   String? registeredBinding;
   StreamSubscription<Map<String, dynamic>>? nativeActions;
+  StreamSubscription<RemoteMessage>? foreground;
+  static const notificationChannel = MethodChannel('tomi/mobile');
   StreamSubscription<String>? tokens;
   StreamSubscription<Map<String, dynamic>>? opened;
   Future<void> Function(String threadId, String accountId)? onOpen;
   Future<void> Function(String callId, String accountId)? onOpenCall;
+  Future<void> Function(String accountId)? onOpenActivity;
   void notify() {
     if (!disposed) notifyListeners();
   }
@@ -141,7 +158,11 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
     error = null;
     notify();
     try {
-      if (!await client.initialize() || disposed || gen != generation) {
+      final initialized = await client.initialize();
+      if (!initialized && !disposed && gen == generation)
+        error =
+            'هذه النسخة تحتاج إعداد خدمة إشعارات الهاتف؛ صندوق الإشعارات داخل التطبيق متاح.';
+      if (!initialized || disposed || gen != generation) {
         await drainActions();
         return;
       }
@@ -149,7 +170,12 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
       if (disposed || gen != generation) return;
       configured = settings['configured'] == true;
       enabled = settings['enabled'] == true;
-      permissionGranted = await client.permission();
+      if (!configured)
+        error =
+            'خدمة التنبيهات خارج التطبيق غير مفعّلة على الخادم؛ صندوق الإشعارات داخل التطبيق متاح.';
+      permissionGranted = configured && enabled
+          ? await client.permission()
+          : false;
       if (disposed || gen != generation) return;
       if (!configured || !enabled || !permissionGranted) {
         await unregister();
@@ -165,10 +191,33 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
         },
       );
       opened ??= client.opened.listen(handleOpen);
+      if (client is FirebasePushDeviceClient)
+        foreground ??= FirebaseMessaging.onMessage.listen((message) {
+          if (disposed ||
+              !enabled ||
+              !permissionGranted ||
+              message.data['accountId'] != accounts.user?.id)
+            return;
+          if (message.data['type'] == 'activity')
+            unawaited(accounts.home.loadActivity());
+          if (defaultTargetPlatform == TargetPlatform.android &&
+              ['chat', 'activity'].contains(message.data['type'])) {
+            unawaited(
+              notificationChannel
+                  .invokeMethod<void>('presentNotification', {
+                    'data': message.data,
+                  })
+                  .catchError((Object _) {}),
+            );
+          }
+        });
       if (configured && enabled && permissionGranted) {
         final token = await client.token().timeout(const Duration(seconds: 15));
         if (disposed || gen != generation) return;
-        if (token != null) await register(token);
+        if (token != null)
+          await register(token);
+        else
+          error = 'تعذّر الحصول على رمز إشعارات الهاتف؛ جرّب التحديث بعد قليل.';
       }
       await drainActions();
       if (!initialHandled) {
@@ -251,7 +300,10 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
       if (value) {
         final token = await client.token().timeout(const Duration(seconds: 15));
         if (disposed || gen != generation) return;
-        if (token != null) await register(token);
+        if (token != null)
+          await register(token);
+        else
+          error = 'تعذّر الحصول على رمز إشعارات الهاتف؛ جرّب التحديث بعد قليل.';
       } else {
         await unregister();
       }
@@ -261,6 +313,17 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
     } finally {
       if (!disposed && gen == generation) {
         busy = false;
+        notify();
+      }
+    }
+  }
+
+  Future<void> openSystemSettings() async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        await notificationChannel.invokeMethod<void>('notificationSettings');
+      } catch (_) {
+        error = 'افتح إعدادات الهاتف ← التطبيقات ← TOMI ← الإشعارات.';
         notify();
       }
     }
@@ -286,8 +349,22 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
       } catch (_) {}
   }
 
+  Future<void> drainNotification() async {
+    if (!accounts.mobile.supported || disposed || identity == null) return;
+    try {
+      final raw = await notificationChannel.invokeMethod<Map>(
+        'takeNotification',
+      );
+      if (raw != null && !disposed) handleOpen(Map<String, dynamic>.from(raw));
+    } catch (_) {}
+  }
+
   void nativeEvent(Map<String, dynamic> data) {
     if (disposed || identity == null) return;
+    if (data['type'] == 'notification') {
+      unawaited(drainNotification());
+      return;
+    }
     final id = data['callId'];
     if (data['type'] == 'audioStopped' || data['type'] == 'control') {
       if (data['type'] == 'control' && data['accountId'] != accounts.user?.id)
@@ -314,6 +391,7 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
     draining = true;
     final gen = generation;
     try {
+      await drainNotification();
       final data = await accounts.mobile.takeAction();
       if (data == null ||
           disposed ||
@@ -367,6 +445,14 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void handleOpen(Map<String, dynamic> data) {
+    if (!disposed &&
+        identity != null &&
+        data['type'] == 'activity' &&
+        data['accountId'] == accounts.user?.id) {
+      final work = onOpenActivity?.call(accounts.user!.id);
+      if (work != null) unawaited(work.catchError((Object _) {}));
+      return;
+    }
     if (!disposed &&
         identity != null &&
         data['type'] == 'call' &&
@@ -423,6 +509,7 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(tokens?.cancel());
     unawaited(opened?.cancel());
+    unawaited(foreground?.cancel());
     unawaited(nativeActions?.cancel());
     unawaited(
       accounts.mobile.bind(null, null, false).catchError((Object _) {}),
