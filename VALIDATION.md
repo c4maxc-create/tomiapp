@@ -6,6 +6,40 @@ recovered and finalized2026-10-22, Asia/Baghdad. Exact0.12 source SHA256:
 Earlier0.12 results remain in VALIDATION-0.12.md. This file distinguishes source
 checks from device/provider/build evidence; source delivery is not public launch.
 
+## API CI timeout correction — 2026-10-22
+
+User screenshot/run39832689907 shows accounts-api cancelled at10m18s, PostgreSQL
+step7m17s, visible successful cases followed by The operation was canceled; the
+Android job was skipped. The follow-up summary screenshot confirms run28/commitd609686 and explicitly
+states: The job has exceeded the maximum execution time of 10m0s. The timeout
+is therefore confirmed; full test counts and hosted completion remain unknown.
+Raised only jobs.accounts-api.timeout-minutes10->30; Android budget remains45.
+
+Official @actions/workflow-parser0.3.61 validates the full updated workflow with
+zero parse/conversion errors. Structural YAML comparison confirms a single numeric
+value changed. All tests, PG restore, cleanup, signing gates and runtime/tool/lock
+bytes remain unchanged. No full tests were repeated for this timeout-only change.
+Hosted completion, actual disk cleanup and APK remain pending a NEW corrected run.
+Evidence: validation/1.0-beta1-ci-timeout/workflow-parser.log. If cancellation
+persists or an assertion fails, inspect complete logs rather than skip the checks.
+
+## Workflow context correction — run27
+
+User screenshot: run27, commit32328ed, GitHub rejects runner.environment at line85,
+column27 before any jobs start. The previous disk correction placed that context
+in jobs.android.env, where GitHub does not permit it. Moved the exact same value
+into env on the two cleanup steps. No cleanup helper, app/API/native/dependency,
+input, build command, test or signing gate changed.
+
+Executed official @actions/workflow-parser0.3.61 from actions/languageservices
+on Node24.19.0, using its unmodified schema. The published JSON schema module was
+loaded as ESM data for the standalone Node harness; no validation logic changed.
+Before: reproduced exactly one Unrecognized named-value: runner at85:27.
+After: zero errors after parseWorkflow and convertWorkflowTemplate. YAML diff
+and runtime preservation checks passed.8 existing disk-safety tests passed again.
+Evidence: validation/1.0-beta1-ci-context/workflow-parser.log. Hosted build and
+actual disk reclamation remain unverified until a NEW run from corrected main.
+
 ## CI disk correction — 2026-10-22
 
 User run24/commit29b07b9 screenshots show the accounts/database job successful,
