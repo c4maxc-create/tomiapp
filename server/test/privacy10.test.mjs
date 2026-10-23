@@ -176,8 +176,8 @@ test('1.0 delayed follow cannot recreate a relationship with an erased target',a
 test('1.0 policy acceptance stores only the current version and erases its account-bound receipt',async t=>{
   const f=await fixture(t),base={username:'privacy_accept',displayName:'Accepted',password};
   assert.equal((await f.req(null,'POST','/v1/auth/register',{...base,policyVersion:'wrong-version'})).status,400);
-  const a=(await f.req(null,'POST','/v1/auth/register',{...base,policyVersion:'2026-10-17'})).data;
-  assert.equal((await f.db.query('SELECT policy_version FROM tomi_policy_acceptances WHERE user_id=?',[a.user.id])).rows[0].policy_version,'2026-10-17');
+  const a=(await f.req(null,'POST','/v1/auth/register',{...base,policyVersion:'2026-10-23'})).data;
+  assert.equal((await f.db.query('SELECT policy_version FROM tomi_policy_acceptances WHERE user_id=?',[a.user.id])).rows[0].policy_version,'2026-10-23');
   await f.req(a,'POST','/v1/account/deletion',f.request());assert.equal((await f.db.query('SELECT 1 FROM tomi_policy_acceptances WHERE user_id=?',[a.user.id])).rows.length,0);
 });
 

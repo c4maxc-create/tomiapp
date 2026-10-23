@@ -1,3 +1,4 @@
+import {activityVisible} from './home.mjs';
 import {createPrivateKey,sign} from 'node:crypto';
 import {ApiError,digest} from './security.mjs';
 const stamp=(offset=0)=>new Date(Date.now()+offset).toISOString();
@@ -8,8 +9,9 @@ export function fcmFromEnvironment(env=process.env,{fetcher=fetch}={}){
  async function accessToken(){if(cached&&Date.now()<expires)return cached;if(refresh)return refresh;
   refresh=(async()=>{const time=Math.floor(Date.now()/1000),encode=x=>Buffer.from(JSON.stringify(x)).toString('base64url'),unsigned=encode({alg:'RS256',typ:'JWT'})+'.'+encode({iss:key.email,scope:'https://www.googleapis.com/auth/firebase.messaging',aud:'https://oauth2.googleapis.com/token',iat:time,exp:time+3600}),jwt=unsigned+'.'+sign('RSA-SHA256',Buffer.from(unsigned),key.privateKey).toString('base64url');const r=await fetcher('https://oauth2.googleapis.com/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion:jwt}),signal:AbortSignal.timeout(10000),redirect:'error'});if(!r.ok)throw Error('FCM_AUTH');const data=await r.json();if(typeof data.access_token!=='string'||!Number.isFinite(data.expires_in))throw Error('FCM_AUTH');cached=data.access_token;expires=Date.now()+Math.max(0,data.expires_in-60)*1000;return cached;})();try{return await refresh;}finally{refresh=null;}
  }
- return async({token,threadId,recipientId,callId,callProtocol=1,bindingId,expiresAt,kind='audio',cancel=false})=>{
-  const message={token,notification:{title:'TOMI',body:'وصلتك رسالة جديدة في TOMI'},data:{type:'chat',conversationId:threadId,accountId:recipientId},android:{priority:'HIGH',ttl:'300s',collapse_key:'tomi-private-chat',notification:{tag:'chat-'+threadId}},apns:{headers:{'apns-expiration':String(Math.floor(Date.now()/1000)+300),'apns-collapse-id':threadId},payload:{aps:{sound:'default'}}}};
+ return async({token,threadId,recipientId,callId,callProtocol=1,bindingId,expiresAt,kind='audio',cancel=false,activityId,notificationKind})=>{
+  const message={token,notification:{title:'TOMI',body:'وصلتك رسالة جديدة في TOMI'},data:{type:'chat',conversationId:threadId,accountId:recipientId},android:{priority:'HIGH',ttl:'300s',collapse_key:'tomi-private-chat',notification:{tag:'chat-'+threadId,channel_id:'tomi_updates',sound:'default'}},apns:{headers:{'apns-expiration':String(Math.floor(Date.now()/1000)+300),'apns-collapse-id':threadId},payload:{aps:{sound:'default'}}}};
+  if(activityId){message.notification.body=({follow:'عندك متابع جديد في TOMI',like:'إعجاب جديد بمنشورك في TOMI',comment:'تعليق جديد على منشورك في TOMI'})[notificationKind]||'عندك إشعار جديد في TOMI';message.data={type:'activity',activityId,accountId:recipientId};message.android.collapse_key='tomi-activity';message.android.notification.tag='activity-'+activityId;message.apns.headers['apns-collapse-id']=activityId;}
   if(callId){message.notification.body='مكالمة واردة في TOMI';message.data={type:'call',callId,conversationId:threadId,accountId:recipientId};message.android.ttl='30s';message.android.collapse_key='tomi-incoming-call';message.android.notification.tag='call-'+callId;message.android.notification.sound='default';message.apns.headers['apns-expiration']=String(Math.floor(Date.now()/1000)+30);message.apns.headers['apns-collapse-id']=callId;}
   if(callId && callProtocol===2) {
     // Android native CallStyle receives data-only pushes. Legacy clients keep
@@ -90,7 +92,19 @@ export function createPush({database,sender,readJson,respond,limit,autoFlush=tru
    }
   }finally{cancelRunning=false;}
  }
- async function flush(){await Promise.all([flushCalls(),flushMessages()]);await flushCancelledCalls();}
+ let activityRunning=false;
+ async function flushActivity(){if(activityRunning||closed||!configured)return;activityRunning=true;try{
+  const rows=(await database.query("SELECT id FROM tomi_activity WHERE push_state='pending' AND next_at<=? AND lease_until<? ORDER BY created_at LIMIT 10",[stamp(),stamp()])).rows;
+  for(const row of rows){if(closed)break;const job=(await database.query("UPDATE tomi_activity SET lease_until=? WHERE id=? AND push_state='pending' AND lease_until<? RETURNING *",[stamp(120000),row.id,stamp()])).rows[0];if(!job)continue;
+   const eligible=async()=>(await database.query(`SELECT n.id FROM tomi_activity n LEFT JOIN tomi_push_settings ps ON ps.user_id=n.recipient_id WHERE n.id=? AND n.read_at IS NULL AND COALESCE(ps.enabled,1)=1 AND ${activityVisible}`,[job.id])).rows.length>0;
+   try{if(!await eligible()){await database.query("UPDATE tomi_activity SET push_state='obsolete',lease_until='' WHERE id=?",[job.id]);continue;}
+    const devices=(await database.query(`SELECT d.token_hash,d.token FROM tomi_push_devices d JOIN tomi_sessions s ON s.token_hash=d.session_hash AND s.user_id=d.user_id JOIN tomi_users u ON u.id=s.user_id AND u.auth_version=s.auth_version WHERE d.user_id=? AND s.expires_at>? AND NOT EXISTS(SELECT 1 FROM tomi_activity_push_receipts r WHERE r.activity_id=? AND r.token_hash=d.token_hash)`,[job.recipient_id,stamp(),job.id])).rows;
+    for(const device of devices){if(closed||!await eligible())break;const live=(await database.query('SELECT 1 FROM tomi_push_devices d JOIN tomi_sessions s ON s.token_hash=d.session_hash AND s.user_id=d.user_id WHERE d.token_hash=? AND d.token=? AND d.user_id=? AND s.expires_at>?',[device.token_hash,device.token,job.recipient_id,stamp()])).rows.length;if(!live)continue;const result=await sender({token:device.token,recipientId:job.recipient_id,activityId:job.id,notificationKind:job.kind});if(result==='invalid')await database.query('DELETE FROM tomi_push_devices WHERE token_hash=? AND token=? AND user_id=?',[device.token_hash,device.token,job.recipient_id]);else await database.query('INSERT INTO tomi_activity_push_receipts(activity_id,token_hash) VALUES(?,?) ON CONFLICT(activity_id,token_hash) DO NOTHING',[job.id,device.token_hash]);}
+    await database.query('UPDATE tomi_activity SET push_state=?,lease_until=? WHERE id=?',[closed?'pending':'sent','',job.id]);
+   }catch{const attempts=Number(job.attempts)+1;await database.query('UPDATE tomi_activity SET push_state=?,attempts=?,next_at=?,lease_until=? WHERE id=?',[attempts>=6?'failed':'pending',attempts,stamp(Math.min(300000,2**attempts*1000)),'',job.id]);}
+  }
+ }finally{activityRunning=false;}}
+ async function flush(){await Promise.all([flushCalls(),flushMessages(),flushActivity()]);await flushCancelledCalls();}
  const timer=configured&&autoFlush?setInterval(()=>void flush().catch(()=>console.error('Push worker deferred')),2000):null;timer?.unref();
  return{configured,handle,enqueue,enqueueCall,flush,close(){closed=true;if(timer)clearInterval(timer);},async cleanup(){await database.query("DELETE FROM tomi_call_push_cancel WHERE created_at<? AND state<>'pending'",[stamp(-7*86400000)]);await database.query("DELETE FROM tomi_call_push_outbox WHERE created_at<? AND state<>'pending'",[stamp(-7*86400000)]);await database.query("DELETE FROM tomi_push_outbox WHERE created_at<? AND state<>'pending'",[stamp(-7*86400000)]);await database.query('DELETE FROM tomi_avatar_requests WHERE created_at<?',[stamp(-30*86400000)]);}};
 }

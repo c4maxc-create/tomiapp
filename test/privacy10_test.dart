@@ -79,7 +79,7 @@ class PrivacyApi extends IdentityApi {
     }
     if (path == '/v1/privacy/documents')
       return {
-        'version': '2026-10-17',
+        'version': '2026-10-23',
         'publicationReady': false,
         'documents': [
           for (final title in [

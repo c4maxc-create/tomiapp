@@ -1,3 +1,4 @@
+import {createHome,recordActivity} from './home.mjs';
 import {createIdentity} from './identity.mjs';
 import {createModeration} from './moderation.mjs';
 import {createOperations} from './operations.mjs';
@@ -50,6 +51,7 @@ function json(response, status, data, headers = {}) {
 }
 
 const userSelect = `SELECT u.id, u.username, u.display_name, u.bio, u.avatar_preset, u.created_at${avatarColumns},
+ (SELECT MAX(s.expires_at) FROM tomi_stories s WHERE s.user_id=u.id AND s.expires_at>'1970-01-01T00:00:00.000Z') AS story_expires_at,
   (SELECT COUNT(*) FROM tomi_follows f WHERE f.following_id = u.id) AS followers_count,
   (SELECT COUNT(*) FROM tomi_follows f WHERE f.follower_id = u.id) AS following_count,
   (SELECT COUNT(*) FROM tomi_posts p WHERE p.user_id = u.id) AS posts_count,
@@ -61,6 +63,7 @@ function publicUser(row,storage) {
     id: row.id, username: row.username, displayName: row.display_name, bio: row.bio,
     avatarPreset: row.avatar_preset, ...avatarFields(row,storage), createdAt: row.created_at,
     followersCount: Number(row.followers_count), followingCount: Number(row.following_count),
+    storyExpiresAt: row.story_expires_at, hasStory: !!row.story_expires_at && row.story_expires_at>nowText(),
     postsCount: Number(row.posts_count), isFollowing: Number(row.is_following) > 0,
   };
 }
@@ -120,7 +123,8 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   }
 
   const identity=createIdentity({database,readJson,respond:json,limit,userById,usersByIds});
-  const social = createSocial({database, storage, readJson, respond: json, limit, userById, cleanupPrefix:chatStorage===storage?'tomi/':'tomi/posts/'});
+  const home=createHome({database,storage,readJson,respond:json,limit,userById});
+  const social = createSocial({database, storage, readJson, respond: json, limit, userById, cleanupPrefix:chatStorage===storage?'tomi/':'tomi/posts/',accountGate:requestGuard.gate});
   const chatMedia=chatStorage===storage?null:createSocial({database,storage:chatStorage,readJson,respond:json,limit,userById,cleanupPrefix:'tomi/chat-images/'});
   const avatars=createAvatars({database,storage,readJson,respond:json,limit,userById});
   const avatarMedia=chatStorage===storage?null:createSocial({database,storage,readJson,respond:json,limit,userById,cleanupPrefix:'tomi/avatars/'});
@@ -160,7 +164,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       if(privacy.handle(request,response,url))return;
       if (method === 'GET' && (path === '/health' || path === '/')) {
         await database.query('SELECT 1 AS ready');
-        json(response, 200, { status: 'ok', service: 'TOMI API', version: '1.0.0-beta.1' });
+        json(response, 200, { status: 'ok', service: 'TOMI API', version: '1.1.0-beta.1' });
         return;
       }
 
@@ -252,6 +256,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       if (await avatars.handle(request,response,url,current)) return;
       if (await push.handle(request,response,url,current)) return;
       if (await chat.handle(request,response,url,current)) return;
+      if (await home.handle(request,response,url,current)) return;
       if (await social.handle(request,response,url,current)) return;
 
       if (method === 'POST' && path === '/v1/auth/logout') {
@@ -346,8 +351,9 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
           if((await db.query('SELECT 1 FROM tomi_deleted_accounts WHERE user_id=?',[target])).rows.length)throw new ApiError(410,'ACCOUNT_DELETED','حُذف الحساب ولا يمكن متابعته.');
           await userById(target, current.id, db);
           if (data.follow) {
-            await db.query(`INSERT INTO tomi_follows (follower_id, following_id, created_at)
-              VALUES (?, ?, ?) ON CONFLICT (follower_id, following_id) DO NOTHING`, [current.id, target, nowText()]);
+            const inserted=await db.query(`INSERT INTO tomi_follows (follower_id, following_id, created_at)
+              VALUES (?, ?, ?) ON CONFLICT (follower_id, following_id) DO NOTHING RETURNING follower_id`, [current.id, target, nowText()]);
+            if(inserted.rows.length)await recordActivity(db,{recipientId:target,actorId:current.id,kind:'follow',targetId:current.id,sourceKey:'follow:'+current.id+':'+target},requestGuard.gate);
           } else {
             await db.query('DELETE FROM tomi_follows WHERE follower_id = ? AND following_id = ?', [current.id, target]);
           }
@@ -370,7 +376,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       }
     }
   });
-  server.cleanupMedia = async()=>{await social.cleanup();if(chatMedia)await chatMedia.cleanup();if(avatarMedia)await avatarMedia.cleanup();await chat.cleanup();await push.cleanup();await calls.cleanup();};
+  server.cleanupMedia = async()=>{await home.cleanup();await social.cleanup();if(chatMedia)await chatMedia.cleanup();if(avatarMedia)await avatarMedia.cleanup();await chat.cleanup();await push.cleanup();await calls.cleanup();};
   server.flushPush=push.flush;
   server.sweepDeletions=deletion.sweep;
   server.sweepCalls=calls.sweep;

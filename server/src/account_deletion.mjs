@@ -56,9 +56,14 @@ export function createAccountDeletion({database,guard,ownerUserId,readJson,respo
       await db.query("UPDATE tomi_reports SET description='',snapshot='{}',review_note='',public_message='حُذفت بيانات الهدف',status='resolved',revision=revision+1,updated_at=? WHERE subject_user_id=?",[now(),row.id]);
       await db.query("UPDATE tomi_reports SET review_note='',public_message='',reviewer_id=NULL,revision=revision+1,updated_at=? WHERE reviewer_id=?",[now(),row.id]);
       await db.query('DELETE FROM tomi_content_moderation WHERE target_type=\'post\' AND target_id IN(SELECT id FROM tomi_posts WHERE user_id=?)',[row.id]);
+      await db.query('DELETE FROM tomi_stories WHERE user_id=?',[row.id]);
+      await db.query('DELETE FROM tomi_story_views WHERE user_id=?',[row.id]);
+      await db.query('DELETE FROM tomi_story_receipts WHERE user_id=?',[row.id]);
+      await db.query('DELETE FROM tomi_activity WHERE recipient_id=? OR actor_id=?',[row.id,row.id]);
       await db.query('DELETE FROM tomi_posts WHERE user_id=?',[row.id]);
       await db.query('DELETE FROM tomi_comments WHERE user_id=?',[row.id]);
       await db.query('DELETE FROM tomi_post_likes WHERE user_id=?',[row.id]);
+      await db.query('DELETE FROM tomi_post_saves WHERE user_id=?',[row.id]);
       await db.query('DELETE FROM tomi_post_receipts WHERE user_id=?',[row.id]);
       for(const table of ['tomi_chat_audio','tomi_chat_video'])await db.query('DELETE FROM '+table+' WHERE message_id IN(SELECT id FROM tomi_chat_messages WHERE sender_id=?)',[row.id]);
       await db.query('DELETE FROM tomi_chat_pins WHERE pinned_by=? OR message_id IN(SELECT id FROM tomi_chat_messages WHERE sender_id=?)',[row.id,row.id]);

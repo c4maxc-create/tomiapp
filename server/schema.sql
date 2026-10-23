@@ -468,3 +468,42 @@ CREATE TABLE IF NOT EXISTS tomi_policy_acceptances (
  user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,
  policy_version TEXT NOT NULL,accepted_at TEXT NOT NULL
 );
+
+-- 1.1: expiring stories and a persistent social activity inbox. Additive upgrade.
+CREATE TABLE IF NOT EXISTS tomi_stories (
+ id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ request_id TEXT NOT NULL,body TEXT NOT NULL,
+ image_upload_id TEXT UNIQUE REFERENCES tomi_image_uploads(id),
+ video_upload_id TEXT UNIQUE REFERENCES tomi_video_uploads(id),
+ created_at TEXT NOT NULL,expires_at TEXT NOT NULL,UNIQUE(user_id,request_id),
+ CHECK(image_upload_id IS NULL OR video_upload_id IS NULL)
+);
+CREATE INDEX IF NOT EXISTS tomi_stories_user ON tomi_stories(user_id,expires_at,created_at,id);
+CREATE INDEX IF NOT EXISTS tomi_stories_expiry ON tomi_stories(expires_at);
+CREATE TABLE IF NOT EXISTS tomi_story_views (
+ story_id TEXT NOT NULL REFERENCES tomi_stories(id) ON DELETE CASCADE,
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ viewed_at TEXT NOT NULL,PRIMARY KEY(story_id,user_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_story_receipts (
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,request_id TEXT NOT NULL,
+ story_id TEXT NOT NULL,payload_hash TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(user_id,request_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_activity (
+ id TEXT PRIMARY KEY,recipient_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ actor_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ kind TEXT NOT NULL CHECK(kind IN('follow','like','comment')),target_id TEXT NOT NULL,
+ dedupe_key TEXT NOT NULL UNIQUE,created_at TEXT NOT NULL,read_at TEXT,
+ push_state TEXT NOT NULL DEFAULT 'pending',next_at TEXT NOT NULL,lease_until TEXT NOT NULL DEFAULT '',attempts INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS tomi_activity_page ON tomi_activity(recipient_id,created_at,id);
+CREATE INDEX IF NOT EXISTS tomi_activity_pending ON tomi_activity(push_state,next_at);
+CREATE TABLE IF NOT EXISTS tomi_activity_push_receipts (
+ activity_id TEXT NOT NULL REFERENCES tomi_activity(id) ON DELETE CASCADE,
+ token_hash TEXT NOT NULL,PRIMARY KEY(activity_id,token_hash)
+);
+CREATE TABLE IF NOT EXISTS tomi_post_saves (
+ post_id TEXT NOT NULL REFERENCES tomi_posts(id) ON DELETE CASCADE,
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,created_at TEXT NOT NULL,
+ PRIMARY KEY(post_id,user_id)
+);
