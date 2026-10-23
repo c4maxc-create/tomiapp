@@ -1,0 +1,175 @@
+00:00 +0: loading /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/room_features_test.dart
+00:00 +0: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/room_features_test.dart: uncertain gift retries reuse the same request id and confirmed response updates wallet
+00:00 +1: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/room_features_test.dart: late gift response after leaving cannot change a newer wallet or recreate room membership
+00:00 +2: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/room_features_test.dart: accepting a special-seat invitation never starts microphone capture
+00:00 +3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/room_features_test.dart: gallery handoff mutes capture and returning does not unmute; normal background still leaves
+00:00 +4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/room_features_test.dart: leaving during gift loading releases loading state and a late response cannot overwrite a new room
+00:00 +5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+00:00 +5 ~1: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+00:00 +5 ~2: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+00:00 +6 ~2: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+00:00 +7 ~2: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+00:00 +8 ~2: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+00:00 +9 ~2: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+00:00 +10 ~2: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+00:01 +11 ~2: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+00:01 +11 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+00:01 +12 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/messaging10_test.dart: a pending video play cannot resume after a background interruption
+00:01 +13 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:01 +14 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:01 +15 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +16 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +17 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +18 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +19 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +20 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +21 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +22 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +23 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +24 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +25 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +26 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +27 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +28 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +29 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +30 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +31 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +32 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +33 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +34 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +35 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +36 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:02 +37 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/messaging10_test.dart: the post sheet saves on close and restores editable text when reopened
+00:02 +38 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/messaging10_test.dart: the post sheet saves on close and restores editable text when reopened
+00:02 +39 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/messaging10_test.dart: the post sheet saves on close and restores editable text when reopened
+00:02 +40 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/messaging10_test.dart: the post sheet saves on close and restores editable text when reopened
+00:02 +41 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/messaging10_test.dart: the post sheet saves on close and restores editable text when reopened
+00:02 +42 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/messaging10_test.dart: the post sheet saves on close and restores editable text when reopened
+00:02 +43 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/messaging10_test.dart: the post sheet saves on close and restores editable text when reopened
+00:03 +44 ~3: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +44 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +45 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +46 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +47 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +48 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +49 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +50 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +51 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +52 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +53 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +54 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +55 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +56 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +57 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +58 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +59 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +60 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +61 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:04 +62 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:04 +63 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:05 +64 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:05 +65 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/identity11_test.dart: identity studio locks unavailable styles and saves available choices at compact size
+00:05 +66 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/rooms_test.dart: room UI fits narrow Arabic screen and 2x text with working request and leave controls
+00:05 +67 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/rooms_test.dart: room UI fits narrow Arabic screen and 2x text with working request and leave controls
+00:05 +68 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(800.0, 420.0)
+00:05 +69 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(800.0, 420.0)
+00:05 +70 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(800.0, 420.0)
+00:05 +71 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(800.0, 420.0)
+00:05 +72 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(800.0, 420.0)
+00:05 +73 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: five tabs fit viewport Size(800.0, 420.0)
+00:05 +74 ~4: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:06 +74 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:06 +75 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:06 +76 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +77 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +78 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +79 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +80 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +81 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +82 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +83 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +84 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +85 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +86 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +87 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +88 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +89 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +90 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +91 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +92 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/preview_test.dart: composer publishes a local text post
+00:06 +93 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/social_test.dart: real feed, likes and comments fit enlarged text on Size(320.0, 640.0)
+00:07 +94 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:07 +95 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:07 +96 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:07 +97 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:07 +98 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:07 +99 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:07 +100 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:07 +101 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:07 +102 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:07 +103 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:07 +104 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:07 +105 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:07 +106 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:07 +107 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:07 +108 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:08 +109 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:08 +110 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:08 +111 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:08 +112 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:08 +113 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/calls_test.dart: incoming and video screens fit 320px with enlarged Arabic text
+00:08 +114 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/calls_test.dart: incoming and video screens fit 320px with enlarged Arabic text
+00:08 +115 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/calls_test.dart: incoming and video screens fit 320px with enlarged Arabic text
+00:08 +116 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/calls_test.dart: incoming and video screens fit 320px with enlarged Arabic text
+00:08 +117 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/calls_test.dart: incoming and video screens fit 320px with enlarged Arabic text
+00:08 +118 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/calls_test.dart: incoming and video screens fit 320px with enlarged Arabic text
+00:08 +119 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/calls_test.dart: incoming and video screens fit 320px with enlarged Arabic text
+00:08 +120 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/calls_test.dart: incoming and video screens fit 320px with enlarged Arabic text
+00:08 +121 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/calls_test.dart: incoming and video screens fit 320px with enlarged Arabic text
+00:08 +122 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/calls_test.dart: incoming and video screens fit 320px with enlarged Arabic text
+00:08 +123 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: admin tabs, status filters and metrics fit a compact Arabic screen
+00:08 +124 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: admin tabs, status filters and metrics fit a compact Arabic screen
+00:08 +125 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: admin tabs, status filters and metrics fit a compact Arabic screen
+00:08 +126 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: admin tabs, status filters and metrics fit a compact Arabic screen
+00:08 +127 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: admin tabs, status filters and metrics fit a compact Arabic screen
+00:08 +128 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: admin tabs, status filters and metrics fit a compact Arabic screen
+00:08 +129 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: admin tabs, status filters and metrics fit a compact Arabic screen
+00:08 +130 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: admin tabs, status filters and metrics fit a compact Arabic screen
+00:08 +131 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/moderation12_test.dart: admin tabs, status filters and metrics fit a compact Arabic screen
+00:08 +132 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:08 +133 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:08 +134 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:09 +135 ~5: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:09 +135 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:10 +136 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:10 +137 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:10 +138 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:10 +139 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+00:10 +140 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+00:10 +141 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+00:10 +142 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+00:10 +143 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+00:10 +144 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+00:10 +145 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+00:10 +146 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+00:10 +147 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+00:10 +148 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+00:10 +149 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+00:10 +150 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:10 +151 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:10 +152 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:10 +153 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:10 +154 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:10 +155 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:10 +156 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:10 +157 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:11 +158 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:11 +159 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:11 +160 ~6: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:11 +160 ~7: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:11 +161 ~7: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/home11_test.dart: home saving uses the authenticated endpoint
+00:12 +162 ~7: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:12 +163 ~7: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/accounts_widget_test.dart: profile edit waits for server success and keeps text when username is taken
+00:13 +164 ~7: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/accounts_widget_test.dart: late search responses cannot replace a newer query result
+00:13 +165 ~7: /workspace/scratch/a6e9eb31b351/tomi_11_widget_fix_work/test/accounts_widget_test.dart: expired session removes pushed account pages and returns to login
+00:14 +166 ~7: All tests passed!

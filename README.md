@@ -1,6 +1,6 @@
 # TOMI 1.1 — home, stories and profile
 
-App1.1.0-beta.1+15 / API1.1.0-beta.1. This update implements the supplied home/profile references:24h image/video/text stories, full-screen story navigation and real rings, edge-to-edge posts with inline video, saved posts, follower lists and a3-column profile grid. A persistent activity inbox and foreground/background push paths replace the old notification placeholder. Profile menu links settings and the four upcoming subscription services; pricing/payment is deferred.
+App1.1.0-beta.1+16 / API1.1.0-beta.1. This update implements the supplied home/profile references:24h image/video/text stories, full-screen story navigation and real rings, edge-to-edge posts with inline video, saved posts, follower lists and a3-column profile grid. A persistent activity inbox and foreground/background push paths replace the old notification placeholder. Profile menu links settings and the four upcoming subscription services; pricing/payment is deferred.
 
 Start with **START_HERE_AR.md**, **HOME_PROFILE_1.1_AR.md** and **VALIDATION-1.1.md**. Upload the full source and update the existing API before building the app. Source-only delivery: Flutter analysis/build, PostgreSQL and device acceptance run in GitHub/phones. The current workflow preserves the earlier CI fixes and enables the new home contract. Flutter dependency versions are unchanged; schema upgrade is additive.
 

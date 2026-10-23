@@ -1,0 +1,13 @@
+Changed lib/main.dart
+Changed lib/src/accounts/account_controller.dart
+Changed lib/src/chat.dart
+Changed lib/src/games.dart
+Changed lib/src/home.dart
+Changed lib/src/model.dart
+Changed lib/src/rooms.dart
+Changed lib/src/widgets.dart
+Changed test/account_controller_test.dart
+Changed test/account_fakes.dart
+Changed test/rooms_test.dart
+Changed test/store_test.dart
+Formatted 87 files (12 changed) in 0.84 seconds.
