@@ -1,4 +1,4 @@
-name: TOMI 1.0.0-beta.1 Android
+name: TOMI 1.1.0-beta.1 Android
 
 "on":
   workflow_dispatch:
@@ -77,7 +77,7 @@ jobs:
         run: node server/test/pg-restore-drill.mjs
 
   android:
-    name: Build TOMI 1.0.0-beta.1 APK
+    name: Build TOMI 1.1.0-beta.1 APK
     needs: accounts-api
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -167,7 +167,8 @@ jobs:
           TOMI_IDENTITY_INTEGRATION: '1'
           TOMI_MODERATION_INTEGRATION: '1'
           TOMI_PRIVACY_INTEGRATION: '1'
-        run: flutter test --no-pub test/call_api_integration_test.dart test/room_api_integration_test.dart test/messaging_api_integration_test.dart test/identity_api_integration_test.dart test/moderation_api_integration_test.dart test/privacy_api_integration_test.dart --reporter expanded
+          TOMI_HOME_INTEGRATION: '1'
+        run: flutter test --no-pub test/call_api_integration_test.dart test/room_api_integration_test.dart test/messaging_api_integration_test.dart test/identity_api_integration_test.dart test/moderation_api_integration_test.dart test/privacy_api_integration_test.dart test/home_api_integration_test.dart --reporter expanded
 
       - name: Check signed beta deployment and phone acceptance
         if: inputs.distribution == 'signed_beta'
@@ -195,7 +196,7 @@ jobs:
             --dart-define="TOMI_PREVIEW_MODE=$TOMI_PREVIEW_MODE" \
             --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED"
           mkdir -p output
-          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-1.0.0-beta.1.apk
+          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-1.1.0-beta.1.apk
 
       - name: Build signed beta APK and AAB
         if: inputs.distribution == 'signed_beta'
@@ -216,8 +217,8 @@ jobs:
             --dart-define="TOMI_PREVIEW_MODE=false" \
             --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED"
           mkdir -p output
-          cp build/app/outputs/flutter-apk/app-release.apk output/TOMI-1.0.0-beta.1.apk
-          cp build/app/outputs/bundle/release/app-release.aab output/TOMI-1.0.0-beta.1.aab
+          cp build/app/outputs/flutter-apk/app-release.apk output/TOMI-1.1.0-beta.1.apk
+          cp build/app/outputs/bundle/release/app-release.aab output/TOMI-1.1.0-beta.1.aab
 
       - name: Verify release signatures and artifact hashes
         if: inputs.distribution == 'signed_beta'
@@ -232,7 +233,7 @@ jobs:
       - name: Upload verified TOMI artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: TOMI-1.0-beta1-${{ inputs.distribution }}
+          name: TOMI-1.1-beta1-${{ inputs.distribution }}
           path: output/
           if-no-files-found: error
           retention-days: 7
