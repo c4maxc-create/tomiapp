@@ -1,3 +1,4 @@
+import {eraseChatExtras} from './chat_extras.mjs';
 import {ApiError,digest,newToken,validateUsername,verifyPassword,isUniqueConflict} from './security.mjs';
 
 const day=86400000,uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
@@ -72,6 +73,7 @@ export function createAccountDeletion({database,guard,ownerUserId,readJson,respo
       await db.query('DELETE FROM tomi_chat_reactions WHERE user_id=?',[row.id]);
       await db.query('UPDATE tomi_chat_members SET last_read_seq=0,visible=0 WHERE user_id=?',[row.id]);
       await db.query('DELETE FROM tomi_push_outbox WHERE recipient_id=? OR message_id IN(SELECT id FROM tomi_chat_messages WHERE sender_id=?)',[row.id,row.id]);
+      await eraseChatExtras(db,row.id,now);
       await db.query('DELETE FROM tomi_user_avatars WHERE user_id=?',[row.id]);
       await db.query('UPDATE tomi_room_options SET image_upload_id=NULL WHERE image_upload_id IN(SELECT id FROM tomi_image_uploads WHERE user_id=?)',[row.id]);
       await db.query("UPDATE tomi_room_options SET announcement='',password_hash=NULL,category='الأصدقاء',mode='عادي',picture='headphones' WHERE room_id IN(SELECT id FROM tomi_voice_rooms WHERE owner_id=?)",[row.id]);

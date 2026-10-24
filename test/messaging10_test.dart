@@ -265,6 +265,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byTooltip('إلغاء الرد'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('private-chat-attachment')));
+      await tester.pumpAndSettle();
       expect(find.byKey(const Key('private-chat-video')), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());

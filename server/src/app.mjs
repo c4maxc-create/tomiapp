@@ -9,6 +9,8 @@ import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { createSocial } from './social.mjs';
 import { createChat } from './chat.mjs';
+import {createGroups} from './groups.mjs';
+import {createPrivateMedia} from './chat_extras.mjs';
 import {createAvatars,avatarJoins,avatarColumns,avatarFields} from './avatars.mjs';
 import {createPush} from './push.mjs';
 import {createCalls} from './calls.mjs';
@@ -129,7 +131,9 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   const avatars=createAvatars({database,storage,readJson,respond:json,limit,userById});
   const avatarMedia=chatStorage===storage?null:createSocial({database,storage,readJson,respond:json,limit,userById,cleanupPrefix:'tomi/avatars/'});
   const push=createPush({database,sender:pushSender,autoFlush:pushAutoFlush,readJson,respond:json,limit});
-  const chat=createChat({database,storage:chatStorage,avatarStorage:storage,readJson,respond:json,limit,userById,enqueuePush:push.enqueue,accountGate:requestGuard.gate});
+  const privateMedia=createPrivateMedia({database,storage:chatStorage});
+  const groups=createGroups({database,storage:chatStorage,avatarStorage:storage,media:privateMedia,readJson,respond:json,limit,accountGate:requestGuard.gate,emit:(...args)=>chat.emit(...args),enqueuePush:push.enqueueGroup});
+  const chat=createChat({groups,privateMedia,database,storage:chatStorage,avatarStorage:storage,readJson,respond:json,limit,userById,enqueuePush:push.enqueue,accountGate:requestGuard.gate});
   const rooms=createVoiceRooms({database,provider:roomProvider,storage,readJson,respond:json,limit,usersByIds,autoSweep:roomAutoSweep});
   const calls=createCalls({database,iceProvider,readJson,respond:json,limit,userById,emit:chat.emit,enqueuePush:push.enqueueCall,autoSweep:callAutoSweep});
   const operations=createOperations();
@@ -164,7 +168,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       if(privacy.handle(request,response,url))return;
       if (method === 'GET' && (path === '/health' || path === '/')) {
         await database.query('SELECT 1 AS ready');
-        json(response, 200, { status: 'ok', service: 'TOMI API', version: '1.1.0-beta.1' });
+        json(response, 200, { status: 'ok', service: 'TOMI API', version: '1.2.0-beta.1' });
         return;
       }
 
@@ -255,6 +259,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       if (await calls.handle(request,response,url,current)) return;
       if (await avatars.handle(request,response,url,current)) return;
       if (await push.handle(request,response,url,current)) return;
+      if (await groups.handle(request,response,url,current)) return;
       if (await chat.handle(request,response,url,current)) return;
       if (await home.handle(request,response,url,current)) return;
       if (await social.handle(request,response,url,current)) return;

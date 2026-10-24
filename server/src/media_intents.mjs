@@ -10,8 +10,8 @@ export async function uploadWithDigest(db,u,expected){
 }
 export async function prepareIntent({database,viewer,scope,table,d,create,storage}){
  validateMediaIntent(d);
- if(!['tomi_image_uploads','tomi_audio_uploads','tomi_video_uploads'].includes(table))throw Error('MEDIA_TABLE');
- const fingerprint=digest(JSON.stringify([scope,d.contentType,d.byteLength,d.contentMd5,d.durationMs??null,d.contentSha256??null]));
+ if(!['tomi_image_uploads','tomi_audio_uploads','tomi_video_uploads','tomi_private_uploads'].includes(table))throw Error('MEDIA_TABLE');
+ const fingerprint=digest(JSON.stringify([scope,d.contentType,d.byteLength,d.contentMd5,d.durationMs??null,d.contentSha256??null,...d.fileName?[d.fileName]:[]]));
  const u=await database.transaction(async db=>{
   await db.query('UPDATE tomi_users SET updated_at=updated_at WHERE id=? RETURNING id',[viewer]);
   const old=d.requestId?(await db.query('SELECT * FROM tomi_media_intents WHERE user_id=? AND request_id=?',[viewer,d.requestId])).rows[0]:null;

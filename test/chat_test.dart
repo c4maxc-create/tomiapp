@@ -434,6 +434,7 @@ void main() {
         find.byKey(const Key('private-chat-input')),
         'مرحبا',
       );
+      await tester.pump();
       await tester.tap(find.byKey(const Key('private-chat-send')));
       await tester.pumpAndSettle();
       expect(api.rows.last['text'], 'مرحبا');
@@ -469,6 +470,7 @@ void main() {
       find.byKey(const Key('private-chat-input')),
       'retry',
     );
+    await tester.pump();
     await tester.tap(find.byKey(const Key('private-chat-send')));
     await tester.pumpAndSettle();
     expect(find.text('إعادة المحاولة'), findsOneWidget);
@@ -558,6 +560,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+      await tester.pump();
       await tester.tap(find.byKey(const Key('private-chat-send')));
       await tester.pumpAndSettle();
       expect(api.rows.length, 1);

@@ -507,3 +507,62 @@ CREATE TABLE IF NOT EXISTS tomi_post_saves (
  user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,created_at TEXT NOT NULL,
  PRIMARY KEY(post_id,user_id)
 );
+
+-- Additive1.2: private documents, built-in stickers and independently owned groups.
+CREATE TABLE IF NOT EXISTS tomi_private_uploads (
+ id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ thread_id TEXT NOT NULL,kind TEXT NOT NULL CHECK(kind IN('image','audio','video','file')),
+ object_key TEXT NOT NULL UNIQUE,content_type TEXT NOT NULL,byte_length INTEGER NOT NULL,
+ content_md5 TEXT NOT NULL,file_name TEXT,duration_ms INTEGER,width INTEGER,height INTEGER,
+ state TEXT NOT NULL DEFAULT 'pending' CHECK(state IN('pending','attached','deleting')),
+ created_at TEXT NOT NULL,expires_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tomi_private_upload_expiry ON tomi_private_uploads(state,expires_at);
+CREATE TABLE IF NOT EXISTS tomi_chat_documents (
+ message_id TEXT PRIMARY KEY REFERENCES tomi_chat_messages(id) ON DELETE CASCADE,
+ upload_id TEXT NOT NULL UNIQUE REFERENCES tomi_private_uploads(id)
+);
+CREATE TABLE IF NOT EXISTS tomi_chat_stickers (
+ message_id TEXT PRIMARY KEY REFERENCES tomi_chat_messages(id) ON DELETE CASCADE,sticker_id TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tomi_groups (
+ id TEXT PRIMARY KEY,owner_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ creator_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ title TEXT NOT NULL,request_id TEXT NOT NULL,payload_hash TEXT NOT NULL,
+ next_seq BIGINT NOT NULL DEFAULT 0,revision INTEGER NOT NULL DEFAULT 0,
+ pinned_message_id TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,
+ UNIQUE(creator_id,request_id)
+);
+CREATE INDEX IF NOT EXISTS tomi_groups_recent ON tomi_groups(updated_at,id);
+CREATE TABLE IF NOT EXISTS tomi_group_members (
+ group_id TEXT NOT NULL REFERENCES tomi_groups(id) ON DELETE CASCADE,
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ last_read_seq BIGINT NOT NULL DEFAULT 0,joined_seq BIGINT NOT NULL DEFAULT 0,joined_at TEXT NOT NULL,left_at TEXT,
+ PRIMARY KEY(group_id,user_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_group_messages (
+ id TEXT PRIMARY KEY,group_id TEXT NOT NULL REFERENCES tomi_groups(id) ON DELETE CASCADE,
+ sender_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ sequence BIGINT NOT NULL,request_id TEXT NOT NULL,payload_hash TEXT NOT NULL,body TEXT NOT NULL,
+ upload_id TEXT UNIQUE REFERENCES tomi_private_uploads(id),sticker_id TEXT,reply_to_id TEXT,
+ revision INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL,deleted_at TEXT,
+ UNIQUE(group_id,sequence),UNIQUE(sender_id,request_id)
+);
+CREATE INDEX IF NOT EXISTS tomi_group_history ON tomi_group_messages(group_id,sequence);
+CREATE TABLE IF NOT EXISTS tomi_group_reactions (
+ message_id TEXT NOT NULL REFERENCES tomi_group_messages(id) ON DELETE CASCADE,
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,emoji TEXT NOT NULL,
+ PRIMARY KEY(message_id,user_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_group_push (
+ message_id TEXT NOT NULL REFERENCES tomi_group_messages(id) ON DELETE CASCADE,
+ recipient_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ group_id TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'pending',attempts INTEGER NOT NULL DEFAULT 0,
+ next_at TEXT NOT NULL,lease_until TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL,
+ PRIMARY KEY(message_id,recipient_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_group_push_receipts (
+ message_id TEXT NOT NULL,recipient_id TEXT NOT NULL,token_hash TEXT NOT NULL,
+ PRIMARY KEY(message_id,recipient_id,token_hash),
+ FOREIGN KEY(message_id,recipient_id) REFERENCES tomi_group_push(message_id,recipient_id) ON DELETE CASCADE
+);

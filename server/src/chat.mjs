@@ -7,6 +7,7 @@ import {maxAudioBytes,maxAudioDurationMs} from './audio.mjs';
 import {cleanupVideos,maxVideoBytes} from './video.mjs';
 import {prepareIntent,uploadWithDigest} from './media_intents.mjs';
 import {createChatTools} from './chat_tools.mjs';
+import {stickerIds} from './chat_extras.mjs';
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const now=()=>new Date().toISOString();
 const fail=(status,code,message)=>{throw new ApiError(status,code,message);};
@@ -15,23 +16,23 @@ const fields=(d,allowed)=>{if(Object.keys(d).some(k=>!allowed.includes(k)))fail(
 const integer=v=>{if(!Number.isSafeInteger(v)||v<0)fail(400,'VALIDATION','رقم الرسالة غير صحيح.');return v;};
 function pageNumber(url,key,fallback,max=Number.MAX_SAFE_INTEGER){const v=url.searchParams.get(key);if(v===null)return fallback;if(!/^\d{1,16}$/.test(v)||Number(v)>max)fail(400,'VALIDATION','الصفحة غير صحيحة.');return integer(Number(v));}
 const threads=`SELECT t.*,(SELECT p.message_id FROM tomi_chat_pins p WHERE p.thread_id=t.id) AS pinned_message_id,COALESCE((SELECT f.revision FROM tomi_chat_features f WHERE f.thread_id=t.id),0) AS features_revision,self.last_read_seq,pm.last_read_seq AS peer_read_seq,u.id AS peer_id,u.username,u.display_name,u.avatar_preset${avatarColumns},
- EXISTS(SELECT 1 FROM tomi_chat_video v WHERE v.message_id=lm.id) AS last_video,lm.body AS last_body,lm.image_upload_id AS last_image,EXISTS(SELECT 1 FROM tomi_chat_audio a WHERE a.message_id=lm.id) AS last_audio,lm.deleted_at AS last_deleted,lm.created_at AS last_created,lm.sender_id AS last_sender,
+ EXISTS(SELECT 1 FROM tomi_chat_video v WHERE v.message_id=lm.id) AS last_video,EXISTS(SELECT 1 FROM tomi_chat_stickers st WHERE st.message_id=lm.id) AS last_sticker,EXISTS(SELECT 1 FROM tomi_chat_documents doc WHERE doc.message_id=lm.id) AS last_file,lm.body AS last_body,lm.image_upload_id AS last_image,EXISTS(SELECT 1 FROM tomi_chat_audio a WHERE a.message_id=lm.id) AS last_audio,lm.deleted_at AS last_deleted,lm.created_at AS last_created,lm.sender_id AS last_sender,
  (SELECT COUNT(*) FROM tomi_chat_messages x WHERE x.thread_id=t.id AND x.sender_id<>self.user_id AND x.sequence>self.last_read_seq AND x.deleted_at IS NULL) AS unread_count,
  (SELECT COUNT(*) FROM tomi_user_blocks b WHERE b.blocker_id=self.user_id AND b.blocked_id=u.id) AS blocked_by_me,
  ((SELECT COUNT(*) FROM tomi_user_blocks b WHERE b.blocker_id=u.id AND b.blocked_id=self.user_id)+(SELECT COUNT(*) FROM tomi_deleted_accounts d WHERE d.user_id=u.id)) AS blocked_by_peer
  FROM tomi_chat_threads t JOIN tomi_chat_members self ON self.thread_id=t.id AND self.user_id=?
  JOIN tomi_chat_members pm ON pm.thread_id=t.id AND pm.user_id<>self.user_id JOIN tomi_users u ON u.id=pm.user_id
  ${avatarJoins} LEFT JOIN tomi_chat_messages lm ON lm.thread_id=t.id AND lm.sequence=t.next_seq `;
-const messages=`SELECT m.*,COALESCE(meta.revision,0) AS meta_revision,u.username,u.display_name,u.avatar_preset,media.object_key,media.width,media.height,audio.object_key AS audio_key,audio.duration_ms,video.object_key AS video_key,video.width AS video_width,video.height AS video_height,video.duration_ms AS video_duration${avatarColumns}
- FROM tomi_chat_messages m JOIN tomi_users u ON u.id=m.sender_id LEFT JOIN tomi_chat_message_meta meta ON meta.message_id=m.id LEFT JOIN tomi_image_uploads media ON media.id=m.image_upload_id LEFT JOIN tomi_chat_audio ca ON ca.message_id=m.id LEFT JOIN tomi_audio_uploads audio ON audio.id=ca.upload_id LEFT JOIN tomi_chat_video cv ON cv.message_id=m.id LEFT JOIN tomi_video_uploads video ON video.id=cv.upload_id ${avatarJoins} `;
-export function createChat({database,storage,avatarStorage=storage,readJson,respond,limit,userById,enqueuePush=async()=>{},accountGate=async()=>{}}){
+const messages=`SELECT m.*,COALESCE(meta.revision,0) AS meta_revision,u.username,u.display_name,u.avatar_preset,doc.file_name AS document_name,doc.byte_length AS document_bytes,doc.object_key AS document_key,sticker.sticker_id,media.object_key,media.width,media.height,audio.object_key AS audio_key,audio.duration_ms,video.object_key AS video_key,video.width AS video_width,video.height AS video_height,video.duration_ms AS video_duration${avatarColumns}
+ FROM tomi_chat_messages m JOIN tomi_users u ON u.id=m.sender_id LEFT JOIN tomi_chat_documents cd ON cd.message_id=m.id LEFT JOIN tomi_private_uploads doc ON doc.id=cd.upload_id LEFT JOIN tomi_chat_stickers sticker ON sticker.message_id=m.id LEFT JOIN tomi_chat_message_meta meta ON meta.message_id=m.id LEFT JOIN tomi_image_uploads media ON media.id=m.image_upload_id LEFT JOIN tomi_chat_audio ca ON ca.message_id=m.id LEFT JOIN tomi_audio_uploads audio ON audio.id=ca.upload_id LEFT JOIN tomi_chat_video cv ON cv.message_id=m.id LEFT JOIN tomi_video_uploads video ON video.id=cv.upload_id ${avatarJoins} `;
+export function createChat({database,storage,avatarStorage=storage,readJson,respond,limit,userById,enqueuePush=async()=>{},accountGate=async()=>{},groups,privateMedia}){
  let realtime;
  const threadJson=(r,viewer)=>({id:r.id,peer:{id:r.peer_id,username:r.username,displayName:r.display_name,avatarPreset:r.avatar_preset,...avatarFields(r,avatarStorage)},updatedAt:r.updated_at,
   unreadCount:Number(r.unread_count),sequence:Number(r.next_seq),myReadSequence:Number(r.last_read_seq),peerReadSequence:Number(r.peer_read_seq),
-  lastMessage:r.last_created?(r.last_deleted?'تم حذف الرسالة':r.last_body||(Number(r.last_audio)?'🎤 رسالة صوتية':Number(r.last_video)?'🎬 فيديو':'📷 صورة')):'',lastMessageAt:r.last_created||null,lastMessageIsMine:r.last_sender===viewer,
+  lastMessage:r.last_created?(r.last_deleted?'تم حذف الرسالة':r.last_body||(Number(r.last_sticker)?'ملصق':Number(r.last_file)?'📎 مستند':Number(r.last_audio)?'🎤 رسالة صوتية':Number(r.last_video)?'🎬 فيديو':'📷 صورة')):'',lastMessageAt:r.last_created||null,lastMessageIsMine:r.last_sender===viewer,fileUploadEnabled:!!storage,
   blockedByMe:Number(r.blocked_by_me)>0,blockedByPeer:Number(r.blocked_by_peer)>0,imageUploadEnabled:!!storage,audioUploadEnabled:!!storage,videoUploadEnabled:!!storage,pinnedMessageId:r.pinned_message_id??null,featuresRevision:Number(r.features_revision??0)});
  const messageJson=(r,viewer)=>({id:r.id,conversationId:r.thread_id,sequence:Number(r.sequence),requestId:r.sender_id===viewer?r.request_id:null,
-  ...r.extra,text:r.deleted_at?'':r.body,createdAt:r.created_at,deleted:!!r.deleted_at,isMine:r.sender_id===viewer,
+  ...r.extra,stickerId:r.deleted_at?null:r.sticker_id??null,file:!r.deleted_at&&r.document_key?{url:storage?.privateReadUrl(r.document_key)??null,name:r.document_name,byteLength:Number(r.document_bytes)}:null,text:r.deleted_at?'':r.body,createdAt:r.created_at,deleted:!!r.deleted_at,isMine:r.sender_id===viewer,
   author:{id:r.sender_id,username:r.username,displayName:r.display_name,avatarPreset:r.avatar_preset,...avatarFields(r,avatarStorage)},
   video:!r.deleted_at&&r.video_key?{url:storage?.privateReadUrl(r.video_key)??null,width:Number(r.video_width),height:Number(r.video_height),durationMs:Number(r.video_duration)}:null,
   audio:!r.deleted_at&&r.audio_key?{url:storage?.privateReadUrl(r.audio_key)??null,durationMs:Number(r.duration_ms)}:null,
@@ -51,12 +52,12 @@ export function createChat({database,storage,avatarStorage=storage,readJson,resp
   if(method==='GET'&&path==='/v1/chats'){
    const size=pageNumber(url,'limit',30,50);if(!size)fail(400,'VALIDATION','حجم الصفحة غير صحيح.');
    const values=[viewer],conditions=['self.visible=1'],raw=url.searchParams.get('cursor');
-   if(raw){let cursor;try{if(raw.length>200)throw Error();cursor=JSON.parse(Buffer.from(raw,'base64url').toString());if(!uuid.test(cursor.id)||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(cursor.time)||!Number.isFinite(Date.parse(cursor.time)))throw Error();}catch{fail(400,'VALIDATION','الصفحة غير صحيحة.');}
+   let cursor=null;if(raw){try{if(raw.length>200)throw Error();cursor=JSON.parse(Buffer.from(raw,'base64url').toString());if(!uuid.test(cursor.id)||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(cursor.time)||!Number.isFinite(Date.parse(cursor.time)))throw Error();}catch{fail(400,'VALIDATION','الصفحة غير صحيحة.');}
     conditions.push('(t.updated_at<? OR (t.updated_at=? AND t.id<?))');values.push(cursor.time,cursor.time,cursor.id);}
    values.push(size+1);const{rows}=await database.query(threads+'WHERE '+conditions.join(' AND ')+' ORDER BY t.updated_at DESC,t.id DESC LIMIT ?',values),items=rows.slice(0,size),last=items.at(-1);
    const total=await database.query(`SELECT COUNT(*) AS total FROM tomi_chat_messages m JOIN tomi_chat_members member ON member.thread_id=m.thread_id AND member.user_id=?
     WHERE member.visible=1 AND m.sender_id<>? AND m.sequence>member.last_read_seq AND m.deleted_at IS NULL`,[viewer,viewer]);
-   respond(response,200,{conversations:items.map(r=>threadJson(r,viewer)),totalUnread:Number(total.rows[0].total),nextCursor:rows.length>size?Buffer.from(JSON.stringify({time:last.updated_at,id:last.id})).toString('base64url'):null});return true;
+   const combined=[...items.map(r=>threadJson(r,viewer)),...await groups.list(viewer,cursor,size+1)].sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)||b.id.localeCompare(a.id)),page=combined.slice(0,size),tail=page.at(-1);respond(response,200,{removedConversationIds:await groups.removed(viewer),conversations:page,totalUnread:Number(total.rows[0].total)+await groups.unread(viewer),nextCursor:combined.length>size||rows.length>size?Buffer.from(JSON.stringify({time:tail.updatedAt,id:tail.id})).toString('base64url'):null});return true;
   }
   if(method==='POST'&&path==='/v1/chats'){
    await limit('chat-open:'+viewer,30);const d=await readJson(request);fields(d,['userId']);const target=id(d.userId);if(target===viewer)fail(400,'SELF_CHAT','اختَر حسابًا آخر.');await userById(target,viewer);
@@ -72,6 +73,8 @@ export function createChat({database,storage,avatarStorage=storage,readJson,resp
    const r=await database.transaction(async db=>{const tid=await pair(db,viewer,target);if(d.blocked)await db.query('INSERT INTO tomi_user_blocks(blocker_id,blocked_id,created_at) VALUES(?,?,?) ON CONFLICT(blocker_id,blocked_id) DO NOTHING',[viewer,target,now()]);else await db.query('DELETE FROM tomi_user_blocks WHERE blocker_id=? AND blocked_id=?',[viewer,target]);return thread(viewer,tid,db);});
    notify(r,'chat.blocked');respond(response,200,{conversation:threadJson(r,viewer)});return true;
   }
+  const documentRoute=path.match(/^\/v1\/chats\/([a-f0-9-]{36})\/files$/);
+  if(method==='POST'&&documentRoute){const tid=id(documentRoute[1]),r=await thread(viewer,tid);sending(r);await limit('chat-media:'+viewer,10);await limit('daily-chat-media:'+viewer,100,86400000);respond(response,201,await privateMedia.prepare(viewer,tid,'file',await readJson(request)));return true;}
   const match=path.match(/^\/v1\/chats\/([a-f0-9-]{36})(\/messages|\/images|\/audio|\/videos|\/read)?$/);
   if(match){const tid=id(match[1]),action=match[2]||'',row=await thread(viewer,tid);
    if(method==='GET'&&!action){respond(response,200,{conversation:threadJson(row,viewer)});return true;}
@@ -100,13 +103,15 @@ export function createChat({database,storage,avatarStorage=storage,readJson,resp
     }});respond(response,201,prepared);return true;
    }
    if(method==='POST'&&action==='/messages'){
-    await limit('chat-send:'+viewer,60);const d=await readJson(request);fields(d,['text','requestId','imageUploadId','audioUploadId','videoUploadId','replyToId','attachmentSha256']);if(d.text!==undefined&&typeof d.text!=='string')fail(400,'VALIDATION','النص غير صحيح.');
-    const text=(d.text||'').trim(),requestId=id(d.requestId),uploadId=d.imageUploadId==null?null:id(d.imageUploadId),audioId=d.audioUploadId==null?null:id(d.audioUploadId),videoId=d.videoUploadId==null?null:id(d.videoUploadId),replyId=d.replyToId==null?null:id(d.replyToId),sha=d.attachmentSha256??null;
-    const kind=uploadId?'image':audioId?'audio':videoId?'video':null;
-    if(sha!==null&&(typeof sha!=='string'||!/^[a-f0-9]{64}$/.test(sha))||sha&&!kind||videoId&&!sha)fail(400,'VALIDATION','بصمة ملف الإرسال غير صحيحة.');
-    const hash=digest(JSON.stringify(sha||replyId||videoId?['v2',tid,text,kind,sha,replyId]:audioId?[tid,text,uploadId,audioId]:[tid,text,uploadId]));
-    if([...text].length>2000||(!text&&!kind)||[uploadId,audioId,videoId].filter(Boolean).length>1)fail(400,'VALIDATION','اختَر نصًا أو ملفًا واحدًا؛ النص حتى2000 حرف.');
-    let previous=await existing(database,viewer,requestId,hash),dimensions,audioInfo,videoInfo;
+    await limit('chat-send:'+viewer,60);const d=await readJson(request);fields(d,['text','requestId','imageUploadId','audioUploadId','videoUploadId','replyToId','attachmentSha256','fileUploadId','stickerId']);if(d.text!==undefined&&typeof d.text!=='string')fail(400,'VALIDATION','النص غير صحيح.');
+    const text=(d.text||'').trim(),requestId=id(d.requestId),uploadId=d.imageUploadId==null?null:id(d.imageUploadId),audioId=d.audioUploadId==null?null:id(d.audioUploadId),videoId=d.videoUploadId==null?null:id(d.videoUploadId),replyId=d.replyToId==null?null:id(d.replyToId),sha=d.attachmentSha256??null,fileId=d.fileUploadId==null?null:id(d.fileUploadId),stickerId=d.stickerId??null;
+    if(stickerId!==null&&!stickerIds.includes(stickerId))fail(400,'VALIDATION','الملصق غير صحيح.');
+    const kind=uploadId?'image':audioId?'audio':videoId?'video':fileId?'file':null;
+    if(sha!==null&&(typeof sha!=='string'||!/^[a-f0-9]{64}$/.test(sha))||sha&&!kind||(videoId||fileId)&&!sha)fail(400,'VALIDATION','بصمة ملف الإرسال غير صحيحة.');
+    const hash=digest(JSON.stringify(stickerId||fileId?['v3',tid,text,kind,sha,replyId,stickerId]:sha||replyId||videoId?['v2',tid,text,kind,sha,replyId]:audioId?[tid,text,uploadId,audioId]:[tid,text,uploadId]));
+    if([...text].length>2000||(!text&&!kind&&!stickerId)||[uploadId,audioId,videoId,fileId,stickerId].filter(Boolean).length>1)fail(400,'VALIDATION','اختَر نصًا أو ملفًا واحدًا؛ النص حتى2000 حرف.');
+    let previous=await existing(database,viewer,requestId,hash),dimensions,audioInfo,videoInfo,fileInfo;
+    if(!previous&&fileId){sending(row);fileInfo=await privateMedia.verify(viewer,tid,fileId,sha);if(fileInfo.kind!=='file')fail(400,'VALIDATION','نوع الملف غير صحيح.');}
     if(!previous&&uploadId){sending(row);if(!storage)fail(503,'IMAGES_DISABLED','إرسال الصور غير متاح.');const{rows}=await database.query('SELECT * FROM tomi_image_uploads WHERE id=? AND user_id=?',[uploadId,viewer]);const u=rows[0];
      if(!u||u.state!=='pending'||u.expires_at<=now()||!u.object_key.startsWith(`tomi/chat-images/${tid}/${viewer}/`))fail(400,'UPLOAD_INVALID','الصورة انتهت أو استُخدمت؛ جهّزها مرة ثانية.');dimensions=await storage.verify(await uploadWithDigest(database,u,sha));}
     if(!previous&&audioId){sending(row);if(!storage)fail(503,'AUDIO_DISABLED','إرسال الصوت غير متاح.');const{rows}=await database.query('SELECT * FROM tomi_audio_uploads WHERE id=? AND user_id=? AND thread_id=?',[audioId,viewer,tid]),u=rows[0];if(!u||u.state!=='pending'||u.expires_at<=now())fail(400,'UPLOAD_INVALID','التسجيل انتهى أو استُخدم.');audioInfo=await storage.verifyAudio(await uploadWithDigest(database,u,sha));if(Math.abs(audioInfo.durationMs-Number(u.duration_ms))>2000)fail(400,'INVALID_AUDIO','مدة التسجيل غير صحيحة.');}
@@ -115,6 +120,8 @@ export function createChat({database,storage,avatarStorage=storage,readJson,resp
      await tools.validateReply(db,tid,replyId);
      const stamp=now(),mid=randomUUID(),changed=await db.query('UPDATE tomi_chat_threads SET next_seq=next_seq+1,updated_at=? WHERE id=? RETURNING next_seq',[stamp,tid]);
      await db.query('INSERT INTO tomi_chat_messages(id,thread_id,sender_id,sequence,request_id,payload_hash,body,image_upload_id,created_at) VALUES(?,?,?,?,?,?,?,?,?)',[mid,tid,viewer,integer(Number(changed.rows[0].next_seq)),requestId,hash,text,uploadId,stamp]);
+     if(stickerId)await db.query('INSERT INTO tomi_chat_stickers(message_id,sticker_id) VALUES(?,?)',[mid,stickerId]);
+     if(fileId){await privateMedia.attach(db,fileInfo);await db.query('INSERT INTO tomi_chat_documents(message_id,upload_id) VALUES(?,?)',[mid,fileId]);}
      if(uploadId){const result=await db.query("UPDATE tomi_image_uploads SET state='attached',width=?,height=? WHERE id=? AND user_id=? AND state='pending' AND expires_at>?",[dimensions.width,dimensions.height,uploadId,viewer,now()]);if(result.changes!==1)fail(409,'UPLOAD_INVALID','الصورة انتهت أو استُخدمت.');}
      if(audioId){const result=await db.query("UPDATE tomi_audio_uploads SET state='attached',duration_ms=? WHERE id=? AND user_id=? AND thread_id=? AND state='pending' AND expires_at>?",[audioInfo.durationMs,audioId,viewer,tid,now()]);if(result.changes!==1)fail(409,'UPLOAD_INVALID','التسجيل انتهى أو استُخدم.');await db.query('INSERT INTO tomi_chat_audio(message_id,upload_id) VALUES(?,?)',[mid,audioId]);}
      if(videoId){const changed=await db.query("UPDATE tomi_video_uploads SET state='attached',width=?,height=?,duration_ms=? WHERE id=? AND user_id=? AND thread_id=? AND state='pending' AND expires_at>?",[videoInfo.width,videoInfo.height,videoInfo.durationMs,videoId,viewer,tid,now()]);if(changed.changes!==1)fail(409,'UPLOAD_INVALID','الفيديو انتهى أو استُخدم.');await db.query('INSERT INTO tomi_chat_video(message_id,upload_id) VALUES(?,?)',[mid,videoId]);}
@@ -138,13 +145,14 @@ export function createChat({database,storage,avatarStorage=storage,readJson,resp
    const row=await database.transaction(async db=>{const r=await lock(db,viewer,tid),{rows}=await db.query('SELECT sender_id,image_upload_id,deleted_at FROM tomi_chat_messages WHERE id=? AND thread_id=?',[mid,tid]);
     if(!rows[0])fail(404,'MESSAGE_NOT_FOUND','الرسالة غير موجودة.');if(rows[0].sender_id!==viewer)fail(403,'FORBIDDEN','تگدر تحذف رسائلك فقط.');
     if(!rows[0].deleted_at){await db.query("UPDATE tomi_chat_messages SET body='',image_upload_id=NULL,deleted_at=? WHERE id=?",[now(),mid]);await db.query('UPDATE tomi_chat_threads SET updated_at=? WHERE id=?',[now(),tid]);if(rows[0].image_upload_id)await db.query("UPDATE tomi_image_uploads SET state='deleting',expires_at=? WHERE id=?",[new Date(Date.now()+1200000).toISOString(),rows[0].image_upload_id]);}const audio=await db.query('SELECT upload_id FROM tomi_chat_audio WHERE message_id=?',[mid]);if(audio.rows[0]){await db.query('DELETE FROM tomi_chat_audio WHERE message_id=?',[mid]);await db.query("UPDATE tomi_audio_uploads SET state='deleting',expires_at=? WHERE id=?",[new Date(Date.now()+1200000).toISOString(),audio.rows[0].upload_id]);}const video=(await db.query('SELECT upload_id FROM tomi_chat_video WHERE message_id=?',[mid])).rows[0];if(video){await db.query('DELETE FROM tomi_chat_video WHERE message_id=?',[mid]);await db.query("UPDATE tomi_video_uploads SET state='deleting',expires_at=? WHERE id=?",[new Date(Date.now()+1200000).toISOString(),video.upload_id]);}
+    const document=(await db.query('SELECT upload_id FROM tomi_chat_documents WHERE message_id=?',[mid])).rows[0];if(document){await db.query('DELETE FROM tomi_chat_documents WHERE message_id=?',[mid]);await db.query("UPDATE tomi_private_uploads SET state='deleting',expires_at=? WHERE id=?",[new Date(Date.now()+1200000).toISOString(),document.upload_id]);}await db.query('DELETE FROM tomi_chat_stickers WHERE message_id=?',[mid]);
     await db.query('DELETE FROM tomi_chat_reactions WHERE message_id=?',[mid]);await db.query('DELETE FROM tomi_chat_pins WHERE thread_id=? AND message_id=?',[tid,mid]);await tools.bump(db,mid);await tools.bumpThread(db,tid);return r;});
    notify(row,'chat.deleted',{messageId:mid});respond(response,200,{message:await message(viewer,tid,mid),conversation:threadJson(await thread(viewer,tid),viewer)});return true;
   }
   return false;
  }
- function attach(server,options){realtime=createRealtime({...options,server,limit,typing:async(viewer,tid,active)=>{const r=await thread(viewer,id(tid));sending(r);realtime.emit([r.low_user_id===viewer?r.high_user_id:r.low_user_id],{type:'chat.typing',conversationId:tid,active,expiresAt:Date.now()+5000});}});}
+ function attach(server,options){realtime=createRealtime({...options,server,limit,typing:async(viewer,tid,active)=>{if(await groups.typing(viewer,tid,active))return;const r=await thread(viewer,id(tid));sending(r);realtime.emit([r.low_user_id===viewer?r.high_user_id:r.low_user_id],{type:'chat.typing',conversationId:tid,active,expiresAt:Date.now()+5000});}});}
  let cleaning=false;
  async function cleanup(){if(!storage||cleaning)return;cleaning=true;try{const{rows}=await database.query("SELECT id,object_key FROM tomi_audio_uploads WHERE state<>'attached' AND expires_at<=? ORDER BY expires_at LIMIT 20",[now()]);for(const u of rows)try{await storage.delete(u.object_key);await database.query("DELETE FROM tomi_audio_uploads WHERE id=? AND state<>'attached' AND expires_at<=?",[u.id,now()]);}catch{console.error('Audio cleanup deferred');}}finally{cleaning=false;}}
- return{handle,attach,cleanup:async()=>{await cleanup();await cleanupVideos(database,storage,'tomi/chat-videos/');},emit:(ids,event)=>realtime?.emit(ids,event),invalidateSession:hash=>realtime?.invalidateSession(hash),invalidateUser:viewer=>realtime?.invalidateUser(viewer)};
+ return{handle,attach,cleanup:async()=>{await privateMedia.cleanup();await cleanup();await cleanupVideos(database,storage,'tomi/chat-videos/');},emit:(ids,event)=>realtime?.emit(ids,event),invalidateSession:hash=>realtime?.invalidateSession(hash),invalidateUser:viewer=>realtime?.invalidateUser(viewer)};
 }
