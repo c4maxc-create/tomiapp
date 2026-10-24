@@ -1,0 +1,17 @@
+{
+  "baseline_source_version": 20,
+  "all_prior_paths_retained": 280,
+  "changed_prior_paths_without_manifest": [
+    "README.md",
+    "START_HERE_AR.md",
+    "TOMI-DEVELOPMENT-ROADMAP.md",
+    "TOMI-PROGRESS.md",
+    "server/test/chat12.test.mjs"
+  ],
+  "only_changed_executable_file": "server/test/chat12.test.mjs",
+  "exact_change": "Number normalization around existing COUNT result; strict expected value 1 retained",
+  "all_other_prior_bytes_identical": true,
+  "workflow_unchanged": true,
+  "lock_unchanged": true,
+  "app_and_api_versions_unchanged": true
+}

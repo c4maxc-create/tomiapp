@@ -1,3 +1,16 @@
+# TOMI 1.2 — PostgreSQL CI assertion fix
+
+Current package: **TOMI-1.2-postgres-fix.zip**. Run32 stopped because one test
+compared pg's COUNT string with a number. The existing assertion now normalizes
+the count while retaining the exact one-group requirement. All production code,
+workflow, schema, locks and app/API versions are identical to source20.
+
+Start with **PG_FIX_1.2_AR.md** and **VALIDATION-1.2-PG-FIX.md**. Upload the corrected
+`server/test/chat12.test.mjs`, commit on main and start a new workflow run.
+The sections below describe the included 1.2 app features and previous checks.
+
+---
+
 # TOMI 1.2 — chats and groups
 
 App **1.2.0-beta.1+17** / API **1.2.0-beta.1**. This update adds the supplied
