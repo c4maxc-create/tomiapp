@@ -408,7 +408,9 @@ class _TomiShellState extends State<TomiShell> {
       if (widget.accounts != null) widget.accounts!.chats,
     ]),
     builder: (context, _) => Scaffold(
-      appBar: widget.accounts != null && (selected == 0 || selected == 4)
+      appBar:
+          widget.accounts != null &&
+              (selected == 0 || selected == 1 || selected == 4)
           ? null
           : AppBar(
               titleSpacing: 18,
@@ -521,7 +523,8 @@ class _TomiShellState extends State<TomiShell> {
       ),
       bottomNavigationBar: NavigationBar(
         backgroundColor:
-            widget.accounts != null && (selected == 0 || selected == 4)
+            widget.accounts != null &&
+                (selected == 0 || selected == 1 || selected == 4)
             ? socialBackground
             : null,
         selectedIndex: selected,

@@ -25,6 +25,7 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
   String? nextCursor, error;
   bool loading = false, connected = false, foreground = true, disposed = false;
   final openingPeerIds = <String>{};
+  final refreshingIds = <String>{}, refreshAgainIds = <String>{};
   final threads = <String, ChatThreadController>{};
   ChatConnection? connection;
   StreamSubscription<Map<String, dynamic>>? subscription;
@@ -146,7 +147,20 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
             }
           } else if (event['type'] != 'call.changed') {
             final id = event['conversationId'];
-            if (id is String) threads[id]?.event(event);
+            if (id is String) {
+              if (event['type'] == 'group.member-left' &&
+                  event['removedUserId'] == accounts.user?.id) {
+                removeConversation(id);
+              } else {
+                threads[id]?.event(event);
+                if (event['type'] != 'chat.typing' &&
+                    event['type'] != 'chat.error') {
+                  unawaited(
+                    refreshConversation(id, group: event['group'] == true),
+                  );
+                }
+              }
+            }
             if (event['type'] != 'chat.typing' && event['type'] != 'chat.error')
               scheduleRefresh();
           }
@@ -199,6 +213,73 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
+  Future<void> refreshConversation(String id, {bool group = false}) async {
+    if (disposed || identity == null) return;
+    if (!refreshingIds.add(id)) {
+      refreshAgainIds.add(id);
+      return;
+    }
+    final gen = generation;
+    try {
+      final d = await accounts.chatRequest(
+        'GET',
+        '/v1/${group ? 'groups' : 'chats'}/$id',
+      );
+      if (!disposed && gen == generation)
+        update(
+          DirectConversation.fromJson(
+            d['conversation'] as Map<String, dynamic>,
+          ),
+        );
+    } on AccountFailure catch (e) {
+      if (group && e.status == 404 && !disposed && gen == generation)
+        removeConversation(id);
+    } catch (_) {
+      // The existing reconnect refresh retries without replacing cached content.
+    } finally {
+      refreshingIds.remove(id);
+      if (refreshAgainIds.remove(id) && !disposed && gen == generation)
+        unawaited(refreshConversation(id, group: group));
+    }
+  }
+
+  void removeConversation(String id) {
+    final old = conversations.where((c) => c.id == id).firstOrNull;
+    conversations.removeWhere((c) => c.id == id);
+    totalUnread = max(0, totalUnread - (old?.unreadCount ?? 0));
+    final t = threads[id];
+    if (t != null) {
+      t.conversation = DirectConversation({
+        ...t.conversation.data,
+        'left': true,
+      });
+      t.stopTyping();
+      t.notify();
+      unawaited(t.persist().catchError((Object _) => false));
+    }
+    notify();
+  }
+
+  Future<DirectConversation> createGroup(
+    String title,
+    List<String> members,
+    String requestId,
+  ) async {
+    final gen = generation;
+    final d = await accounts.chatRequest(
+      'POST',
+      '/v1/groups',
+      body: {'title': title, 'memberIds': members, 'requestId': requestId},
+    );
+    if (disposed || gen != generation)
+      throw const AccountFailure('SESSION_CHANGED', 'تغيّرت الجلسة.');
+    final c = DirectConversation.fromJson(
+      d['conversation'] as Map<String, dynamic>,
+    );
+    update(c);
+    return c;
+  }
+
   Future<void> refresh({bool more = false}) async {
     if (disposed ||
         identity == null ||
@@ -216,6 +297,12 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
       );
       if (disposed || rev != listRevision || gen != generation) return;
       final map = {for (final c in conversations) c.id: c};
+      for (final id in p['removedConversationIds'] as List? ?? []) {
+        if (id is String) {
+          removeConversation(id);
+          map.remove(id);
+        }
+      }
       for (final item in p['conversations'] as List) {
         final c = DirectConversation.fromJson(item as Map<String, dynamic>);
         final old = map[c.id];
@@ -293,8 +380,10 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
               (((p as Map)['media'] as Map?)?['bytes'] as num? ?? 0).toInt(),
         );
         if ((list.isNotEmpty ||
-                (e.value['draft'] as String? ?? '').isNotEmpty) &&
-            e.value['conversation'] is Map) {
+                (e.value['draft'] as String? ?? '').isNotEmpty ||
+                (e.value['cachedMessages'] as List? ?? []).isNotEmpty) &&
+            e.value['conversation'] is Map &&
+            (e.value['conversation'] as Map)['left'] != true) {
           if (!conversations.any((c) => c.id == cid))
             conversations.add(
               DirectConversation(
@@ -303,6 +392,7 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
             );
         }
       }
+      conversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       notify();
     } catch (_) {
       if (!disposed && gen == generation) {
@@ -317,11 +407,14 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
     () => ChatThreadController(chats: this, conversation: value),
   );
   Future<DirectConversation> open(String userId) async {
+    final gen = generation;
     final p = await accounts.chatRequest(
       'POST',
       '/v1/chats',
       body: {'userId': userId},
     );
+    if (disposed || gen != generation)
+      throw const AccountFailure('SESSION_CHANGED', 'تغيّرت الجلسة.');
     final c = DirectConversation.fromJson(
       p['conversation'] as Map<String, dynamic>,
     );
@@ -399,6 +492,10 @@ class ChatThreadController extends ChangeNotifier {
           ? null
           : await chats.accounts.draftStore.read(savedOwner!, scope);
       if (!current || d == null) return;
+      for (final row in d['cachedMessages'] as List? ?? []) {
+        final m = ChatMessage.fromJson(Map<String, dynamic>.from(row as Map));
+        cache[m.id] = m;
+      }
       if (epoch == draftEpoch) {
         draft = d['draft'] as String? ?? '';
         replyToId = d['replyToId'] as String?;
@@ -445,6 +542,12 @@ class ChatThreadController extends ChangeNotifier {
       'attachment': draftAttachment?.toJson(),
       'sessionFence': chats.accounts.draftSessionFence,
       'pending': pending.map((p) => p.toJson()).toList(),
+      'cachedMessages': messages.reversed
+          .take(80)
+          .toList()
+          .reversed
+          .map((m) => m.data)
+          .toList(),
     };
     final blobs = <String, Uint8List>{
       for (final p in [
@@ -500,8 +603,9 @@ class ChatThreadController extends ChangeNotifier {
         ? null
         : PendingChatMessage(
             '',
-            media is VideoDraft ? null : media,
+            media is VideoDraft || media is DocumentDraft ? null : media,
             video: media is VideoDraft ? media : null,
+            document: media is DocumentDraft ? media : null,
           );
     await persist();
     notify();
@@ -548,6 +652,8 @@ class ChatThreadController extends ChangeNotifier {
         width: (d['width'] as num).toInt(),
         height: (d['height'] as num).toInt(),
       );
+    else if (d['kind'] == 'file')
+      p.document = DocumentDraft(b, d['fileName'] as String);
     else
       p.image = ImageDraft(b, d['type'] as String);
   }
@@ -594,7 +700,10 @@ class ChatThreadController extends ChangeNotifier {
       cache.values.toList()..sort((a, b) => a.sequence.compareTo(b.sequence));
   int get highestSequence => cache.values.fold(0, (n, m) => max(n, m.sequence));
   void notify() {
-    if (!disposed) notifyListeners();
+    if (!disposed) {
+      notifyListeners();
+      chats.notify();
+    }
   }
 
   Future<Map<String, dynamic>> request(
@@ -604,7 +713,7 @@ class ChatThreadController extends ChangeNotifier {
     Map<String, String>? query,
   }) => chats.accounts.chatRequest(
     method,
-    '/v1/chats/${conversation.id}$suffix',
+    '/v1/${conversation.isGroup ? 'groups' : 'chats'}/${conversation.id}$suffix',
     body: body,
     query: query,
   );
@@ -644,12 +753,14 @@ class ChatThreadController extends ChangeNotifier {
             });
       }
       if (!m.deleted &&
-          (m.image?.url != null ||
+          (m.document?.url != null ||
+              m.image?.url != null ||
               m.audio?.url != null ||
               m.video?.url != null)) {
         final time = imageUpdatedAt[m.id];
         if (!refreshImages &&
-            (old?.image?.url != null ||
+            (old?.document?.url != null ||
+                old?.image?.url != null ||
                 old?.audio?.url != null ||
                 old?.video?.url != null) &&
             time != null &&
@@ -659,6 +770,7 @@ class ChatThreadController extends ChangeNotifier {
             'image': old!.data['image'],
             'audio': old.data['audio'],
             'video': old.data['video'],
+            'file': old.data['file'],
           });
         } else {
           imageUpdatedAt[m.id] = DateTime.now();
@@ -749,13 +861,19 @@ class ChatThreadController extends ChangeNotifier {
       }
       error = null;
     } on AccountFailure catch (f) {
-      if (!disposed && win == windowRevision) error = f.message;
+      if (!disposed && win == windowRevision) {
+        error = f.message;
+        if (conversation.isGroup && f.status == 404)
+          chats.removeConversation(conversation.id);
+      }
     } catch (_) {
       if (!disposed && win == windowRevision) error = 'تعذّر تحديث الرسائل.';
     } finally {
       if (!disposed) {
         loading = false;
         notify();
+        if (current && storageReady && cache.isNotEmpty)
+          unawaited(persist().catchError((Object _) => false));
         if (syncAgain) {
           syncAgain = false;
           final rec = reconciling;
@@ -839,6 +957,19 @@ class ChatThreadController extends ChangeNotifier {
     }
   }
 
+  Future<Uri?> mediaSource(String id, String kind) async {
+    String? url() => (cache[id]?.data[kind] as Map?)?['url'] as String?;
+    final loaded = imageUpdatedAt[id];
+    if (url() == null ||
+        loaded == null ||
+        DateTime.now().difference(loaded).inMinutes >= 4) {
+      await refreshMessage(id);
+      if (imageUpdatedAt[id] == loaded) return null;
+    }
+    final value = url();
+    return value == null ? null : Uri.tryParse(value);
+  }
+
   void event(Map<String, dynamic> e) {
     if (disposed) return;
     switch (e['type']) {
@@ -853,6 +984,8 @@ class ChatThreadController extends ChangeNotifier {
         notify();
       case 'chat.updated':
       case 'chat.deleted':
+      case 'group.changed':
+      case 'group.member-left':
         metadataEpoch++;
         final mid = e['messageId'];
         if (mid is String) unawaited(refreshMessage(mid));
@@ -960,32 +1093,49 @@ class ChatThreadController extends ChangeNotifier {
     ImageDraft? image, {
     AudioDraft? audio,
     VideoDraft? video,
+    DocumentDraft? document,
+    String? stickerId,
   }) {
-    if (disposed || sending || !conversation.canSend) return;
+    if (disposed || !conversation.canSend) return;
     if (restoring)
       throw const AccountFailure(
         'DRAFT_RESTORE',
         'نستعيد المسودات المحفوظة؛ انتظر قليلًا.',
       );
-    if (text.trim().isEmpty && image == null && audio == null && video == null)
+    if (text.trim().isEmpty &&
+        image == null &&
+        audio == null &&
+        video == null &&
+        document == null &&
+        stickerId == null)
       return;
     if (chats.pendingCount >= 20 ||
         audio != null &&
             chats.pendingVoiceBytes + audio.bytes.length > 18 * 1024 * 1024 ||
-        chats.pendingBytes + ((image ?? audio ?? video)?.bytes.length ?? 0) >
+        chats.pendingBytes +
+                ((image ?? audio ?? video ?? document)?.bytes.length ?? 0) >
             100 * 1024 * 1024) {
       throw const AccountFailure(
         'DRAFT_LIMIT',
         'عندك رسائل كثيرة قيد الإرسال؛ أكملها أولًا.',
       );
     }
-    if ([image, audio, video].where((m) => m != null).length > 1)
+    if ([
+          image,
+          audio,
+          video,
+          document,
+          stickerId,
+        ].where((m) => m != null).length >
+        1)
       throw const AccountFailure('MEDIA_TYPE', 'اختَر صورة أو تسجيلًا صوتيًا.');
     final p = PendingChatMessage(
       text.trim(),
       image,
       audio: audio,
       video: video,
+      document: document,
+      stickerId: stickerId,
       replyToId: replyToId,
     );
     draft = '';
@@ -1000,7 +1150,7 @@ class ChatThreadController extends ChangeNotifier {
 
   Future<void> retryPending(PendingChatMessage p, {bool manual = false}) async {
     await restored;
-    if (disposed || sending || !pending.contains(p) || !conversation.canSend)
+    if (!current || sending || !pending.contains(p) || !conversation.canSend)
       return;
     sendRetry?.cancel();
     sendRetry = null;
@@ -1030,6 +1180,8 @@ class ChatThreadController extends ChangeNotifier {
                 ? '/audio'
                 : p.hasVideo
                 ? '/videos'
+                : p.hasDocument
+                ? '/files'
                 : '/images',
             body: {
               'contentType': p.media!.contentType,
@@ -1038,6 +1190,7 @@ class ChatThreadController extends ChangeNotifier {
               'contentSha256': p.media!.contentSha256,
               'requestId': p.requestId,
               if (p.audio != null) 'durationMs': p.audio!.durationMs,
+              if (p.document != null) 'fileName': p.document!.name,
             },
           );
           if (disposed) return;
@@ -1059,6 +1212,7 @@ class ChatThreadController extends ChangeNotifier {
             body: {
               'text': p.text,
               'requestId': p.requestId,
+              if (p.stickerId != null) 'stickerId': p.stickerId,
               if (p.replyToId != null) 'replyToId': p.replyToId,
               if (p.hasMedia) 'attachmentSha256': p.mediaKey,
               if (p.upload != null)
@@ -1066,6 +1220,8 @@ class ChatThreadController extends ChangeNotifier {
                         ? 'audioUploadId'
                         : p.hasVideo
                         ? 'videoUploadId'
+                        : p.hasDocument
+                        ? 'fileUploadId'
                         : 'imageUploadId'):
                     p.upload!.id,
             },
@@ -1108,6 +1264,11 @@ class ChatThreadController extends ChangeNotifier {
         p.busy = false;
         unawaited(persist().catchError((Object _) => false));
         notify();
+        final fresh = pending
+            .where((q) => q.autoRetry && q.attempts == 0 && !q.busy)
+            .firstOrNull;
+        if (current && fresh != null && fresh != p)
+          unawaited(retryPending(fresh));
         scheduleRetry();
       }
     }

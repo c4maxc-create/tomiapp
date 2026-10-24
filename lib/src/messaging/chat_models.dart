@@ -1,4 +1,5 @@
 import '../social/social_models.dart';
+
 import 'dart:typed_data';
 
 class DirectConversation {
@@ -7,6 +8,14 @@ class DirectConversation {
   factory DirectConversation.fromJson(Map<String, dynamic> data) =>
       DirectConversation(data);
   String get id => data['id'] as String;
+  bool get isGroup => data['type'] == 'group';
+  bool get isOwner => data['isOwner'] == true;
+  int get memberCount => (data['memberCount'] as num?)?.toInt() ?? 2;
+  String? get ownerId => data['ownerId'] as String?;
+  bool get fileUploadEnabled => data['fileUploadEnabled'] == true;
+  bool get lastMessageIsMine => data['lastMessageIsMine'] == true;
+  DateTime? get lastMessageAt =>
+      DateTime.tryParse(data['lastMessageAt'] as String? ?? updatedAt);
   PostAuthor get peer =>
       PostAuthor.fromJson(data['peer'] as Map<String, dynamic>);
   int get sequence => (data['sequence'] as num).toInt();
@@ -15,7 +24,7 @@ class DirectConversation {
   int get peerReadSequence => (data['peerReadSequence'] as num).toInt();
   bool get blockedByMe => data['blockedByMe'] == true;
   bool get blockedByPeer => data['blockedByPeer'] == true;
-  bool get canSend => !blockedByMe && !blockedByPeer;
+  bool get canSend => !blockedByMe && !blockedByPeer && data['left'] != true;
   bool get imageUploadEnabled => data['imageUploadEnabled'] == true;
   bool get audioUploadEnabled => data['audioUploadEnabled'] == true;
   bool get videoUploadEnabled => data['videoUploadEnabled'] == true;
@@ -43,6 +52,14 @@ class ChatMessage {
   String? get requestId => data['requestId'] as String?;
   int get sequence => (data['sequence'] as num).toInt();
   String get text => data['text'] as String;
+  String? get stickerId => data['stickerId'] as String?;
+  ChatDocument? get document => data['file'] is Map<String, dynamic>
+      ? ChatDocument(data['file'] as Map<String, dynamic>)
+      : null;
+  DateTime? get createdAt =>
+      DateTime.tryParse(data['createdAt'] as String? ?? '');
+  String get authorName =>
+      (data['author'] as Map?)?['displayName'] as String? ?? '';
   int get revision => (data['revision'] as num?)?.toInt() ?? 0;
   Map<String, dynamic>? get reply => data['reply'] as Map<String, dynamic>?;
   List<Map<String, dynamic>> get reactions =>
@@ -66,20 +83,28 @@ class PendingChatMessage {
     this.image, {
     this.audio,
     this.video,
+    this.document,
+    this.stickerId,
+    DateTime? createdAt,
     this.replyToId,
     String? requestId,
-  }) : requestId = requestId ?? newRequestId();
+  }) : requestId = requestId ?? newRequestId(),
+       createdAt = createdAt ?? DateTime.now();
   final String text, requestId;
+  final String? stickerId;
+  final DateTime createdAt;
   final String? replyToId;
   ImageDraft? image;
   AudioDraft? audio;
   VideoDraft? video;
+  DocumentDraft? document;
   Map<String, dynamic>? savedMedia;
-  ImageDraft? get media => image ?? audio ?? video;
+  ImageDraft? get media => image ?? audio ?? video ?? document;
   bool get hasMedia => media != null || savedMedia != null;
   bool get hasImage => image != null || savedMedia?['kind'] == 'image';
   bool get hasAudio => audio != null || savedMedia?['kind'] == 'audio';
   bool get hasVideo => video != null || savedMedia?['kind'] == 'video';
+  bool get hasDocument => document != null || savedMedia?['kind'] == 'file';
   int get byteLength =>
       media?.bytes.length ?? (savedMedia?['bytes'] as num?)?.toInt() ?? 0;
   String? get mediaKey =>
@@ -96,6 +121,8 @@ class PendingChatMessage {
     final m = media;
     return {
       'requestId': requestId,
+      'stickerId': stickerId,
+      'createdAt': createdAt.toIso8601String(),
       'text': text,
       'replyToId': replyToId,
       'media': m == null
@@ -108,7 +135,10 @@ class PendingChatMessage {
                   ? 'audio'
                   : hasVideo
                   ? 'video'
+                  : hasDocument
+                  ? 'file'
                   : 'image',
+              if (document != null) 'fileName': document!.name,
               if (audio != null) 'durationMs': audio!.durationMs,
               if (video != null) ...{
                 'durationMs': video!.durationMs,
@@ -131,6 +161,8 @@ class PendingChatMessage {
           null,
           requestId: d['requestId'] as String,
           replyToId: d['replyToId'] as String?,
+          stickerId: d['stickerId'] as String?,
+          createdAt: DateTime.tryParse(d['createdAt'] as String? ?? ''),
         )
         ..savedMedia = d['media'] as Map<String, dynamic>?
         ..upload = d['upload'] == null
@@ -149,6 +181,20 @@ class PendingChatMessage {
 class AudioDraft extends ImageDraft {
   AudioDraft(Uint8List bytes, this.durationMs) : super(bytes, 'audio/mp4');
   final int durationMs;
+}
+
+class DocumentDraft extends ImageDraft {
+  DocumentDraft(Uint8List bytes, this.name)
+    : super(bytes, 'application/octet-stream');
+  final String name;
+}
+
+class ChatDocument {
+  const ChatDocument(this.data);
+  final Map<String, dynamic> data;
+  String get name => data['name'] as String;
+  String? get url => data['url'] as String?;
+  int get byteLength => (data['byteLength'] as num).toInt();
 }
 
 class ChatAudio {
