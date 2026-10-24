@@ -72,7 +72,7 @@ test('1.2 new group members cannot read earlier history; removal revokes access;
  assert.equal((await a.request('GET',`/v1/groups/${gid}/messages/${m.message.id}`,undefined,p[3].token)).status,404);
  await send(a,p[1],gid,'بعد الانضمام');assert.equal((await a.request('GET',`/v1/groups/${gid}/messages`,undefined,p[3].token)).data.messages.length,1);
  await a.request('DELETE',`/v1/groups/${gid}/members/${p[3].user.id}`,undefined,p[0].token);assert.equal((await a.request('GET',`/v1/groups/${gid}/messages`,undefined,p[3].token)).status,404);assert.ok((await a.request('GET','/v1/chats',undefined,p[3].token)).data.removedConversationIds.includes(gid));
- await a.request('DELETE',`/v1/groups/${gid}/members/${p[0].user.id}`,undefined,p[0].token);assert.notEqual((await a.request('GET',`/v1/groups/${gid}`,undefined,p[1].token)).data.conversation.ownerId,p[0].user.id);assert.equal((await a.request('POST','/v1/groups',body,p[0].token)).status,404);assert.equal((await a.db.query('SELECT COUNT(*) total FROM tomi_groups')).rows[0].total,1);
+ await a.request('DELETE',`/v1/groups/${gid}/members/${p[0].user.id}`,undefined,p[0].token);assert.notEqual((await a.request('GET',`/v1/groups/${gid}`,undefined,p[1].token)).data.conversation.ownerId,p[0].user.id);assert.equal((await a.request('POST','/v1/groups',body,p[0].token)).status,404);assert.equal(Number((await a.db.query('SELECT COUNT(*) total FROM tomi_groups')).rows[0].total),1);
 });
 test('1.2 group attachments cannot cross conversations and private files expire without public URLs',async t=>{
  const a=await fixture(t,{images:true}),p=await people(a),g=await group(a,p),f=await file(a,p[1],g.gid,{group:true});
