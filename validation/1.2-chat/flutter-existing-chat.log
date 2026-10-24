@@ -1,0 +1,40 @@
+00:00 +0: loading /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart
+00:00 +0: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: a lost send reply retries the original nonce without duplicating the saved message
+00:00 +1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: fetching in the background does not mark messages read
+00:00 +2: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: an unseen later arrival remains unread until synced and viewed
+00:00 +3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: image reply loss reuses its verified upload
+00:00 +4: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: an explicit invalid upload permits preparation again
+00:00 +5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: blocking disables sending while retaining history
+00:00 +6: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: a stale history response cannot restore a deleted message
+00:00 +7: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: stale metadata cannot undo a newer block
+00:00 +8: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/media05_test.dart: voice lost replies retry the same upload and nonce
+00:00 +9: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/media05_test.dart: voice lost replies retry the same upload and nonce
+00:00 +10: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/media05_test.dart: voice lost replies retry the same upload and nonce
+00:00 +11: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:00 +12: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:01 +13: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:01 +14: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:01 +15: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:01 +16: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:01 +17: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:01 +18: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:01 +19: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:01 +20: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/messaging10_test.dart: compact private chat retains reply and video controls above the keyboard
+00:01 +21: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/media05_test.dart: avatar retries a lost save reply using the same uploaded image and nonce
+00:02 +22: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/media05_test.dart: avatar retries a lost save reply using the same uploaded image and nonce
+00:02 +23: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/media05_test.dart: avatar retries a lost save reply using the same uploaded image and nonce
+00:02 +24: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/media05_test.dart: avatar retries a lost save reply using the same uploaded image and nonce
+00:02 +25: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: a failed bubble can retry and clear the error
+00:02 +26: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: a failed bubble can retry and clear the error
+00:02 +27: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/messaging10_test.dart: process restart reconciles a lost image send ACK without uploading or sending again
+00:02 +28: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: old history has a compact route back to latest messages
+00:02 +29: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: old history has a compact route back to latest messages
+00:02 +30: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: old history has a compact route back to latest messages
+00:02 +31: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: old history has a compact route back to latest messages
+00:02 +32: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: old history has a compact route back to latest messages
+00:02 +33: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: old history has a compact route back to latest messages
+00:02 +34: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: old history has a compact route back to latest messages
+00:02 +35: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: old history has a compact route back to latest messages
+00:02 +36: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/messaging10_test.dart: the post sheet saves on close and restores editable text when reopened
+00:02 +37: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: landscape attachment composer fits large text above the keyboard
+00:02 +38: All tests passed!

@@ -1,0 +1,23 @@
+{
+  "baseline": "source19",
+  "prior_packages_preserved": 132,
+  "existing_version_or_checksum_changes": 0,
+  "dependency_role_changes": [],
+  "new_packages": [
+    "file_selector",
+    "file_selector_android",
+    "file_selector_ios",
+    "file_selector_web",
+    "url_launcher",
+    "url_launcher_android",
+    "url_launcher_ios",
+    "url_launcher_linux",
+    "url_launcher_macos",
+    "url_launcher_platform_interface",
+    "url_launcher_web",
+    "url_launcher_windows"
+  ],
+  "schema_additive_prefix": true,
+  "protected_files_unchanged": 53,
+  "standalone_workflow_matches": true
+}

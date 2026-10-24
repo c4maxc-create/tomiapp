@@ -1,0 +1,10 @@
+00:00 +0: loading /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/call_api_integration_test.dart
+00:00 +0: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/call_api_integration_test.dart: two call controllers complete offer answer ICE and hangup through the real Node API
+00:01 +1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/call_api_integration_test.dart: two call controllers complete offer answer ICE and hangup through the real Node API
+00:01 +2: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/messaging_api_integration_test.dart: 0.10 Flutter disk restart reconciles real HTTP send and retains reply reaction pin search and post contracts
+00:01 +3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/messaging_api_integration_test.dart: 0.10 Flutter disk restart reconciles real HTTP send and retains reply reaction pin search and post contracts
+00:02 +4: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/moderation_api_integration_test.dart: 0.12 real HTTP report tracking, staff review, content actions and role revocation
+00:03 +5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/moderation_api_integration_test.dart: 0.12 real HTTP report tracking, staff review, content actions and role revocation
+00:03 +6: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/moderation_api_integration_test.dart: 0.12 real HTTP report tracking, staff review, content actions and role revocation
+00:04 +7: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/moderation_api_integration_test.dart: 0.12 real HTTP report tracking, staff review, content actions and role revocation
+00:04 +8: All tests passed!

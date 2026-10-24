@@ -1,10 +1,25 @@
-# TOMI 1.1 — home, stories and profile
+# TOMI 1.2 — chats and groups
 
-App1.1.0-beta.1+16 / API1.1.0-beta.1. This update implements the supplied home/profile references:24h image/video/text stories, full-screen story navigation and real rings, edge-to-edge posts with inline video, saved posts, follower lists and a3-column profile grid. A persistent activity inbox and foreground/background push paths replace the old notification placeholder. Profile menu links settings and the four upcoming subscription services; pricing/payment is deferred.
+App **1.2.0-beta.1+17** / API **1.2.0-beta.1**. This update adds the supplied
+WhatsApp-inspired chat layout, functional inbox menus and filters, a unified
+media/document picker, emoji and built-in TOMI stickers, cached history shown
+before the background refresh, and private groups with per-member notifications.
 
-Start with **START_HERE_AR.md**, **HOME_PROFILE_1.1_AR.md** and **VALIDATION-1.1.md**. Upload the full source and update the existing API before building the app. Source-only delivery: Flutter analysis/build, PostgreSQL and device acceptance run in GitHub/phones. The current workflow preserves the earlier CI fixes and enables the new home contract. Flutter dependency versions are unchanged; schema upgrade is additive.
+Start with **START_HERE_AR.md** and **CHAT_1.2_AR.md**. Upload the complete source,
+update the existing API to 1.2, then start a new GitHub Actions run from that
+commit. **VALIDATION-1.2.md** records successful local analysis, 191 distinct Dart
+cases and 145 Node/SQLite tests. PostgreSQL/restore verification, APK creation
+and physical-phone acceptance remain the next deployment checks. The workflow
+keeps the existing CI safeguards and enables all eight HTTP contracts.
+
+The existing 132 Flutter lock entries retain their versions and checksums; 12
+packages were added for file selection and opening. The schema upgrade is
+additive. All source19 paths are retained, including the prior home/profile,
+stories, subscriptions placeholders, calls, voice rooms, identity and games.
+**HOME_PROFILE_1.1_AR.md** documents those existing home/profile features.
 
 The following sections document earlier features and remain reference material.
+
 
 ---
 

@@ -1,0 +1,193 @@
+00:00 +0: loading /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart
+00:00 +0: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: joining listens without capturing mic; request and approval never auto-unmute
+00:00 +1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: demotion closes mic and a stale lower-revision response cannot restore its permission
+00:00 +2: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: late mic permission after moderator revocation remains muted
+00:00 +3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: leaving during join closes a late grant without starting the audio engine
+00:00 +4: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: background and logout stop capture and leave; microphone dialog completion cannot revive it
+00:00 +5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: kick removes membership and API synchronization stops the audio engine
+00:00 +6: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: a join snapshot after removal cannot start the media engine
+00:00 +7: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room list loads when its tab becomes visible
+00:00 +7 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room list loads when its tab becomes visible
+00:00 +8 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room list loads when its tab becomes visible
+00:00 +9 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room list loads when its tab becomes visible
+00:00 +10 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room list loads when its tab becomes visible
+00:00 +11 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room list loads when its tab becomes visible
+00:00 +12 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room list loads when its tab becomes visible
+00:00 +13 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room list loads when its tab becomes visible
+00:00 +14 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room list loads when its tab becomes visible
+00:00 +15 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room list loads when its tab becomes visible
+00:00 +16 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room list loads when its tab becomes visible
+00:00 +17 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room list loads when its tab becomes visible
+00:00 +18 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room list loads when its tab becomes visible
+00:00 +19 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room list loads when its tab becomes visible
+00:00 +20 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room list loads when its tab becomes visible
+00:00 +21 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/media05_test.dart: pending voices share the bounded private-draft memory limit
+00:00 +22 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/media05_test.dart: pending voices share the bounded private-draft memory limit
+00:00 +23 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/media05_test.dart: pending voices share the bounded private-draft memory limit
+00:00 +24 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/media05_test.dart: pending voices share the bounded private-draft memory limit
+00:00 +25 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/media05_test.dart: pending voices share the bounded private-draft memory limit
+00:00 +26 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/media05_test.dart: pending voices share the bounded private-draft memory limit
+00:00 +27 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room UI fits narrow Arabic screen and 2x text with working request and leave controls
+00:01 +28 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room UI fits narrow Arabic screen and 2x text with working request and leave controls
+00:01 +29 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room UI fits narrow Arabic screen and 2x text with working request and leave controls
+00:01 +30 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room UI fits narrow Arabic screen and 2x text with working request and leave controls
+00:01 +31 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room UI fits narrow Arabic screen and 2x text with working request and leave controls
+00:01 +32 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room UI fits narrow Arabic screen and 2x text with working request and leave controls
+00:01 +33 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room UI fits narrow Arabic screen and 2x text with working request and leave controls
+00:01 +34 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room UI fits narrow Arabic screen and 2x text with working request and leave controls
+00:01 +35 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room UI fits narrow Arabic screen and 2x text with working request and leave controls
+00:01 +36 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room UI fits narrow Arabic screen and 2x text with working request and leave controls
+00:01 +37 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/rooms_test.dart: room UI fits narrow Arabic screen and 2x text with working request and leave controls
+00:01 +38 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+00:01 +39 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+00:01 +40 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+00:01 +41 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:01 +42 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:01 +43 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:01 +44 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:01 +45 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:01 +46 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:01 +47 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:01 +48 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:01 +49 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:01 +50 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:01 +51 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:01 +52 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:01 +53 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:01 +54 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:01 +55 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:01 +56 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:02 +57 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:02 +58 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:02 +59 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+00:02 +60 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: white room settings toggle persists and remains usable at large Arabic text
+00:02 +61 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: white room settings toggle persists and remains usable at large Arabic text
+00:02 +62 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: white room settings toggle persists and remains usable at large Arabic text
+00:02 +63 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: white room settings toggle persists and remains usable at large Arabic text
+00:02 +64 ~1: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: white room settings toggle persists and remains usable at large Arabic text
+00:02 +64 ~2: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/room_features_test.dart: white room settings toggle persists and remains usable at large Arabic text
+00:02 +65 ~2: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:03 +66 ~2: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:03 +66 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+00:03 +67 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +68 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +69 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:03 +70 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+00:04 +71 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/social_test.dart: comment errors and keyboard remain scrollable on Size(320.0, 640.0)
+00:04 +72 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/messaging10_test.dart: a pending video play cannot resume after a background interruption
+00:04 +73 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/messaging10_test.dart: a pending video play cannot resume after a background interruption
+00:04 +74 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/messaging10_test.dart: a pending video play cannot resume after a background interruption
+00:04 +75 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/messaging10_test.dart: a pending video play cannot resume after a background interruption
+00:04 +76 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/preview_test.dart: five tabs fit viewport Size(800.0, 420.0)
+00:04 +77 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/preview_test.dart: five tabs fit viewport Size(800.0, 420.0)
+00:04 +78 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/preview_test.dart: five tabs fit viewport Size(800.0, 420.0)
+00:04 +79 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:05 +80 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:05 +81 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:05 +82 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:05 +83 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:05 +84 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:05 +85 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:05 +86 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:05 +87 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:05 +88 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:05 +89 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:05 +90 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:05 +91 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:05 +92 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:05 +93 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:05 +94 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:05 +95 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:06 +96 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:06 +97 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:06 +98 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:06 +99 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/social_test.dart: real feed, likes and comments fit enlarged text on Size(800.0, 420.0)
+00:06 +100 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:06 +101 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:06 +102 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +103 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +104 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +105 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +106 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +107 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +108 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +109 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +110 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +111 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +112 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +113 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +114 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +115 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +116 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +117 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +118 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:07 +119 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:08 +120 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: chat1.2 inbox fits Size(320.0, 640.0) at 1.0 text and filters immediately
+00:08 +121 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:08 +122 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:08 +123 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:08 +124 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:08 +125 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:08 +126 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:08 +127 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+00:08 +128 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: profile edit waits for server success and keeps text when username is taken
+00:08 +129 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: profile edit waits for server success and keeps text when username is taken
+00:08 +130 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: profile edit waits for server success and keeps text when username is taken
+00:08 +131 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/privacy10_test.dart: signed-out users can read policies and open deletion tracking without sending credentials
+00:08 +132 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: chat1.2 inbox fits Size(800.0, 420.0) at 1.0 text and filters immediately
+00:08 +133 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/identity11_test.dart: room list favorite and follow actions use real controller state
+00:09 +134 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/identity11_test.dart: room list favorite and follow actions use real controller state
+00:09 +135 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: chat1.2 bubbles and composer fit Size(800.0, 420.0) at 1.0 with keyboard
+00:09 +136 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: expired session removes pushed account pages and returns to login
+00:09 +137 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: expired session removes pushed account pages and returns to login
+00:09 +138 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/accounts_widget_test.dart: expired session removes pushed account pages and returns to login
+00:09 +139 ~3: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: emoji insertion, sticker sending and unified attachments work from the composer
+00:09 +139 ~4: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: emoji insertion, sticker sending and unified attachments work from the composer
+00:09 +140 ~4: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:10 +141 ~4: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:10 +142 ~4: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:10 +143 ~4: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:10 +144 ~4: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:10 +145 ~4: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:10 +145 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:10 +146 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:10 +147 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:10 +148 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:10 +149 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: inbox menu opens group creation and commits selected people
+00:10 +150 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: inbox menu opens group creation and commits selected people
+00:10 +151 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: inbox menu opens group creation and commits selected people
+00:10 +152 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: inbox menu opens group creation and commits selected people
+00:10 +153 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: inbox menu opens group creation and commits selected people
+00:10 +154 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: inbox menu opens group creation and commits selected people
+00:10 +155 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: inbox menu opens group creation and commits selected people
+00:10 +156 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: inbox menu opens group creation and commits selected people
+00:10 +157 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: inbox menu opens group creation and commits selected people
+00:10 +158 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: inbox menu opens group creation and commits selected people
+00:10 +159 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: inbox menu opens group creation and commits selected people
+00:10 +160 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: inbox menu opens group creation and commits selected people
+00:10 +161 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: inbox menu opens group creation and commits selected people
+00:10 +162 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart: inbox menu opens group creation and commits selected people
+00:10 +163 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:10 +164 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:10 +165 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:10 +166 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:10 +167 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:10 +168 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:10 +169 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:10 +170 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:10 +171 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:10 +172 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:10 +173 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:10 +174 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:11 +175 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:11 +176 ~5: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:11 +176 ~6: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:11 +177 ~6: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:11 +178 ~6: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:11 +179 ~6: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/home11_test.dart: home saving uses the authenticated endpoint
+00:11 +179 ~7: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/home11_test.dart: home saving uses the authenticated endpoint
+00:11 +179 ~8: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/home11_test.dart: home saving uses the authenticated endpoint
+00:11 +180 ~8: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/home11_test.dart: home saving uses the authenticated endpoint
+00:12 +181 ~8: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: old history has a compact route back to latest messages
+00:12 +182 ~8: /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat_test.dart: landscape attachment composer fits large text above the keyboard
+00:12 +183 ~8: All tests passed!
