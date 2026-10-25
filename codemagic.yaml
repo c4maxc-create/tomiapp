@@ -24,6 +24,6 @@ workflows:
           if [ -f android/app/google-services.json ]; then tomi_push_ready=true; else tomi_push_ready=false; fi
           flutter build apk --debug --dart-define="TOMI_API_URL=${TOMI_API_URL:-}" --dart-define="TOMI_PREVIEW_MODE=${TOMI_PREVIEW_MODE:-true}" --dart-define="TOMI_PUSH_CONFIGURED=$tomi_push_ready"
           mkdir -p output
-          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-1.2.0-beta.1.apk
+          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-1.3.0-beta.1.apk
     artifacts:
-      - output/TOMI-1.2.0-beta.1.apk
+      - output/TOMI-1.3.0-beta.1.apk
