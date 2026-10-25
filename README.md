@@ -1,3 +1,13 @@
+# TOMI 1.3.1-beta.1 — PostgreSQL CI and migration fix
+
+Complete source, app **1.3.1-beta.1+19**, API **1.3.1-beta.1**. Preserves all 1.3 voice-room features. Corrects the support-event foreign key on new and existing PostgreSQL/SQLite databases without removing gift records, retry receipts, balances or cosmetics. Retired room-owner uniqueness is not recreated during startup. Failed schema initialization closes its database handle.
+
+The serial Node test runner now limits individual tests and exits after completed tests while preserving failure status. CI has separate database and restore deadlines. Start with **PG_FIX_1.3.1_AR.md** and **VALIDATION-1.3.1.md**. Upload the complete source before starting a new GitHub Actions run; rerunning run35 reuses the old commit. The existing API URL remains https://tomiapp.onrender.com. This package is source; hosted APK creation and phone acceptance follow the upload.
+
+Previous documentation follows.
+
+---
+
 # TOMI 1.3.0-beta.1 — voice rooms
 
 Arabic Flutter app and Node24 API. Voice rooms now have free/advanced policies, atomic5799-coin purchases, a60-day owner inactivity limit, advanced-only public IDs, self/group support, top100 daily/Friday-weekly/lifetime rankings, temporary cosmetics, per-visit chat cursors and realtime updates.

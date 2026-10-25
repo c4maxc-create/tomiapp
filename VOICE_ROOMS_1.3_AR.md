@@ -1,4 +1,4 @@
-# تحديث الغرف الصوتية — TOMI 1.3.0-beta.1
+# تحديث الغرف الصوتية — TOMI 1.3.1-beta.1
 
 هذه نسخة المصدر الكاملة لتحديث الغرف الصوتية، مبنية على نسخة 1.2 التي تتضمن تحديثات الرئيسية والحساب والمحادثات وتصحيح PostgreSQL.
 
@@ -50,9 +50,9 @@
 
 1. فك ضغط الحزمة. ارفع الملفات إلى نفس مستودع tomiapp وفرعmain، مع استبدال الملفات المعدلة وإبقاء مجلد.github/workflows وتحديثه.
 2. في Render افتح خدمةtomiapp ثم Manual Deploy ثم Deploy latest commit. أبقِ إعدادات قاعدةPostgreSQL الجديدة وR2 وLiveKit الموجودة. لا تحذف قاعدة البيانات ولا تعطل فحصTLS.
-3. افتح https://tomiapp.onrender.com/health وتأكد أنversion أصبح1.3.0-beta.1. ترقية الجداول تنفذ تلقائيًا عند بدء الخادم.
-4. من GitHub افتح Actions ثم TOMI 1.3.0-beta.1 Android ثم Run workflow. اخترaccounts وdebug، واجعلapi_url هوhttps://tomiapp.onrender.com.
-5. بعد نجاح الاختبارات والبناء نزلArtifact ثم ملفTOMI-1.3.0-beta.1.apk وثبّته بمفتاح التوقيع نفسه الذي استعملته سابقًا.
+3. افتح https://tomiapp.onrender.com/health وتأكد أنversion أصبح1.3.1-beta.1. ترقية الجداول تنفذ تلقائيًا عند بدء الخادم.
+4. من GitHub افتح Actions ثم TOMI 1.3.1-beta.1 Android ثم Run workflow. اخترaccounts وdebug، واجعلapi_url هوhttps://tomiapp.onrender.com.
+5. بعد نجاح الاختبارات والبناء نزلArtifact ثم ملفTOMI-1.3.1-beta.1.apk وثبّته بمفتاح التوقيع نفسه الذي استعملته سابقًا.
 
 الملف المرسل مصدر كامل، وليسAPK مبنيًا. كوينز هذه النسخة تستخدم المحفظة التجريبية الموجودة؛ إضافة شحن نقدي حقيقي وبوابة دفع مرحلة منفصلة. عند تفعيلsigned_beta تبقى شروط التوقيع وتجربة الهاتفين الموجودة في المشروع مطلوبة.
 
