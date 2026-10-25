@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +11,7 @@ import 'package:tomi_app/src/voice_rooms/room_audio.dart';
 import 'package:tomi_app/src/voice_rooms/room_controller.dart';
 import 'package:tomi_app/src/voice_rooms/room_screens.dart';
 import 'package:tomi_app/src/voice_rooms/room_models.dart';
+
 import 'account_fakes.dart';
 
 const roomId = '33333333-3333-4333-8333-333333333333';
@@ -65,13 +67,15 @@ class RoomFakeApi extends AccountApi {
       requests = 0,
       seatCount = 8,
       listReads = 0;
-  String role = 'member';
+  String role = 'member', tier = 'advanced';
   int? seat;
   bool allowed = false, present = true, configured = true;
   String? requested;
   Completer<void>? joinGate, getGate;
   Map<String, dynamic> get snapshot => {
     'id': roomId,
+    'tier': tier,
+    'publicId': tier == 'advanced' ? '100001' : null,
     'title': 'سوالف الأصدقاء وأهل تومي',
     'ownerId': peerId,
     'capacity': 20,
@@ -116,7 +120,7 @@ class RoomFakeApi extends AccountApi {
     Map<String, String>? query,
   }) async {
     if (path.contains('/requests/'))
-      throw const AccountFailure('REQUEST_NOT_FOUND', 'Not sent', status:404);
+      throw const AccountFailure('REQUEST_NOT_FOUND', 'Not sent', status: 404);
     if (path == '/v1/calls/active') return {'configured': true, 'call': null};
     if (path == '/v1/rooms' && method == 'GET') {
       listReads++;
@@ -180,61 +184,55 @@ setup() async {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  test(
-    'joining listens without capturing mic; request and approval never auto-unmute',
-    () async {
-      final (a, c, api, audio) = await setup();
-      addTearDown(() {
-        c.dispose();
-        a.dispose();
-      });
-      expect(await c.join(roomId), true);
-      expect(audio.enables, 0);
-      expect(c.canUseMic, false);
-      await c.action('request-mic');
-      expect(api.requests, 1);
-      expect(audio.enables, 0);
-      api.seat = 1;
-      api.allowed = true;
-      api.version++;
-      audio.canPublish = true;
-      await c.tick();
-      expect(c.canUseMic, true);
-      expect(audio.enables, 0);
-      await c.toggleMicrophone();
-      expect(audio.micEnabled, true);
-      await c.toggleMicrophone();
-      expect(audio.micEnabled, false);
-      await c.leave();
-      expect(audio.disposed, true);
-      expect(api.leaves, 1);
-    },
-  );
-  test(
-    'demotion closes mic and a stale lower-revision response cannot restore its permission',
-    () async {
-      final (a, c, api, audio) = await setup();
-      addTearDown(() {
-        c.dispose();
-        a.dispose();
-      });
-      api.seat = 1;
-      api.allowed = true;
-      audio.canPublish = true;
-      await c.join(roomId);
-      await c.toggleMicrophone();
-      final old = VoiceRoom(api.copy());
-      api.seat = null;
-      api.allowed = false;
-      api.version++;
-      await c.tick();
-      expect(audio.micEnabled, false);
-      expect(c.canUseMic, false);
-      await c.apply(old, c.generation);
-      expect(c.canUseMic, false);
-      expect(c.me!.seat, isNull);
-    },
-  );
+  test('joining listens without capturing mic; request and approval never auto-unmute', () async {
+    final (a, c, api, audio) = await setup();
+    addTearDown(() {
+      c.dispose();
+      a.dispose();
+    });
+    expect(await c.join(roomId), true);
+    expect(audio.enables, 0);
+    expect(c.canUseMic, false);
+    await c.action('request-mic');
+    expect(api.requests, 1);
+    expect(audio.enables, 0);
+    api.seat = 1;
+    api.allowed = true;
+    api.version++;
+    audio.canPublish = true;
+    await c.tick();
+    expect(c.canUseMic, true);
+    expect(audio.enables, 0);
+    await c.toggleMicrophone();
+    expect(audio.micEnabled, true);
+    await c.toggleMicrophone();
+    expect(audio.micEnabled, false);
+    await c.leave();
+    expect(audio.disposed, true);
+    expect(api.leaves, 1);
+  });
+  test('demotion closes mic and a stale lower-revision response cannot restore its permission', () async {
+    final (a, c, api, audio) = await setup();
+    addTearDown(() {
+      c.dispose();
+      a.dispose();
+    });
+    api.seat = 1;
+    api.allowed = true;
+    audio.canPublish = true;
+    await c.join(roomId);
+    await c.toggleMicrophone();
+    final old = VoiceRoom(api.copy());
+    api.seat = null;
+    api.allowed = false;
+    api.version++;
+    await c.tick();
+    expect(audio.micEnabled, false);
+    expect(c.canUseMic, false);
+    await c.apply(old, c.generation);
+    expect(c.canUseMic, false);
+    expect(c.me!.seat, isNull);
+  });
   test(
     'late mic permission after moderator revocation remains muted',
     () async {
@@ -280,33 +278,30 @@ void main() {
       expect(audio.enables, 0);
     },
   );
-  test(
-    'background and logout stop capture and leave; microphone dialog completion cannot revive it',
-    () async {
-      final (a, c, api, audio) = await setup();
-      addTearDown(() {
-        c.dispose();
-        a.dispose();
-      });
-      api.seat = 1;
-      api.allowed = true;
-      audio.canPublish = true;
-      await c.join(roomId);
-      final gate = Completer<void>();
-      audio.micGate = gate;
-      final opening = c.toggleMicrophone();
-      await Future<void>.delayed(Duration.zero);
-      c.didChangeAppLifecycleState(AppLifecycleState.paused);
-      gate.complete();
-      await opening;
-      await c.releaseTail;
-      expect(c.inRoom, false);
-      expect(audio.disposed, true);
-      expect(audio.micEnabled, false);
-      await a.logout();
-      expect(c.active, isNull);
-    },
-  );
+  test('background and logout stop capture and leave; microphone dialog completion cannot revive it', () async {
+    final (a, c, api, audio) = await setup();
+    addTearDown(() {
+      c.dispose();
+      a.dispose();
+    });
+    api.seat = 1;
+    api.allowed = true;
+    audio.canPublish = true;
+    await c.join(roomId);
+    final gate = Completer<void>();
+    audio.micGate = gate;
+    final opening = c.toggleMicrophone();
+    await Future<void>.delayed(Duration.zero);
+    c.didChangeAppLifecycleState(AppLifecycleState.paused);
+    gate.complete();
+    await opening;
+    await c.releaseTail;
+    expect(c.inRoom, false);
+    expect(audio.disposed, true);
+    expect(audio.micEnabled, false);
+    await a.logout();
+    expect(c.active, isNull);
+  });
   test(
     'kick removes membership and API synchronization stops the audio engine',
     () async {
@@ -374,9 +369,8 @@ void main() {
           supportedLocales: const [Locale('ar')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: const TextScaler.linear(2)),
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(2)),
             child: child!,
           ),
           home: VoiceRoomPage(controller: c),

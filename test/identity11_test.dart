@@ -506,7 +506,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('ranking-daily')));
       await tester.pumpAndSettle();
-      expect(find.textContaining('100 نقطة'), findsOneWidget);
+      expect(find.textContaining('100 كوينز'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await capture(tester, 'ranking-daily');
       await tester.pumpWidget(const SizedBox.shrink());
