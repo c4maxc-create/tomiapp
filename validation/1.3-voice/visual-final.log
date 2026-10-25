@@ -1,0 +1,9 @@
+00:00 +0: loading /workspace/scratch/a6e9eb31b351/voice13-work/test/voice13_test.dart
+00:00 +0: (setUpAll)
+00:00 +0: paid room intent survives restart and lost ACK without another charge
+00:00 +1: cosmetic purchase retries the durable request after app restart
+00:00 +2: self and group gifts preserve chosen audience and price preview
+00:00 +3: realtime seat change refreshes before polling interval
+00:00 +4: voice UI, paid terms, stage and gift audiences fit Arabic compact screens
+00:02 +5: (tearDownAll)
+00:02 +5: All tests passed!

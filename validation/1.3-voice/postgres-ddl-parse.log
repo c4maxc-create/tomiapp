@@ -1,0 +1,2 @@
+PostgreSQL parser accepted 141 schema statements, including voice1.3 tables, indexes, union view and backfill.
+Grammar validation only; no local PostgreSQL service or runtime integration was available. CI runs the full suite on PostgreSQL17.

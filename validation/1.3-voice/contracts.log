@@ -1,0 +1,17 @@
+00:00 +0: loading /workspace/scratch/a6e9eb31b351/voice13-work/test/call_api_integration_test.dart
+00:00 +0: /workspace/scratch/a6e9eb31b351/voice13-work/test/call_api_integration_test.dart: two call controllers complete offer answer ICE and hangup through the real Node API
+00:01 +1: loading /workspace/scratch/a6e9eb31b351/voice13-work/test/room_api_integration_test.dart
+00:02 +1: /workspace/scratch/a6e9eb31b351/voice13-work/test/room_api_integration_test.dart: two room controllers create, join, request mic, moderate and leave via real Node API
+00:03 +2: loading /workspace/scratch/a6e9eb31b351/voice13-work/test/messaging_api_integration_test.dart
+00:04 +2: /workspace/scratch/a6e9eb31b351/voice13-work/test/messaging_api_integration_test.dart: 0.10 Flutter disk restart reconciles real HTTP send and retains reply reaction pin search and post contracts
+00:05 +3: loading /workspace/scratch/a6e9eb31b351/voice13-work/test/identity_api_integration_test.dart
+00:06 +3: /workspace/scratch/a6e9eb31b351/voice13-work/test/identity_api_integration_test.dart: 0.11 Flutter identity, private favorites, daily ranking and entry effects use the real API
+00:07 +4: loading /workspace/scratch/a6e9eb31b351/voice13-work/test/moderation_api_integration_test.dart
+00:08 +4: /workspace/scratch/a6e9eb31b351/voice13-work/test/moderation_api_integration_test.dart: 0.12 real HTTP report tracking, staff review, content actions and role revocation
+00:10 +5: loading /workspace/scratch/a6e9eb31b351/voice13-work/test/privacy_api_integration_test.dart
+00:11 +5: /workspace/scratch/a6e9eb31b351/voice13-work/test/privacy_api_integration_test.dart: 1.0 real HTTP erasure revokes sessions, removes posts and messages and verifies its private receipt signed out
+00:12 +6: loading /workspace/scratch/a6e9eb31b351/voice13-work/test/home_api_integration_test.dart
+00:13 +6: /workspace/scratch/a6e9eb31b351/voice13-work/test/home_api_integration_test.dart: 1.1 real HTTP story rings, views, followers, saved posts and activity agree
+00:14 +7: loading /workspace/scratch/a6e9eb31b351/voice13-work/test/chat12_api_integration_test.dart
+00:14 +7: /workspace/scratch/a6e9eb31b351/voice13-work/test/chat12_api_integration_test.dart: 1.2 real group chat, durable documents, stickers, read, quotes and member revocation agree with the API
+00:16 +8: All tests passed!
