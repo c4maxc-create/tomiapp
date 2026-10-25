@@ -102,11 +102,11 @@ test('0.10 room history is keyset paginated and session bound; own gift receipt 
  const f=await fixture(t),a=await f.register('history10a'),b=await f.register('history10b'),z=await f.register('history10z'),rid=randomUUID(),path='/v1/rooms/'+rid;
  await f.request(a,'POST','/v1/rooms',{requestId:rid,title:'غرفة السجل',capacity:10,seatCount:4});await f.request(a,'POST',path+'/join',{});await f.request(b,'POST',path+'/join',{});
  for(let i=0;i<95;i++)assert.equal((await f.request(a,'POST',path+'/message',{requestId:randomUUID(),text:'رسالة '+i})).status,200);
- const seen=[];let before;do{const r=await f.request(b,'GET',path+'/events'+(before?'?before='+before:''));assert.equal(r.status,200);seen.push(...r.data.events.map(e=>e.sequence));before=r.data.nextBefore;}while(before);assert.equal(new Set(seen).size,95);assert.equal(seen.length,95);
+ const seen=[];let before;do{const r=await f.request(b,'GET',path+'/events'+(before?'?before='+before:''));assert.equal(r.status,200);seen.push(...r.data.events.filter(e=>e.kind==='message').map(e=>e.sequence));before=r.data.nextBefore;}while(before);assert.equal(new Set(seen).size,95);assert.equal(seen.length,95);
  assert.equal((await f.request(z,'GET',path+'/events')).status,403);
  const other=(await f.request(null,'POST','/v1/auth/login',{username:'history10b',password:'test-only 0.10 passphrase'})).data;assert.equal((await f.request(other,'GET',path+'/events')).status,409);
  const nonce=randomUUID(),gift={requestId:nonce,recipientId:b.user.id,giftId:'rose',quantity:2},sent=await f.request(a,'POST',path+'/gift',gift);assert.equal(sent.status,200);const coins=sent.data.wallet.coins;
- await f.request(a,'POST',path+'/close',{});await f.restart();assert.equal((await f.request(a,'GET',path+'/requests/'+nonce)).data.wallet.coins,coins);assert.equal((await f.request(b,'GET',path+'/requests/'+nonce)).status,404);assert.ok((await f.request(b,'GET',path+'/events')).status>=400);assert.equal(Number((await f.db.query('SELECT COUNT(*) AS n FROM tomi_room_gifts')).rows[0].n),1);
+ await f.request(a,'POST',path+'/close',{});await f.restart();assert.equal((await f.request(a,'GET',path+'/requests/'+nonce)).data.wallet.coins,coins);assert.equal((await f.request(b,'GET',path+'/requests/'+nonce)).status,404);assert.ok((await f.request(b,'GET',path+'/events')).status>=400);assert.equal(Number((await f.db.query('SELECT COUNT(*) AS n FROM tomi_room_all_gifts')).rows[0].n),1);
 });
 test('0.10 additive migration opens the exact 0.9 schema and retains existing session and text post receipt',async t=>{
  const old=await readFile(new URL('fixtures/schema-0.9.sql',import.meta.url),'utf8'),next=await readFile(new URL('../schema.sql',import.meta.url),'utf8');assert.ok(next.startsWith(old));

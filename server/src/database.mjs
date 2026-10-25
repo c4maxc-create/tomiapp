@@ -21,7 +21,8 @@ export async function openDatabase({ connectionString, sqliteFile, production = 
       query_timeout: 15000,
     });
     pool.on('error', (error) => console.error('Database connection error:', error.code || error.name));
-    await pool.query(schema);
+    // PostgreSQL and SQLite use different view creation syntax.
+    await pool.query(schema.replace(/CREATE VIEW IF NOT EXISTS /g,'CREATE OR REPLACE VIEW '));
     const adapt = (executor) => async (sql, values = []) => {
       let index = 0;
       const text = sql.replace(/\?/g, () => `$${++index}`);

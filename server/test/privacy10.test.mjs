@@ -74,7 +74,7 @@ test('1.0 erasure clears authored data and private links while preserving the pe
   const room=(await f.req(a,'POST','/v1/rooms',{title:'private room title',requestId:randomUUID(),capacity:10,seatCount:4})).data.room;
   await f.db.query('INSERT INTO tomi_room_gifts(id,room_id,sender_id,recipient_id,request_id,gift_id,quantity,unit_price,total,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[randomUUID(),room.id,a.user.id,b.user.id,randomUUID(),'diamond',1,100,100,stamp]);
   await f.db.query('INSERT INTO tomi_user_progress(user_id,spent) VALUES(?,100) ON CONFLICT(user_id) DO UPDATE SET spent=100',[a.user.id]);
-  await f.db.query('INSERT INTO tomi_room_wallets(user_id,coins,next_claim) VALUES(?,500,?)',[a.user.id,stamp]);
+  await f.db.query('INSERT INTO tomi_room_wallets(user_id,coins,next_claim) VALUES(?,500,?) ON CONFLICT(user_id) DO UPDATE SET coins=500',[a.user.id,stamp]);
   const d=f.request();assert.equal((await f.req(a,'POST','/v1/account/deletion',d)).status,202);
   assert.equal((await f.req(b,'GET','/v1/posts/'+post.id)).status,404);
   const messages=(await f.req(b,'GET','/v1/chats/'+thread.id+'/messages')).data.messages;

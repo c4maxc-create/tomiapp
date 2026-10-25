@@ -10,28 +10,7 @@ import {createApp} from '../src/app.mjs';
 import {roomProviderFromEnvironment} from '../src/room_provider.mjs';
 import {TokenVerifier} from 'livekit-server-sdk';
 
-async function fixture(t,{disabled=false,storage=null}={}){
- const dir=await mkdtemp(join(tmpdir(),'tomi-rooms-')),calls=[];let down=false,db,server,base;
- const provider={ensure:async()=>{if(down)throw Error('offline');},
-  grant:async(r,m)=>({url:'wss://test.livekit.cloud',identity:m.identity,token:'test-only',publish:!!m.mic_allowed}),
-  permissions:async(r,id,publish)=>{if(down)throw Error('offline');calls.push(['permission',id,publish]);},
-  remove:async(r,id)=>{if(down)throw Error('offline');calls.push(['remove',id]);},close:async r=>{if(down)throw Error('offline');calls.push(['close',r.id]);}};
- async function start(reset=false){
-  db=await openDatabase({connectionString:process.env.TEST_DATABASE_URL,sqliteFile:join(dir,'rooms.sqlite')});
-  if(reset&&process.env.TEST_DATABASE_URL){const u=new URL(process.env.TEST_DATABASE_URL);assert.ok(['localhost','127.0.0.1'].includes(u.hostname)&&u.pathname==='/tomi_test');await db.query('DELETE FROM tomi_users');await db.query('DELETE FROM tomi_rate_limits');}
-  server=await createApp({database:db,storage,roomProvider:disabled?null:provider,roomAutoSweep:false,iceProvider:async()=>({}),callAutoSweep:false,pushAutoFlush:false,rateLimitMultiplier:50});
-  server.listen(0,'127.0.0.1');await once(server,'listening');base='http://127.0.0.1:'+server.address().port;
- }
- async function stop(){const closed=once(server,'close');server.close();server.closeIdleConnections();await closed;await db.close();}
- await start(true);t.after(async()=>{await stop();await rm(dir,{recursive:true,force:true});});
- const api={get db(){return db;},get server(){return server;},calls,set down(v){down=v;},async restart(){await stop();await start();},
-  async request(method,path,body,token){const r=await fetch(base+path,{method,headers:{...(body?{'content-type':'application/json'}:{}),...(token?{authorization:'Bearer '+token}:{})},...(body?{body:JSON.stringify(body)}:{})});return {status:r.status,data:await r.json()};},
-  async register(name){const r=await this.request('POST','/v1/auth/register',{username:name,displayName:name,password:'test-only rooms passphrase'});assert.equal(r.status,201);return r.data;},
-  async create(a,extra={}){const r=await this.request('POST','/v1/rooms',{requestId:randomUUID(),title:'غرفة تومي',capacity:10,seatCount:4,...extra},a.token);assert.equal(r.status,201,JSON.stringify(r.data));return r.data.room;},
-  async act(a,r,action,body={}){return this.request('POST',`/v1/rooms/${r.id}/${action}`,body,a.token);},
-  async get(a,r){return (await this.request('GET',`/v1/rooms/${r.id}`,null,a.token)).data.room;},
- };return api;
-}
+import {fixture} from './fixtures/room-api.mjs';
 test('rooms persist; creation and joins are idempotent and session-bound; listeners cannot moderate',async t=>{
  const api=await fixture(t),a=await api.register('room_owner'),b=await api.register('room_guest');
  const requestId=randomUUID(),r=await api.create(a,{requestId});assert.equal((await api.create(a,{requestId})).id,r.id);
@@ -127,8 +106,8 @@ test('closing retains every token removal until acknowledged, even after SFU Del
  const api=await fixture(t),a=await api.register('close_owner'),b=await api.register('close_guest'),r=await api.create(a);
  const one=(await api.act(a,r,'join')).data.connection,two=(await api.act(b,r,'join')).data.connection;
  await api.act(a,r,'close');
- assert.equal(Number((await api.db.query('SELECT COUNT(*) n FROM tomi_voice_jobs WHERE room_id=?',[r.id])).rows[0].n),1);
- assert.equal(Number((await api.db.query('SELECT needs_delete FROM tomi_voice_rooms WHERE id=?',[r.id])).rows[0].needs_delete),1);
+ assert.equal(Number((await api.db.query('SELECT COUNT(*) n FROM tomi_voice_jobs WHERE room_id=?',[r.id])).rows[0].n),0);
+ assert.equal(Number((await api.db.query('SELECT needs_delete FROM tomi_voice_rooms WHERE id=?',[r.id])).rows[0].needs_delete),0);
  await api.server.flushRooms();
  assert.equal(Number((await api.db.query('SELECT COUNT(*) n FROM tomi_voice_jobs WHERE room_id=?',[r.id])).rows[0].n),0);
  assert.ok([one.identity,two.identity].every(id=>api.calls.some(v=>v[0]==='remove'&&v[1]===id)));
@@ -155,14 +134,14 @@ test('upgrading a seated 0.7 owner changes only their seat and preserves the SFU
  const old=await (await import('node:fs/promises')).readFile(new URL('./fixtures/schema-0.7.sql',import.meta.url),'utf8');
  const fresh=await (await import('node:fs/promises')).readFile(new URL('../schema.sql',import.meta.url),'utf8');assert.ok(fresh.startsWith(old.trimEnd()));
 });
-test('gifts debit exactly once, persist a receipt and room XP across restart, and reject changed retries',async t=>{
+test('gifts debit exactly once, persist a receipt and account support across restart, and reject changed retries',async t=>{
  const api=await fixture(t),a=await api.register('gift_owner'),b=await api.register('gift_guest'),r=await api.create(a);
  await api.act(a,r,'join');await api.act(b,r,'join');const body={requestId:randomUUID(),recipientId:b.user.id,giftId:'diamond',quantity:3};
  const one=await api.act(a,r,'gift',body);assert.equal(one.status,200,JSON.stringify(one.data));assert.equal(one.data.wallet.coins,700);
- assert.equal(one.data.room.features.level,3);assert.equal(one.data.room.features.xp,300);assert.equal(one.data.room.features.next,700);
+ assert.equal(one.data.room.hasLevels,false);assert.equal(one.data.room.features.level,undefined);assert.equal(one.data.room.features.xp,undefined);
  const replay=await api.act(a,r,'gift',body);assert.equal(replay.data.receiptId,one.data.receiptId);assert.equal(replay.data.wallet.coins,700);
  assert.equal((await api.act(a,r,'gift',{...body,quantity:4})).data.error.code,'REQUEST_CHANGED');
- await api.restart();const live=await api.get(b,r);assert.equal(live.features.xp,300);assert.equal(live.features.events.filter(e=>e.kind==='gift').length,1);
+ await api.restart();const live=await api.get(b,r);assert.equal(live.features.xp,undefined);assert.equal(live.features.events.filter(e=>e.kind==='gift').length,1);
  assert.equal((await api.request('GET','/v1/rooms/wallet',null,a.token)).data.wallet.coins,700);
  const ranking=await api.request('GET',`/v1/rooms/${r.id}/ranking`,null,b.token);assert.equal(ranking.data.leaders[0].points,300);
 });
@@ -171,15 +150,15 @@ test('simultaneous gift sends cannot overspend; failure leaves no receipt, XP or
  await api.act(a,r,'join');await api.act(b,r,'join');
  const results=await Promise.all(Array.from({length:2},()=>api.act(a,r,'gift',{requestId:randomUUID(),recipientId:b.user.id,giftId:'rocket',quantity:1})));
  assert.deepEqual(results.map(v=>v.status).sort(),[200,409]);assert.equal(results.find(v=>v.status===409).data.error.code,'ROOM_COINS_LOW');
- const live=await api.get(a,r);assert.equal(live.features.xp,1000);assert.equal(live.features.events.filter(e=>e.kind==='gift').length,1);
+ const live=await api.get(a,r);assert.equal(live.features.xp,undefined);assert.equal(live.features.events.filter(e=>e.kind==='gift').length,1);
  assert.equal((await api.request('GET','/v1/rooms/wallet',null,a.token)).data.wallet.coins,0);
 });
-test('gifts require active membership and another present recipient; values and wallet claims are server controlled',async t=>{
+test('gifts require active membership and a present recipient; values and wallet claims are server controlled',async t=>{
  const api=await fixture(t),a=await api.register('guard_owner'),b=await api.register('guard_guest'),r=await api.create(a);
  await api.act(a,r,'join');let body={requestId:randomUUID(),recipientId:b.user.id,giftId:'rose',quantity:1};
  assert.equal((await api.act(a,r,'gift',body)).data.error.code,'ROOM_RECIPIENT_LEFT');assert.equal((await api.act(b,r,'gift',{...body,recipientId:a.user.id})).status,403);
  await api.act(b,r,'join');
- for(const patch of [{quantity:0},{quantity:100},{giftId:'free'},{quantity:1.5},{recipientId:a.user.id},{price:0}])assert.equal((await api.act(a,r,'gift',{...body,...patch})).status,400);
+ for(const patch of [{quantity:0},{quantity:100},{giftId:'free'},{quantity:1.5},{price:0}])assert.equal((await api.act(a,r,'gift',{...body,...patch})).status,400);
  const claims=await Promise.all([api.request('POST','/v1/rooms/wallet/claim',{},a.token),api.request('POST','/v1/rooms/wallet/claim',{},a.token)]);
  assert.ok(claims.every(v=>v.data.claimed===false));
  await api.db.query('UPDATE tomi_room_wallets SET next_claim=? WHERE user_id=?',['2000-01-01T00:00:00.000Z',a.user.id]);

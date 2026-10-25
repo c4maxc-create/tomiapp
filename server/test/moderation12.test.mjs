@@ -27,7 +27,7 @@ async function fixture(t){
     async post(a){const r=await this.req(a,'POST','/v1/posts',{text:'نص بلاغ اختبار خاص',requestId:randomUUID()});assert.equal(r.status,201);return r.data.post;},
     async report(a,type,targetId,extra={}){return this.req(a,'POST','/v1/reports',{requestId:randomUUID(),targetType:type,targetId,reason:'harassment',description:'وصف خاص للبلاغ',...extra});},
     async command(a,action,targetId,extra={}){return this.req(a,'POST','/v1/admin/actions',{requestId:randomUUID(),action,targetId,reason:'سبب اختبار إجراء الإدارة',expectedRevision:0,...extra});},
-    async create(a){const r=await this.req(a,'POST','/v1/rooms',{title:'غرفة اختبار الإدارة',requestId:randomUUID(),capacity:10,seatCount:4});assert.equal(r.status,201);return r.data.room;},
+    async create(a){await this.req(a,'GET','/v1/rooms/wallet');await db.query('UPDATE tomi_room_wallets SET coins=coins+5799 WHERE user_id=?',[a.user.id]);const r=await this.req(a,'POST','/v1/rooms',{title:'غرفة اختبار الإدارة',requestId:randomUUID(),capacity:10,seatCount:4,tier:'advanced',acceptTerms:true});assert.equal(r.status,201);return r.data.room;},
     async auditCount(){return Number((await db.query('SELECT COUNT(*) n FROM tomi_admin_audit')).rows[0].n);},
   };
 }
@@ -105,7 +105,7 @@ test('0.12 suspension hides account search, feed posts and ranking entries witho
   await f.req(member,'POST',`/v1/rooms/${room.id}/gift`,{giftId:'diamond',quantity:1,recipientId:mod.user.id,requestId:randomUUID()});
   assert.equal((await f.req(owner,'GET','/v1/community/ranking')).data.leaders.length,1);await f.command(owner,'suspend_user',member.user.id);
   assert.equal((await f.req(owner,'GET','/v1/users?q=member12')).data.users.length,0);assert.equal((await f.req(owner,'GET','/v1/posts')).data.posts.length,0);assert.equal((await f.req(owner,'GET','/v1/community/ranking')).data.leaders.length,0);
-  assert.equal(Number((await f.db.query('SELECT COUNT(*) n FROM tomi_room_gifts')).rows[0].n),1);
+  assert.equal(Number((await f.db.query('SELECT COUNT(*) n FROM tomi_room_all_gifts')).rows[0].n),1);
 });
 test('0.12 a call request authenticated before suspension cannot create a late call after the ban commits',async t=>{
   const f=await fixture(t),{owner,member,mod}=await people(f),thread=(await f.req(member,'POST','/v1/chats',{userId:mod.user.id})).data.conversation;

@@ -566,3 +566,57 @@ CREATE TABLE IF NOT EXISTS tomi_group_push_receipts (
  PRIMARY KEY(message_id,recipient_id,token_hash),
  FOREIGN KEY(message_id,recipient_id) REFERENCES tomi_group_push(message_id,recipient_id) ON DELETE CASCADE
 );
+
+
+-- 1.3: additive room policy, immutable purchases and support ledger.
+-- Legacy rooms are grandfathered as advanced with no charge. Never erase gifts.
+DROP INDEX IF EXISTS tomi_one_owned_voice_room;
+CREATE TABLE IF NOT EXISTS tomi_room_policy (
+ room_id TEXT PRIMARY KEY REFERENCES tomi_voice_rooms(id) ON DELETE CASCADE,
+ tier TEXT NOT NULL CHECK(tier IN ('free','advanced')),
+ public_id TEXT UNIQUE, creator_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ price INTEGER NOT NULL DEFAULT 0, last_owner_visit TEXT NOT NULL,
+ CHECK((tier='free' AND public_id IS NULL) OR (tier='advanced' AND public_id IS NOT NULL))
+);
+CREATE TABLE IF NOT EXISTS tomi_room_numbers (id INTEGER PRIMARY KEY,value BIGINT NOT NULL);
+INSERT INTO tomi_room_numbers(id,value) VALUES(1,100000) ON CONFLICT(id) DO NOTHING;
+INSERT INTO tomi_room_policy(room_id,tier,public_id,creator_id,price,last_owner_visit)
+ SELECT r.id,'advanced','L-' || r.id,r.owner_id,0,r.created_at FROM tomi_voice_rooms r
+ WHERE NOT EXISTS(SELECT 1 FROM tomi_room_policy p WHERE p.room_id=r.id);
+CREATE INDEX IF NOT EXISTS tomi_room_expiry ON tomi_room_policy(tier,last_owner_visit);
+CREATE TABLE IF NOT EXISTS tomi_room_chat_cursors (
+ room_id TEXT NOT NULL REFERENCES tomi_voice_rooms(id) ON DELETE CASCADE,
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ identity TEXT NOT NULL, after_sequence BIGINT NOT NULL, PRIMARY KEY(room_id,user_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_room_support_batches (
+ id TEXT PRIMARY KEY,room_id TEXT NOT NULL REFERENCES tomi_voice_rooms(id) ON DELETE CASCADE,
+ sender_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ request_id TEXT NOT NULL, fingerprint TEXT NOT NULL,total BIGINT NOT NULL,recipients TEXT NOT NULL,
+ UNIQUE(sender_id,request_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_room_support (
+ id TEXT PRIMARY KEY,room_id TEXT NOT NULL REFERENCES tomi_voice_rooms(id) ON DELETE CASCADE,
+ sender_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ recipient_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ request_id TEXT NOT NULL,gift_id TEXT NOT NULL,quantity INTEGER NOT NULL CHECK(quantity BETWEEN 1 AND 99),
+ unit_price INTEGER NOT NULL,total BIGINT NOT NULL CHECK(total>0),created_at TEXT NOT NULL,
+ UNIQUE(sender_id,request_id)
+);
+CREATE INDEX IF NOT EXISTS tomi_support_rank ON tomi_room_support(room_id,created_at,sender_id);
+CREATE VIEW IF NOT EXISTS tomi_room_all_gifts AS SELECT * FROM tomi_room_gifts UNION ALL SELECT * FROM tomi_room_support;
+CREATE TABLE IF NOT EXISTS tomi_support_events (
+ room_id TEXT NOT NULL,sequence BIGINT NOT NULL,gift_id TEXT NOT NULL REFERENCES tomi_room_support(id),
+ PRIMARY KEY(room_id,sequence), FOREIGN KEY(room_id,sequence) REFERENCES tomi_room_events(room_id,sequence) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS tomi_room_cosmetics (
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,kind TEXT NOT NULL,
+ style_id TEXT NOT NULL,expires_at TEXT NOT NULL,equipped INTEGER NOT NULL DEFAULT 1,
+ PRIMARY KEY(user_id,kind,style_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_cosmetic_purchases (
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,request_id TEXT NOT NULL,
+ fingerprint TEXT NOT NULL,expires_at TEXT NOT NULL,total INTEGER NOT NULL,PRIMARY KEY(user_id,request_id)
+);
+
+CREATE INDEX IF NOT EXISTS tomi_support_user_rank ON tomi_room_support(sender_id,created_at);

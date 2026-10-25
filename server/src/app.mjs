@@ -134,7 +134,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   const privateMedia=createPrivateMedia({database,storage:chatStorage});
   const groups=createGroups({database,storage:chatStorage,avatarStorage:storage,media:privateMedia,readJson,respond:json,limit,accountGate:requestGuard.gate,emit:(...args)=>chat.emit(...args),enqueuePush:push.enqueueGroup});
   const chat=createChat({groups,privateMedia,database,storage:chatStorage,avatarStorage:storage,readJson,respond:json,limit,userById,enqueuePush:push.enqueue,accountGate:requestGuard.gate});
-  const rooms=createVoiceRooms({database,provider:roomProvider,storage,readJson,respond:json,limit,usersByIds,autoSweep:roomAutoSweep});
+  const rooms=createVoiceRooms({database,provider:roomProvider,storage,readJson,respond:json,limit,usersByIds,autoSweep:roomAutoSweep,emit:chat.emit});
   const calls=createCalls({database,iceProvider,readJson,respond:json,limit,userById,emit:chat.emit,enqueuePush:push.enqueueCall,autoSweep:callAutoSweep});
   const operations=createOperations();
   const moderation=createModeration({database,ownerUserId,storage,readJson,respond:json,limit,userById,usersByIds,rooms,calls,chat,operations,accountGate:requestGuard.gate});
@@ -168,7 +168,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       if(privacy.handle(request,response,url))return;
       if (method === 'GET' && (path === '/health' || path === '/')) {
         await database.query('SELECT 1 AS ready');
-        json(response, 200, { status: 'ok', service: 'TOMI API', version: '1.2.0-beta.1' });
+        json(response, 200, { status: 'ok', service: 'TOMI API', version: '1.3.0-beta.1' });
         return;
       }
 

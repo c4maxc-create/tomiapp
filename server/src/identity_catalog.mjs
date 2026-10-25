@@ -39,16 +39,16 @@ export function identityFields(r){
  if(rooms>0)badges.push({id:'host',name:'صاحب مجلس',icon:'room'});
  if(giftsReceived>=3)badges.push({id:'welcomed',name:'محبوب السالفة',icon:'star'});
  const safe=(category,id)=>styleAllowed(category,id,status.level)?id:'none';
- return {identity:{...status,spent,giftsSent:sent,received,giftsReceived,roomsCreated:rooms,badges,
+ return {identity:{...status,spent,charisma:received,giftsSent:sent,received,giftsReceived,roomsCreated:rooms,badges,
   frameId:safe('frames',r.identity_frame),portraitId:safe('portraits',r.identity_portrait),entranceId:safe('entrances',r.identity_entrance),revision:Number(r.identity_revision??0)}};
 }
 export async function giftProgress(db,sender,recipient,total){
- for(const uid of [sender,recipient].sort()){
+ for(const uid of [...new Set([sender,recipient])].sort()){
   const outgoing=uid===sender;
   const q=await db.query(`INSERT INTO tomi_user_progress(user_id,spent,gifts_sent,received,gifts_received) VALUES(?,?,?,?,?)
    ON CONFLICT(user_id) DO UPDATE SET spent=tomi_user_progress.spent+excluded.spent,gifts_sent=tomi_user_progress.gifts_sent+excluded.gifts_sent,
    received=tomi_user_progress.received+excluded.received,gifts_received=tomi_user_progress.gifts_received+excluded.gifts_received
-   WHERE tomi_user_progress.spent+excluded.spent<=9000000000000 AND tomi_user_progress.received+excluded.received<=9000000000000`,[uid,outgoing?total:0,outgoing?1:0,outgoing?0:total,outgoing?0:1]);
+   WHERE tomi_user_progress.spent+excluded.spent<=9000000000000 AND tomi_user_progress.received+excluded.received<=9000000000000`,[uid,outgoing?total:0,outgoing?1:0,uid===recipient?total:0,uid===recipient?1:0]);
   if(q.changes!==1)throw new ApiError(409,'USER_XP_LIMIT','وصل الحساب إلى الحد الأعلى للنقاط.');
  }
 }
