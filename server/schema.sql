@@ -606,7 +606,7 @@ CREATE TABLE IF NOT EXISTS tomi_room_support (
 CREATE INDEX IF NOT EXISTS tomi_support_rank ON tomi_room_support(room_id,created_at,sender_id);
 CREATE VIEW IF NOT EXISTS tomi_room_all_gifts AS SELECT * FROM tomi_room_gifts UNION ALL SELECT * FROM tomi_room_support;
 CREATE TABLE IF NOT EXISTS tomi_support_events (
- room_id TEXT NOT NULL,sequence BIGINT NOT NULL,gift_id TEXT NOT NULL REFERENCES tomi_room_support(id),
+ room_id TEXT NOT NULL,sequence BIGINT NOT NULL,gift_id TEXT NOT NULL REFERENCES tomi_room_support(id) ON DELETE CASCADE,
  PRIMARY KEY(room_id,sequence), FOREIGN KEY(room_id,sequence) REFERENCES tomi_room_events(room_id,sequence) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS tomi_room_cosmetics (

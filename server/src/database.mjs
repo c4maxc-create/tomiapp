@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import {portableSchema,postgresSchema,migrateSQLite} from './schema_migrations.mjs';
 
 const schemaUrl = new URL('../schema.sql', import.meta.url);
 
@@ -21,8 +22,8 @@ export async function openDatabase({ connectionString, sqliteFile, production = 
       query_timeout: 15000,
     });
     pool.on('error', (error) => console.error('Database connection error:', error.code || error.name));
-    // PostgreSQL and SQLite use different view creation syntax.
-    await pool.query(schema.replace(/CREATE VIEW IF NOT EXISTS /g,'CREATE OR REPLACE VIEW '));
+    try{await pool.query(postgresSchema(schema));}
+    catch(error){await pool.end().catch(()=>{});throw error;}
     const adapt = (executor) => async (sql, values = []) => {
       let index = 0;
       const text = sql.replace(/\?/g, () => `$${++index}`);
@@ -53,8 +54,10 @@ export async function openDatabase({ connectionString, sqliteFile, production = 
   if (!sqliteFile) throw new Error('A database connection or explicit SQLite file is required.');
   const { DatabaseSync } = await import('node:sqlite');
   const db = new DatabaseSync(sqliteFile);
-  db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
-  db.exec(schema);
+  try{
+    db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
+    db.exec(portableSchema(schema));migrateSQLite(db);
+  }catch(error){db.close();throw error;}
   let queue = Promise.resolve();
   const serialized = (work) => {
     const result = queue.then(work);
