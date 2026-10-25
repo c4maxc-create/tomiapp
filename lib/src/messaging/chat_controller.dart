@@ -145,7 +145,8 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
             for (final t in threads.values) {
               if (t.visible) unawaited(t.sync(reconcile: true));
             }
-          } else if (event['type'] != 'call.changed') {
+          } else if (event['type'] != 'call.changed' &&
+              event['type'] != 'voice_room.changed') {
             final id = event['conversationId'];
             if (id is String) {
               if (event['type'] == 'group.member-left' &&

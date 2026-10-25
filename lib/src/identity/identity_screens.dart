@@ -109,8 +109,18 @@ class _IdentityStudioPageState extends State<IdentityStudioPage> {
             children: [
               Center(child: AccountAvatar(user, size: 100)),
               IdentitySummary(user),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Text(
+                  'الكارزما: ${user.identity.charisma} • مجموع الدعم المستلم',
+                ),
+              ),
               const Text(
-                'نقطة لكل عملة تجريبية تصرفها بهدية ناجحة. مستوى المستخدم مستقل عن مستوى الغرفة. إعادة نفس الطلب لا تضيف نقاطًا جديدة.',
+                'إطارات وتأثيرات الغرف الجديدة متاحة بمدة محدودة من متجر الغرفة.',
+                style: TextStyle(color: TomiColors.muted),
+              ),
+              const Text(
+                'نقطة لكل عملة تجريبية تصرفها بهدية ناجحة. الغرف بدون مستويات. دعم النفس يُحسب مرة واحدة. إعادة نفس الطلب لا تضيف نقاطًا جديدة.',
                 style: TextStyle(color: TomiColors.muted, height: 1.7),
               ),
               const Text(

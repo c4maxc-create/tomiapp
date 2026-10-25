@@ -29,6 +29,9 @@ class VoiceRoom {
       ? this
       : VoiceRoom({...data, 'preferences': old.preferences});
   String get id => data['id'] as String;
+  bool get advanced => data['tier'] == 'advanced';
+  String? get publicId => data['publicId'] as String?;
+  String? get expiresAt => data['expiresAt'] as String?;
   String get title => data['title'] as String;
   String get ownerId => data['ownerId'] as String;
   int get capacity => (data['capacity'] as num).toInt();
@@ -43,11 +46,6 @@ class VoiceRoom {
   AccountUser? get owner => data['owner'] is Map<String, dynamic>
       ? AccountUser.fromJson(data['owner'] as Map<String, dynamic>)
       : member(ownerId)?.user;
-  int get level => (features['level'] as num?)?.toInt() ?? 1;
-  int get xp => (features['xp'] as num?)?.toInt() ?? 0;
-  int? get nextLevel => (features['next'] as num?)?.toInt();
-  int get remaining => (features['remaining'] as num?)?.toInt() ?? 100;
-  double get levelProgress => (features['progress'] as num?)?.toDouble() ?? 0;
   String get announcement => features['announcement'] as String? ?? '';
   String get category => features['category'] as String? ?? 'الأصدقاء';
   String get mode => features['mode'] as String? ?? 'عادي';

@@ -1,4 +1,5 @@
 import '../identity/room_effects.dart';
+import '../identity/identity_models.dart';
 import '../identity/ranking_screen.dart';
 
 import 'dart:async';
@@ -23,6 +24,7 @@ import 'room_controller.dart';
 import 'room_models.dart';
 part 'room_stage.dart';
 part 'room_panels.dart';
+part 'room_shop.dart';
 
 class VoiceRoomsScreen extends StatefulWidget {
   const VoiceRoomsScreen({
@@ -101,282 +103,420 @@ class _VoiceRoomsScreenState extends State<VoiceRoomsScreen> {
   }
 
   Future<void> create() async {
+    final pending = controller.pendingCreation;
+    if (pending != null) {
+      final id = await controller.create(
+        pending['title'] as String,
+        pending['capacity'] as int,
+        pending['seatCount'] as int,
+        tier: pending['tier'] as String,
+        acceptTerms: pending['acceptTerms'] == true,
+      );
+      if (id != null && mounted) await open(id);
+      return;
+    }
+    await controller.loadGifts();
+    if (!mounted) return;
     final input = await showModalBottomSheet<_NewRoom>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => const _CreateRoomSheet(),
+      backgroundColor: Colors.white,
+      builder: (_) => Theme(
+        data: _roomLight(),
+        child: Material(
+          color: Colors.white,
+          child: _CreateRoomSheet(coins: controller.coins),
+        ),
+      ),
     );
     if (input == null || !mounted) return;
     final id = await controller.create(
       input.title,
       input.capacity,
       input.seats,
+      tier: input.advanced ? 'advanced' : 'free',
+      acceptTerms: input.advanced,
     );
     if (id != null && mounted) await open(id);
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: controller,
-    builder: (context, _) => RefreshIndicator(
-      onRefresh: controller.load,
-      child: ListView(
-        key: const PageStorageKey('voice-room-list'),
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(18),
-        children: [
-          const Text(
-            'سوالف تجمعنا',
-            style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'ادخل كمستمع، أو اطلب المايك وشارك السالفة.',
-            style: TextStyle(color: TomiColors.muted, height: 1.6),
-          ),
-          const SizedBox(height: 18),
-          Material(
-            color: Colors.transparent,
-            child: Wrap(
-              spacing: 7,
-              runSpacing: 6,
-              children: [
-                for (final option in const {
-                  'all': 'كل الغرف',
-                  'favorites': 'المفضلة',
-                  'following': 'أتابعها',
-                }.entries)
-                  ChoiceChip(
-                    key: ValueKey('room-scope-${option.key}'),
-                    label: Text(option.value),
-                    selected: controller.scope == option.key,
-                    onSelected: (_) => controller.selectScope(option.key),
-                  ),
-                ActionChip(
-                  avatar: const Icon(Icons.leaderboard_outlined, size: 18),
-                  label: const Text('نجوم تومي'),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          ContributionRankingPage(accounts: widget.accounts),
+  Widget build(BuildContext context) => Theme(
+    data: ThemeData.light(useMaterial3: true).copyWith(
+      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff10bfc4)),
+    ),
+    child: Material(
+      color: Colors.white,
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, _) => RefreshIndicator(
+          onRefresh: controller.load,
+          child: ListView(
+            key: const PageStorageKey('voice-room-list'),
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'الغرف الصوتية',
+                      style: TextStyle(
+                        color: Color(0xff1f2532),
+                        fontSize: 25,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
+                  IconButton(
+                    key: const Key('create-voice-room'),
+                    tooltip: controller.pendingCreation == null
+                        ? 'إنشاء غرفة صوتية'
+                        : 'إكمال طلب الإنشاء',
+                    onPressed:
+                        controller.configured &&
+                            !controller.busy &&
+                            !controller.loading
+                        ? create
+                        : null,
+                    icon: const Icon(
+                      Icons.add_circle,
+                      color: Color(0xff10bfc4),
+                      size: 30,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'متجر الإطارات والدخول',
+                    onPressed: () => _showRoomShop(context, controller),
+                    icon: const Icon(Icons.auto_awesome_outlined),
+                  ),
+                ],
+              ),
+              const Text(
+                'سوالف، أصدقاء ولحظات تجمعنا',
+                style: TextStyle(color: Color(0xff858b99), fontSize: 12),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                key: const Key('room-id-search'),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: const Color(0xfff5f6f8),
+                  hintText: 'ابحث عن غرفة متقدمة بالـ ID',
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            key: const Key('create-voice-room'),
-            onPressed:
-                controller.configured && !controller.busy && !controller.loading
-                ? create
-                : null,
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('إنشاء غرفة صوتية'),
-          ),
-          if (controller.loading) const LinearProgressIndicator(),
-          if (controller.error != null) AccountErrorMessage(controller.error!),
-          if (controller.notice != null)
-            AccountErrorMessage(controller.notice!),
-          if (!controller.configured &&
-              !controller.loading &&
-              controller.error == null)
-            const AccountErrorMessage(
-              'الغرف الصوتية تنتظر تفعيل الخدمة. باقي ميزات التطبيق متاحة.',
-            ),
-          for (final saved in controller.savedRoomRequests.entries.where(
-            (e) => e.key != controller.active?.id,
-          ))
-            for (final kind in ['gift', 'message'])
-              if (saved.value[kind] != null)
-                TomiCard(
+                onSubmitted: (value) async {
+                  final id = await controller.findRoom(value);
+                  if (id != null && mounted) await open(id);
+                },
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 7,
+                runSpacing: 4,
+                children: [
+                  for (final e in const {
+                    'all': 'كل الغرف',
+                    'favorites': 'المفضلة',
+                    'following': 'أتابعها',
+                  }.entries)
+                    ChoiceChip(
+                      key: ValueKey('room-scope-${e.key}'),
+                      label: Text(e.value),
+                      selected: controller.scope == e.key,
+                      onSelected: (_) => controller.selectScope(e.key),
+                    ),
+                  ActionChip(
+                    avatar: const Icon(Icons.leaderboard_outlined, size: 17),
+                    label: const Text('نجوم تومي'),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            ContributionRankingPage(accounts: widget.accounts),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (controller.pendingCreation != null)
+                ListTile(
+                  leading: const Icon(
+                    Icons.pending_actions,
+                    color: Colors.orange,
+                  ),
+                  title: const Text('طلب إنشاء محفوظ'),
+                  subtitle: const Text(
+                    'أكمل الطلب للتحقق من النتيجة بدون خصم جديد',
+                  ),
+                  onTap: controller.busy ? null : create,
+                ),
+              if (controller.loading) const LinearProgressIndicator(),
+              if (controller.error != null)
+                AccountErrorMessage(controller.error!),
+              if (controller.notice != null)
+                AccountErrorMessage(controller.notice!),
+              if (!controller.configured &&
+                  !controller.loading &&
+                  controller.error == null)
+                const AccountErrorMessage(
+                  'الغرف الصوتية تنتظر تفعيل الخدمة. باقي ميزات التطبيق متاحة.',
+                ),
+              for (final saved in controller.savedRoomRequests.entries.where(
+                (e) => e.key != controller.active?.id,
+              ))
+                for (final kind in ['gift', 'message'])
+                  if (saved.value[kind] != null)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              saved.value['title'] as String? ?? 'غرفة محفوظة',
+                            ),
+                            Text(
+                              kind == 'gift'
+                                  ? 'هدية محفوظة تنتظر التحقق'
+                                  : 'رسالة محفوظة تنتظر التحقق',
+                            ),
+                            Wrap(
+                              children: [
+                                TextButton(
+                                  onPressed: controller.busy
+                                      ? null
+                                      : () => controller.resolveSavedRoom(
+                                          saved.key,
+                                          kind,
+                                        ),
+                                  child: const Text('التحقق من النتيجة'),
+                                ),
+                                TextButton(
+                                  onPressed: controller.busy
+                                      ? null
+                                      : () => discardSaved(saved.key, kind),
+                                  child: const Text('إلغاء إعادة المحاولة'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+              if (controller.ownedRoomId != null &&
+                  !controller.rooms.any((r) => r.id == controller.ownedRoomId))
+                TextButton(
+                  onPressed: controller.busy
+                      ? null
+                      : () => open(controller.ownedRoomId!),
+                  child: const Text('فتح غرفتي'),
+                ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 14),
+                child: Text(
+                  'اكتشف الغرف',
+                  style: TextStyle(
+                    color: Color(0xff252b36),
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (controller.rooms.isEmpty &&
+                  controller.configured &&
+                  !controller.loading)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        saved.value['title'] as String? ?? 'غرفة محفوظة',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      const Icon(
+                        Icons.spatial_audio_off_rounded,
+                        size: 52,
+                        color: Color(0xff10bfc4),
                       ),
+                      const SizedBox(height: 12),
                       Text(
-                        kind == 'gift'
-                            ? 'هدية محفوظة تنتظر التحقق'
-                            : 'رسالة محفوظة تنتظر التحقق',
+                        controller.scope == 'all'
+                            ? 'بعد ماكو غرف. افتح أول غرفة لأصدقائك!'
+                            : 'بعد ماكو غرف محفوظة بهالقائمة.',
+                        style: const TextStyle(color: Color(0xff686e7c)),
                       ),
-                      Wrap(
-                        children: [
-                          TextButton(
-                            onPressed: controller.busy
-                                ? null
-                                : () => controller.resolveSavedRoom(
-                                    saved.key,
-                                    kind,
-                                  ),
-                            child: const Text('التحقق من النتيجة'),
-                          ),
-                          TextButton(
-                            onPressed: controller.busy
-                                ? null
-                                : () => discardSaved(saved.key, kind),
-                            child: const Text('إلغاء إعادة المحاولة'),
-                          ),
-                        ],
+                      TextButton(
+                        onPressed: create,
+                        child: const Text('إنشاء غرفة صوتية'),
                       ),
                     ],
                   ),
                 ),
-          if (controller.ownedRoomId != null &&
-              !controller.rooms.any((r) => r.id == controller.ownedRoomId))
-            TextButton(
-              onPressed: controller.busy
-                  ? null
-                  : () => open(controller.ownedRoomId!),
-              child: const Text('فتح غرفتي'),
-            ),
-          const SizedBox(height: 14),
-          if (controller.rooms.isEmpty &&
-              controller.configured &&
-              !controller.loading)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 42),
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.spatial_audio_off_rounded,
-                    size: 52,
-                    color: TomiColors.accent,
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    controller.scope == 'all'
-                        ? 'بعد ماكو غرف. افتح أول غرفة لأصدقائك!'
-                        : 'بعد ماكو غرف محفوظة بهالقائمة.',
-                  ),
-                ],
+              for (final room in controller.rooms) _roomRow(context, room),
+              if (controller.nextBefore != null)
+                TextButton(
+                  onPressed: controller.loading
+                      ? null
+                      : () => controller.load(more: true),
+                  child: const Text('غرف أكثر'),
+                ),
+              TextButton.icon(
+                onPressed: controller.loading ? null : controller.load,
+                icon: const Icon(Icons.refresh),
+                label: const Text('تحديث الغرف'),
               ),
-            ),
-          for (final r in controller.rooms)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: TomiCard(
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  Widget _roomRow(BuildContext context, VoiceRoom room) => Container(
+    margin: const EdgeInsets.only(bottom: 9),
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    decoration: const BoxDecoration(
+      border: Border(bottom: BorderSide(color: Color(0xfff0f1f4))),
+    ),
+    child: Column(
+      children: [
+        InkWell(
+          key: Key('join-room-${room.id}'),
+          onTap: controller.busy || !controller.configured
+              ? null
+              : () => open(room.id),
+          borderRadius: BorderRadius.circular(16),
+          child: Row(
+            children: [
+              _RoomPicture(r: room, size: 62),
+              const SizedBox(width: 12),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.graphic_eq_rounded,
-                          color: TomiColors.accent,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            r.title,
-                            style: const TextStyle(
-                              fontSize: 19,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        if (r.ownerId == widget.accounts.user?.id)
-                          const TinyLabel('غرفتك'),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
                     Text(
-                      '${r.memberCount} / ${r.capacity} عضو  •  LV.${r.level}  •  ${r.category}${r.passwordRequired ? '  🔒' : ''}',
-                      style: const TextStyle(color: TomiColors.muted),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      children: [
-                        TextButton.icon(
-                          key: ValueKey('favorite-room-${r.id}'),
-                          onPressed: controller.preferenceBusy.contains(r.id)
-                              ? null
-                              : () => controller.setPreference(
-                                  r,
-                                  favorite: !r.favorite,
-                                ),
-                          icon: Icon(
-                            r.favorite ? Icons.favorite : Icons.favorite_border,
-                          ),
-                          label: Text(r.favorite ? 'بالمفضلة' : 'مفضلة'),
-                        ),
-                        TextButton.icon(
-                          key: ValueKey('follow-room-${r.id}'),
-                          onPressed: controller.preferenceBusy.contains(r.id)
-                              ? null
-                              : () => controller.setPreference(
-                                  r,
-                                  following: !r.following,
-                                ),
-                          icon: Icon(
-                            r.following
-                                ? Icons.bookmark
-                                : Icons.bookmark_border,
-                          ),
-                          label: Text(r.following ? 'أتابعها' : 'متابعة'),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Text(
-                            '${r.followers} متابع',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: TomiColors.muted,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: FilledButton.tonalIcon(
-                        key: Key('join-room-${r.id}'),
-                        onPressed: controller.busy || !controller.configured
-                            ? null
-                            : () => open(r.id),
-                        icon: const Icon(Icons.headphones_rounded),
-                        label: Text(
-                          controller.joining ? 'جارٍ الاتصال…' : 'دخول الغرفة',
-                        ),
+                      room.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xff252b36),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
                       ),
                     ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '${room.advanced ? 'متقدمة' : 'مجانية'} • ${room.category}${room.passwordRequired ? ' • 🔒' : ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xff8a90a0),
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (room.publicId != null)
+                      Text(
+                        'ID ${room.publicId}',
+                        style: const TextStyle(
+                          color: Color(0xff18aeb8),
+                          fontSize: 11,
+                        ),
+                      ),
+                    if (room.ownerId == widget.accounts.user?.id)
+                      Text(
+                        room.advanced ? 'غرفتك' : 'أنت المدير الحالي',
+                        style: const TextStyle(
+                          color: Color(0xffbe8e27),
+                          fontSize: 10,
+                        ),
+                      ),
                   ],
                 ),
               ),
-            ),
-          if (controller.nextBefore != null)
-            TextButton(
-              onPressed: controller.loading
-                  ? null
-                  : () => controller.load(more: true),
-              child: const Text('غرف أكثر'),
-            ),
-          OutlinedButton.icon(
-            onPressed: controller.loading ? null : controller.load,
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('تحديث الغرف'),
+              const SizedBox(width: 6),
+              Column(
+                children: [
+                  Icon(
+                    Icons.graphic_eq_rounded,
+                    color: room.memberCount > 0
+                        ? const Color(0xff10bfc4)
+                        : Colors.grey,
+                    size: 22,
+                  ),
+                  Text(
+                    '${room.memberCount}/${room.capacity}',
+                    style: const TextStyle(
+                      color: Color(0xff6c7381),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        Row(
+          children: [
+            TextButton.icon(
+              key: ValueKey('favorite-room-${room.id}'),
+              onPressed: controller.preferenceBusy.contains(room.id)
+                  ? null
+                  : () => controller.setPreference(
+                      room,
+                      favorite: !room.favorite,
+                    ),
+              icon: Icon(
+                room.favorite ? Icons.favorite : Icons.favorite_border,
+                size: 16,
+                color: room.favorite ? const Color(0xfff074a0) : null,
+              ),
+              label: Text(
+                room.favorite ? 'بالمفضلة' : 'مفضلة',
+                style: const TextStyle(fontSize: 11),
+              ),
+            ),
+            TextButton.icon(
+              key: ValueKey('follow-room-${room.id}'),
+              onPressed: controller.preferenceBusy.contains(room.id)
+                  ? null
+                  : () => controller.setPreference(
+                      room,
+                      following: !room.following,
+                    ),
+              icon: Icon(
+                room.following ? Icons.bookmark : Icons.bookmark_border,
+                size: 16,
+              ),
+              label: Text(
+                room.following ? 'أتابعها' : 'متابعة',
+                style: const TextStyle(fontSize: 11),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                '${room.followers} متابع',
+                textAlign: TextAlign.end,
+                style: const TextStyle(fontSize: 11, color: Color(0xff9a9eaa)),
+              ),
+            ),
+          ],
+        ),
+      ],
     ),
   );
 }
 
 class _NewRoom {
-  const _NewRoom(this.title, this.capacity, this.seats);
+  const _NewRoom(this.title, this.capacity, this.seats, this.advanced);
   final String title;
   final int capacity, seats;
+  final bool advanced;
 }
 
 class _CreateRoomSheet extends StatefulWidget {
-  const _CreateRoomSheet();
+  const _CreateRoomSheet({required this.coins});
+  final int coins;
   @override
   State<_CreateRoomSheet> createState() => _CreateRoomSheetState();
 }
@@ -384,6 +524,7 @@ class _CreateRoomSheet extends StatefulWidget {
 class _CreateRoomSheetState extends State<_CreateRoomSheet> {
   final name = TextEditingController(), form = GlobalKey<FormState>();
   int capacity = 20, seats = 8;
+  bool advanced = false, accepted = false;
   @override
   void dispose() {
     name.dispose();
@@ -411,6 +552,25 @@ class _CreateRoomSheetState extends State<_CreateRoomSheet> {
                 style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(
+                    value: false,
+                    label: Text('مجانية'),
+                    icon: Icon(Icons.groups_outlined),
+                  ),
+                  ButtonSegment(
+                    value: true,
+                    label: Text('متقدمة'),
+                    icon: Icon(Icons.workspace_premium_outlined),
+                  ),
+                ],
+                selected: {advanced},
+                onSelectionChanged: (v) => setState(() => advanced = v.first),
+              ),
+              const SizedBox(height: 12),
+              Text('رصيدك: ${widget.coins} كوينز', textAlign: TextAlign.center),
+              const SizedBox(height: 12),
               TextFormField(
                 key: const Key('voice-room-title'),
                 controller: name,
@@ -447,20 +607,48 @@ class _CreateRoomSheetState extends State<_CreateRoomSheet> {
                 onChanged: (v) => setState(() => seats = v!),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'المايك يبدأ مغلقًا. الغرفة تنغلق بعد 10 دقائق من خروج آخر عضو.',
-                style: TextStyle(color: TomiColors.muted, height: 1.6),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: TomiColors.accent.withValues(alpha: .1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  advanced
+                      ? 'السعر 5799 كوينز، خصم مرة واحدة عند الإنشاء. مالك ثابت ومشرفون وID خاص. تُحذف الغرفة بعد 60 يومًا متواصلًا دون دخول مالكها، حتى لو دخل الآخرون. لا يوجد مستوى للغرفة.'
+                      : 'مجانية وبدون مستويات أو مشرفين. تنتقل الإدارة عشوائيًا لأحد الحاضرين عند خروج المدير، وتغلق بخروج آخر شخص. دعم النفس والآخرين يزيد الكارزما.',
+                  style: const TextStyle(height: 1.6),
+                ),
               ),
+              if (advanced)
+                CheckboxListTile(
+                  key: const Key('advanced-room-terms'),
+                  value: accepted,
+                  onChanged: (v) => setState(() => accepted = v == true),
+                  title: const Text(
+                    'أوافق على السعر وشرط عدم الدخول لمدة 60 يومًا',
+                  ),
+                ),
+
               const SizedBox(height: 18),
               FilledButton(
-                onPressed: () {
-                  if (form.currentState!.validate())
-                    Navigator.pop(
-                      context,
-                      _NewRoom(name.text.trim(), capacity, seats),
-                    );
-                },
-                child: const Text('إنشاء ودخول'),
+                onPressed: advanced && (!accepted || widget.coins < 5799)
+                    ? null
+                    : () {
+                        if (form.currentState!.validate())
+                          Navigator.pop(
+                            context,
+                            _NewRoom(
+                              name.text.trim(),
+                              capacity,
+                              seats,
+                              advanced,
+                            ),
+                          );
+                      },
+                child: Text(
+                  advanced ? 'شراء الغرفة • 5799 كوينز' : 'إنشاء ودخول',
+                ),
               ),
             ],
           ),

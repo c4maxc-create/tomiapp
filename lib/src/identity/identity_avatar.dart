@@ -151,6 +151,12 @@ class _IdentityFrame extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (id == 'none') return;
     final colors = switch (id) {
+      'flame' => const [
+        Color(0xffff4b20),
+        Color(0xffffc146),
+        Color(0xffff204f),
+      ],
+      'ice' => const [Color(0xff7eeaff), Color(0xffeaffff), Color(0xff6188ff)],
       'rose' => const [Color(0xffff72ad), Color(0xffffd0e4), Color(0xffa970ed)],
       'royal' => const [
         Color(0xffffd77d),

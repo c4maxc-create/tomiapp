@@ -1,5 +1,10 @@
 part of 'room_screens.dart';
 
+Widget _roomLightSurface(Widget child) => Theme(
+  data: _roomLight(),
+  child: Material(color: Colors.white, child: child),
+);
+
 ThemeData _roomLight() => ThemeData(
   colorScheme: ColorScheme.fromSeed(
     seedColor: const Color(0xff17bdce),
@@ -123,7 +128,7 @@ Future<void> _memberActions(
       m.micAllowed ? 'كتم المايك بالإدارة' : 'السماح بفتح المايك',
       'إنزال إلى المستمعين',
     ],
-    if (manage && me.role == 'owner')
+    if (manage && me.role == 'owner' && c.active?.advanced == true)
       m.role == 'moderator' ? 'إلغاء الإشراف' : 'تعيين مشرف',
     if (manage) 'إزالة من الغرفة',
   ];
@@ -339,7 +344,13 @@ Future<void> _showRoomGifts(
   isScrollControlled: true,
   backgroundColor: const Color(0xff191d30),
   showDragHandle: true,
-  builder: (_) => _RoomGiftSheet(c: c, recipient: recipient),
+  builder: (_) => Theme(
+    data: ThemeData.dark(useMaterial3: true),
+    child: Material(
+      color: const Color(0xff191d30),
+      child: _RoomGiftSheet(c: c, recipient: recipient),
+    ),
+  ),
 );
 
 class _RoomGiftSheet extends StatefulWidget {
@@ -355,6 +366,7 @@ class _RoomGiftSheetState extends State<_RoomGiftSheet> {
   String? recipient, gift;
   String category = 'الكل';
   int quantity = 1;
+  String audience = 'person';
   @override
   void initState() {
     super.initState();
@@ -368,12 +380,20 @@ class _RoomGiftSheetState extends State<_RoomGiftSheet> {
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: c,
     builder: (context, _) {
-      final members =
-          c.active?.members
-              .where((m) => m.user.id != c.accounts.user?.id)
-              .toList() ??
-          [];
+      final members = c.active?.members.toList() ?? [];
       final pending = c.pendingGift;
+      final selectedAudience = pending?['audience'] as String? ?? audience;
+      final targetCount = selectedAudience == 'person'
+          ? 1
+          : members
+                .where(
+                  (m) =>
+                      selectedAudience == 'all' ||
+                      (selectedAudience == 'mics'
+                          ? m.seat != null
+                          : m.seat == null),
+                )
+                .length;
       final selectedRecipient =
           pending?['recipientId'] as String? ??
           recipient ??
@@ -425,8 +445,32 @@ class _RoomGiftSheetState extends State<_RoomGiftSheet> {
         if (members.isEmpty)
           const Padding(
             padding: EdgeInsets.all(12),
-            child: Text('يدخل عضو آخر حتى تگدر ترسله هدية.'),
+            child: Text('انتظر دخول الغرفة لدعم نفسك أو الآخرين.'),
           ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Row(
+            children: [
+              for (final option in const {
+                'person': 'شخص / نفسي',
+                'mics': 'كل المايكات',
+                'viewers': 'كل المشاهدين',
+                'all': 'كل الغرفة',
+              }.entries)
+                Padding(
+                  padding: const EdgeInsets.all(3),
+                  child: ChoiceChip(
+                    label: Text(option.value),
+                    selected: selectedAudience == option.key,
+                    onSelected: pending != null
+                        ? null
+                        : (_) => setState(() => audience = option.key),
+                  ),
+                ),
+            ],
+          ),
+        ),
         SizedBox(
           height: MediaQuery.textScalerOf(context).scale(14) > 20 ? 105 : 84,
           child: ListView(
@@ -463,7 +507,9 @@ class _RoomGiftSheetState extends State<_RoomGiftSheet> {
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            m.user.displayName,
+                            m.user.id == c.accounts.user?.id
+                                ? 'نفسي'
+                                : m.user.displayName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: 10),
@@ -627,7 +673,11 @@ class _RoomGiftSheetState extends State<_RoomGiftSheet> {
                                 c.pendingGiftRoom != c.active?.id) ||
                             selected == null ||
                             selectedRecipient == null ||
-                            !members.any((m) => m.user.id == selectedRecipient)
+                            (selectedAudience == 'person' &&
+                                !members.any(
+                                  (m) => m.user.id == selectedRecipient,
+                                )) ||
+                            targetCount == 0
                         ? null
                         : () async {
                             final ok = await c.sendGift(
@@ -638,12 +688,13 @@ class _RoomGiftSheetState extends State<_RoomGiftSheet> {
                                   gift ??
                                   selected.id,
                               pending?['quantity'] as int? ?? quantity,
+                              audience: selectedAudience,
                             );
                             if (ok && context.mounted)
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text(
-                                    'وصلت الهدية وانضافت نقاطها للغرفة.',
+                                    'وصل الدعم وانضافت الكارزما للمستلمين.',
                                   ),
                                 ),
                               );
@@ -703,7 +754,7 @@ class _RoomGiftSheetState extends State<_RoomGiftSheet> {
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
-              'القيمة ${selected.price * count}  •  كل عملة = نقطة للغرفة',
+              'الإجمالي ${selected.price * count * targetCount} كوينز • $targetCount مستلم • العدد حسب الحاضرين وقت الإرسال',
               style: const TextStyle(fontSize: 10, color: Colors.white54),
             ),
           ),
@@ -797,9 +848,8 @@ class _RoomInfo extends StatelessWidget {
   const _RoomInfo({required this.c});
   final VoiceRoomsController c;
   @override
-  Widget build(BuildContext context) => Theme(
-    data: _roomLight(),
-    child: AnimatedBuilder(
+  Widget build(BuildContext context) => _roomLightSurface(
+    AnimatedBuilder(
       animation: c,
       builder: (context, _) {
         final r = c.active;
@@ -813,7 +863,7 @@ class _RoomInfo extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _LevelBadge(r.level),
+                    _RoomTierBadge(r.advanced),
                     if (c.me?.role == 'owner')
                       IconButton(
                         tooltip: 'إعدادات الغرفة',
@@ -830,6 +880,17 @@ class _RoomInfo extends StatelessWidget {
                       ),
                   ],
                 ),
+                if (r.advanced && r.expiresAt != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      'تحذف بعد 60 يومًا متواصلًا دون دخول المالك. نهاية المهلة الحالية: ${r.expiresAt!.substring(0, 10)}',
+                      style: const TextStyle(
+                        color: Color(0xff696e7c),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
                 _RoomPicture(r: r, size: 72),
                 const SizedBox(height: 14),
                 Text(
@@ -887,7 +948,9 @@ class _RoomInfo extends StatelessWidget {
                   ),
                 const SizedBox(height: 8),
                 Text(
-                  'ID: ${r.id.substring(0, 8).toUpperCase()}',
+                  r.publicId == null
+                      ? 'مجانية • بلا ID عام'
+                      : 'ID: ${r.publicId}',
                   style: const TextStyle(color: Colors.grey, fontSize: 12),
                 ),
                 const SizedBox(height: 18),
@@ -935,27 +998,12 @@ class _RoomInfo extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: _roomStat(
-                        'نقاط الغرفة',
-                        '${r.xp}',
+                        'نوع الغرفة',
+                        r.advanced ? 'متقدمة' : 'مجانية',
                         const Color(0xfffff4de),
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 18),
-                LinearProgressIndicator(
-                  value: r.levelProgress,
-                  color: const Color(0xffa862dc),
-                  backgroundColor: const Color(0xffefe7f7),
-                  borderRadius: BorderRadius.circular(7),
-                  minHeight: 7,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  r.level == 10
-                      ? 'المستوى10 — اكتمل!'
-                      : 'باقي ${r.remaining} نقطة للمستوى ${r.level + 1}',
-                  style: const TextStyle(color: Color(0xff8c54af)),
                 ),
                 const SizedBox(height: 18),
                 _roomInfoLine('المالك', r.owner?.displayName ?? 'مالك الغرفة'),
@@ -967,7 +1015,7 @@ class _RoomInfo extends StatelessWidget {
                 FilledButton.tonalIcon(
                   onPressed: () => _showRoomLevels(context, c),
                   icon: const Icon(Icons.leaderboard_outlined),
-                  label: const Text('المستويات ومساهمو الهدايا'),
+                  label: const Text('ترتيب الدعم • أعلى 100'),
                 ),
               ],
             ),
@@ -1023,136 +1071,11 @@ Widget _roomInfoLine(String title, String value) => Padding(
 Future<void> _showRoomLevels(BuildContext context, VoiceRoomsController c) =>
     Navigator.push<void>(
       context,
-      MaterialPageRoute(builder: (_) => _RoomLevels(c: c)),
+      MaterialPageRoute(
+        builder: (_) =>
+            ContributionRankingPage(accounts: c.accounts, roomId: c.active!.id),
+      ),
     );
-
-class _RoomLevels extends StatefulWidget {
-  const _RoomLevels({required this.c});
-  final VoiceRoomsController c;
-  @override
-  State<_RoomLevels> createState() => _RoomLevelsState();
-}
-
-class _RoomLevelsState extends State<_RoomLevels> {
-  late final Future<Map<String, dynamic>?> ranking;
-  @override
-  void initState() {
-    super.initState();
-    ranking = widget.c.roomData('ranking');
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: widget.c,
-    builder: (context, _) {
-      final r = widget.c.active;
-      return Scaffold(
-        appBar: AppBar(title: const Text('مستوى الغرفة')),
-        body: r == null
-            ? const Center(child: Text('غادرت الغرفة.'))
-            : ListView(
-                padding: const EdgeInsets.all(22),
-                children: [
-                  Center(child: _LevelBadge(r.level)),
-                  const SizedBox(height: 18),
-                  Text(
-                    '${r.xp} نقطة',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  LinearProgressIndicator(
-                    value: r.levelProgress,
-                    borderRadius: BorderRadius.circular(8),
-                    minHeight: 8,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    r.level == 10
-                        ? 'وصلت الغرفة إلى المستوى الأعلى!'
-                        : 'باقي ${r.remaining} نقطة للمستوى ${r.level + 1}',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'تُضاف قيمة كل هدية إلى نقاط الغرفة مرة واحدة. المستويات محفوظة حتى بعد خروج الجميع.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(height: 1.7, color: TomiColors.muted),
-                  ),
-                  const SizedBox(height: 22),
-                  for (var i = 0; i < widget.c.levelThresholds.length; i++)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: _LevelBadge(i + 1),
-                      title: Text('${widget.c.levelThresholds[i]} نقطة'),
-                      trailing: Icon(
-                        i + 1 <= r.level
-                            ? Icons.check_circle_rounded
-                            : Icons.lock_outline,
-                        color: i + 1 <= r.level ? _roomCyan : Colors.white24,
-                      ),
-                    ),
-                  const Divider(height: 35),
-                  TextButton.icon(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => ContributionRankingPage(
-                          accounts: widget.c.accounts,
-                          roomId: r.id,
-                        ),
-                      ),
-                    ),
-                    icon: const Icon(Icons.leaderboard_outlined),
-                    label: const Text('ترتيب اليوم والأسبوع'),
-                  ),
-                  const Text(
-                    'أكثر المساهمين',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  FutureBuilder(
-                    future: ranking,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState != ConnectionState.done)
-                        return const LinearProgressIndicator();
-                      final items = snapshot.data?['leaders'] as List? ?? [];
-                      if (items.isEmpty)
-                        return Text(
-                          widget.c.error ?? 'بعد ماكو هدايا بهالغرفة.',
-                        );
-                      return Column(
-                        children: [
-                          for (final item in items)
-                            ListTile(
-                              leading: MediaQuery.withNoTextScaling(
-                                child: AccountAvatar(
-                                  AccountUser.fromJson(
-                                    item['user'] as Map<String, dynamic>,
-                                  ),
-                                  size: 38,
-                                ),
-                              ),
-                              title: Text(
-                                item['user']['displayName'] as String,
-                              ),
-                              trailing: Text(
-                                '${item['points']} نقطة',
-                                style: const TextStyle(color: _roomGold),
-                              ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-      );
-    },
-  );
-}
 
 class RoomSettingsPage extends StatefulWidget {
   const RoomSettingsPage({super.key, required this.controller});
@@ -1277,10 +1200,12 @@ class _RoomSettingsPageState extends State<RoomSettingsPage> {
                   ? const Center(child: Text('غادرت الغرفة.'))
                   : ListView(
                       children: [
-                        const ListTile(
-                          title: Text('مقعد خاص لمالك الغرفة'),
+                        ListTile(
+                          title: const Text('مقعد إدارة الغرفة'),
                           subtitle: Text(
-                            'محجوز دائمًا حتى وهو خارج الغرفة. يرجع إليه تلقائيًا.',
+                            r.advanced
+                                ? 'محجوز دائمًا للمالك حتى وهو خارج الغرفة.'
+                                : 'ينتقل تلقائيًا للمدير الجديد عند مغادرة المدير الحالي.',
                           ),
                           trailing: Icon(
                             Icons.lock_rounded,
@@ -1314,7 +1239,7 @@ class _RoomSettingsPageState extends State<RoomSettingsPage> {
       builder: (dialog) => AlertDialog(
         title: const Text('إغلاق الغرفة نهائيًا؟'),
         content: const Text(
-          'يغادر الجميع وتنغلق هذه الغرفة. سجلات الهدايا محفوظة، والغرفة الجديدة تبدأ من المستوى1.',
+          'يغادر الجميع وتُحذف الغرفة من القائمة. سجلات الدعم محفوظة ولا يوجد مستوى للغرف.',
         ),
         actions: [
           TextButton(
@@ -1524,7 +1449,12 @@ class _RoomSettingsPageState extends State<RoomSettingsPage> {
                     if (r.passwordRequired)
                       row('تغيير كلمة المرور', '', () => password(true)),
                     section(),
-                    row('مشرفو الغرفة', '', () => administration('moderators')),
+                    if (r.advanced)
+                      row(
+                        'مشرفو الغرفة',
+                        '',
+                        () => administration('moderators'),
+                      ),
                     row(
                       'القائمة السوداء',
                       '',
@@ -1532,19 +1462,18 @@ class _RoomSettingsPageState extends State<RoomSettingsPage> {
                     ),
                     row('سجل العمليات', '', () => administration('audit')),
                     section(),
-                    row(
-                      'رقم الغرفة',
-                      r.id.substring(0, 8).toUpperCase(),
-                      () async {
-                        await Clipboard.setData(ClipboardData(text: r.id));
+                    if (r.publicId != null)
+                      row('رقم الغرفة', r.publicId!, () async {
+                        await Clipboard.setData(
+                          ClipboardData(text: r.publicId!),
+                        );
                         if (context.mounted)
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('تم نسخ رقم الغرفة الكامل.'),
                             ),
                           );
-                      },
-                    ),
+                      }),
                     Padding(
                       padding: const EdgeInsets.all(20),
                       child: OutlinedButton.icon(

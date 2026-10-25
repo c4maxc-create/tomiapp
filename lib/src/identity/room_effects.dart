@@ -121,6 +121,7 @@ class _RoomEffectOverlayState extends State<RoomEffectOverlay>
         };
     final emoji = entrance
         ? switch (style) {
+            'fire' => '🔥',
             'royal' => '👑',
             'comet' => '☄️',
             _ => '✨',

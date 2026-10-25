@@ -1,4 +1,5 @@
 import '../social/home_controller.dart';
+import '../identity/identity_models.dart';
 import '../messaging/chat_controller.dart';
 import '../messaging/draft_store.dart';
 import '../messaging/chat_connection.dart';
@@ -104,7 +105,11 @@ class AccountController extends ChangeNotifier {
     final own = _user;
     if (own == null || member.id != own.id || !member.identity.available)
       return;
-    final next = member.identity, previous = own.identity;
+    final clean = Map<String, dynamic>.from(member.identity.data)
+      ..remove('roomFrameId')
+      ..remove('roomFrameExpiresAt')
+      ..remove('roomEntranceId');
+    final next = UserIdentity(clean), previous = own.identity;
     if (next.xp < previous.xp ||
         next.revision < previous.revision ||
         next.giftsReceived < previous.giftsReceived ||
@@ -238,8 +243,7 @@ class AccountController extends ChangeNotifier {
     try {
       await _mutateVault(() => _vault.write(grant.token));
     } catch (_) {
-      storageWarning =
-          'دخلت لحسابك، لكن تعذّر حفظ الجلسة على الجهاز؛ قد تحتاج تسجّل دخولك لاحقًا.';
+      storageWarning = 'دخلت لحسابك، لكن تعذّر حفظ الجلسة على الجهاز؛ قد تحتاج تسجّل دخولك لاحقًا.';
     }
     if (revision != _revision || _disposed)
       throw const AccountFailure('SESSION_CHANGED', 'جلسة الدخول تغيّرت.');

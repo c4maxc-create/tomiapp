@@ -12,7 +12,7 @@ List<Color> _roomSky(VoiceRoom r) => switch (r.background) {
   'dusk' => const [Color(0xff301447), Color(0xff772f75), Color(0xff221033)],
   'forest' => const [Color(0xff062c32), Color(0xff176b64), Color(0xff061c30)],
   'midnight' => const [Color(0xff090f27), Color(0xff263259), Color(0xff080c20)],
-  _ => const [Color(0xff04234c), Color(0xff175bb0), Color(0xff06164e)],
+  _ => const [Color(0xff080b22), Color(0xff161035), Color(0xff160d3c)],
 };
 
 class VoiceRoomPage extends StatefulWidget {
@@ -27,13 +27,30 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
   VoiceRoomsController get c => widget.controller;
   final message = TextEditingController(), chat = ScrollController();
   bool leaving = false, sendingImage = false;
-  late final effects = RoomEffectsController(c.active?.events ?? []);
+  late final effects = RoomEffectsController(
+    (c.active?.events ?? [])
+        .where(
+          (e) =>
+              e.effect?['kind'] != 'entrance' ||
+              e.actor.id != c.accounts.user?.id,
+        )
+        .toList(),
+  );
   @override
   void initState() {
     super.initState();
     message.text = c.pendingMessage?['text'] as String? ?? c.roomDraft;
     c.addListener(changed);
     effects.addListener(effectChanged);
+    effects.ingest(
+      (c.active?.events ?? [])
+          .where(
+            (e) =>
+                e.effect?['kind'] == 'entrance' &&
+                e.actor.id == c.accounts.user?.id,
+          )
+          .toList(),
+    );
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -152,6 +169,14 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
                       gifts();
                     },
                   ),
+                  (
+                    Icons.auto_awesome,
+                    'متجر الغرفة',
+                    () {
+                      Navigator.pop(sheet);
+                      _showRoomShop(context, c);
+                    },
+                  ),
                   if (c.manage)
                     (
                       Icons.pan_tool_outlined,
@@ -213,9 +238,14 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
       if (m.user.id == c.accounts.user?.id) {
         final choice = await _roomChoice(context, 'مقعدك', [
           c.microphoneOn ? 'كتم المايك' : 'فتح المايك',
+          'دعم نفسي',
           if (c.manage && index != -1 && r.seatMuted(index)) 'إلغاء كتم المقعد',
           if (index != -1) 'النزول من المقعد',
         ]);
+        if (choice == 'دعم نفسي') {
+          await gifts(m.user.id);
+          return;
+        }
         if (choice == null) return;
         if (choice == 'إلغاء كتم المقعد') {
           await c.action(
@@ -358,6 +388,7 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
         person = m?.user ?? (owner ? r.owner : null),
         active = m != null && c.audio?.speakers.contains(m.identity) == true,
         locked = owner && m == null || r.seatLocked(index),
+        muted = r.seatMuted(index) || m != null && !m.micAllowed,
         accent = _roomAccent(r);
     final size = special ? 76.0 : 52.0;
     return Semantics(
@@ -432,6 +463,16 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
                           color: accent,
                         ),
                       ),
+                    if (locked || muted)
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        child: Icon(
+                          locked ? Icons.lock : Icons.mic_off,
+                          color: _roomPink,
+                          size: 18,
+                        ),
+                      ),
                     if (m != null)
                       Positioned(
                         bottom: 0,
@@ -473,9 +514,18 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
                   ),
                 ),
               ),
+              if (locked || muted)
+                Text(
+                  locked ? 'مغلق' : 'مكتوم',
+                  style: const TextStyle(fontSize: 9, color: _roomPink),
+                ),
               if (special)
                 Text(
-                  owner ? 'المالك • محجوز دائمًا' : 'بالدعوة والموافقة',
+                  owner
+                      ? (r.advanced
+                            ? 'المالك • محجوز دائمًا'
+                            : 'مدير الغرفة الحالي')
+                      : 'بالدعوة والموافقة',
                   style: TextStyle(fontSize: 10, color: accent),
                 ),
             ],
@@ -490,19 +540,56 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
     child: Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              SizedBox(width: 132, child: seat(r, -1, special: true)),
-              if (r.companionEnabled) ...[
-                Icon(
-                  Icons.favorite_rounded,
-                  size: 21,
-                  color: _roomPink.withValues(alpha: .75),
+              SizedBox(width: 116, child: seat(r, -1, special: true)),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(26),
+                    border: Border.all(color: _roomPink.withValues(alpha: .65)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _roomPink.withValues(alpha: .12),
+                        blurRadius: 22,
+                      ),
+                    ],
+                  ),
+                  child: const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Column(
+                      children: [
+                        Text(
+                          'TOMI',
+                          style: TextStyle(
+                            fontSize: 23,
+                            letterSpacing: 5,
+                            fontWeight: FontWeight.w300,
+                            color: _roomCyan,
+                            shadows: [Shadow(color: _roomCyan, blurRadius: 16)],
+                          ),
+                        ),
+                        Text(
+                          'VOICE CLUB',
+                          style: TextStyle(
+                            fontSize: 10,
+                            letterSpacing: 2,
+                            color: _roomPink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                SizedBox(width: 132, child: seat(r, -2, special: true)),
-              ],
+              ),
+              if (r.companionEnabled)
+                SizedBox(width: 106, child: seat(r, -2, special: true)),
             ],
           ),
         ),
@@ -617,21 +704,20 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  r.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              Text(
+                                r.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(width: 5),
-                              _LevelBadge(r.level),
+                              const SizedBox(height: 3),
+                              _RoomTierBadge(r.advanced),
                             ],
                           ),
                           Text(
@@ -664,25 +750,11 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
           alignment: WrapAlignment.center,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            InkWell(
-              onTap: () => _showRoomLevels(context, c),
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.bar_chart_rounded,
-                      size: 15,
-                      color: _roomAccent(r),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      'مستوى ${r.level}',
-                      style: const TextStyle(fontSize: 10),
-                    ),
-                  ],
-                ),
-              ),
+            Text(
+              r.publicId == null
+                  ? 'غرفة مجانية • إدارة متغيرة'
+                  : 'ID: ${r.publicId}',
+              style: TextStyle(fontSize: 10, color: _roomGold),
             ),
             const Text('  |  ', style: TextStyle(color: Colors.white24)),
             Icon(
@@ -1020,95 +1092,98 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
     animation: c,
     builder: (context, _) {
       final r = c.active;
-      return PopScope(
-        canPop: r == null || leaving,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) unawaited(leave());
-        },
-        child: Scaffold(
-          resizeToAvoidBottomInset: true,
-          backgroundColor: const Color(0xff071b48),
-          body: r == null
-              ? SafeArea(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.headset_off_rounded, size: 52),
-                          const SizedBox(height: 16),
-                          Text(c.notice ?? 'غادرت الغرفة.'),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('الرجوع للغرف'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                )
-              : Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: _roomSky(r),
-                    ),
-                  ),
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: CustomPaint(painter: _RoomStars()),
-                        ),
-                      ),
-                      SafeArea(
-                        bottom: false,
+      return Theme(
+        data: ThemeData.dark(useMaterial3: true),
+        child: PopScope(
+          canPop: r == null || leaving,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) unawaited(leave());
+          },
+          child: Scaffold(
+            resizeToAvoidBottomInset: true,
+            backgroundColor: const Color(0xff071b48),
+            body: r == null
+                ? SafeArea(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
                         child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            header(r),
-                            Expanded(
-                              child: LayoutBuilder(
-                                builder: (context, box) {
-                                  if (box.maxHeight < 460 ||
-                                      MediaQuery.textScalerOf(
-                                            context,
-                                          ).scale(14) >
-                                          20)
-                                    return SingleChildScrollView(
-                                      child: Column(
-                                        children: [
-                                          stage(r),
-                                          events(r, expanded: false),
-                                        ],
-                                      ),
-                                    );
-                                  return Column(
-                                    children: [
-                                      stage(r),
-                                      Expanded(child: events(r)),
-                                    ],
-                                  );
-                                },
-                              ),
+                            const Icon(Icons.headset_off_rounded, size: 52),
+                            const SizedBox(height: 16),
+                            Text(c.notice ?? 'غادرت الغرفة.'),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('الرجوع للغرف'),
                             ),
-                            composer(r),
                           ],
                         ),
                       ),
-                      if (effects.active != null)
+                    ),
+                  )
+                : Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: _roomSky(r),
+                      ),
+                    ),
+                    child: Stack(
+                      children: [
                         Positioned.fill(
-                          child: RoomEffectOverlay(
-                            key: ValueKey(
-                              'room-effect-${effects.active!.sequence}',
-                            ),
-                            event: effects.active!,
+                          child: IgnorePointer(
+                            child: CustomPaint(painter: _RoomStars()),
                           ),
                         ),
-                    ],
+                        SafeArea(
+                          bottom: false,
+                          child: Column(
+                            children: [
+                              header(r),
+                              Expanded(
+                                child: LayoutBuilder(
+                                  builder: (context, box) {
+                                    if (box.maxHeight < 460 ||
+                                        MediaQuery.textScalerOf(
+                                              context,
+                                            ).scale(14) >
+                                            20)
+                                      return SingleChildScrollView(
+                                        child: Column(
+                                          children: [
+                                            stage(r),
+                                            events(r, expanded: false),
+                                          ],
+                                        ),
+                                      );
+                                    return Column(
+                                      children: [
+                                        stage(r),
+                                        Expanded(child: events(r)),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ),
+                              composer(r),
+                            ],
+                          ),
+                        ),
+                        if (effects.active != null)
+                          Positioned.fill(
+                            child: RoomEffectOverlay(
+                              key: ValueKey(
+                                'room-effect-${effects.active!.sequence}',
+                              ),
+                              event: effects.active!,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
+          ),
         ),
       );
     },
@@ -1132,25 +1207,22 @@ Widget _roomTool(
   ),
 );
 
-class _LevelBadge extends StatelessWidget {
-  const _LevelBadge(this.level);
-  final int level;
+class _RoomTierBadge extends StatelessWidget {
+  const _RoomTierBadge(this.advanced);
+  final bool advanced;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
     decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [Color(0xff8b4cdb), Color(0xffcf72ef)],
-      ),
-      border: Border.all(color: const Color(0xffefd3ff)),
-      borderRadius: BorderRadius.circular(7),
+      color: (advanced ? _roomGold : _roomCyan).withValues(alpha: .15),
+      borderRadius: BorderRadius.circular(8),
     ),
     child: Text(
-      'LV.$level',
-      style: const TextStyle(
-        color: Colors.white,
+      advanced ? 'متقدمة' : 'مجانية',
+      style: TextStyle(
         fontSize: 10,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.bold,
+        color: advanced ? _roomGold : _roomCyan,
       ),
     ),
   );
@@ -1175,7 +1247,17 @@ class _RoomPicture extends StatelessWidget {
       );
     if (r.picture == 'owner' && r.owner != null)
       return MediaQuery.withNoTextScaling(
-        child: AccountAvatar(r.owner!, size: size),
+        child: AccountAvatar(
+          r.owner!.withIdentity(
+            UserIdentity({
+              ...r.owner!.identity.data,
+              'frameId': 'none',
+              'roomFrameId': 'none',
+              'portraitId': 'none',
+            }),
+          ),
+          size: size,
+        ),
       );
     return fallback();
   }

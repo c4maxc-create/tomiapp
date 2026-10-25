@@ -9,11 +9,21 @@ class UserIdentity {
   double get progress =>
       ((data['progress'] as num?)?.toDouble() ?? 0).clamp(0, 1);
   int get revision => (data['revision'] as num?)?.toInt() ?? 0;
+  int get charisma =>
+      (data['charisma'] as num? ?? data['received'] as num? ?? 0).toInt();
   int get giftsSent => (data['giftsSent'] as num?)?.toInt() ?? 0;
   int get giftsReceived => (data['giftsReceived'] as num?)?.toInt() ?? 0;
-  String get frameId => data['frameId'] as String? ?? 'none';
+  String get frameId {
+    final until = DateTime.tryParse(
+      data['roomFrameExpiresAt'] as String? ?? '',
+    );
+    if (until != null && !until.isAfter(DateTime.now())) return 'none';
+    return (data['roomFrameId'] ?? data['frameId']) as String? ?? 'none';
+  }
+
   String get portraitId => data['portraitId'] as String? ?? 'none';
-  String get entranceId => data['entranceId'] as String? ?? 'none';
+  String get entranceId =>
+      (data['roomEntranceId'] ?? data['entranceId']) as String? ?? 'none';
   List<Map<String, dynamic>> get badges =>
       (data['badges'] as List? ?? []).cast<Map<String, dynamic>>();
 }
