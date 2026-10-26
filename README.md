@@ -1,3 +1,13 @@
+# TOMI 1.3.2-beta.1 — notification and room-creation fixes
+
+Complete Flutter source **1.3.2-beta.1+20**, API **1.3.2-beta.1**, extending canonical source23. The plus button opens the room form immediately while directory/balance reads run; wallet updates preserve input. Unavailable-service messages have readable contrast, and a definitive uncharged ROOMS_DISABLED response releases its saved creation intent. Existing paid-room consent, debit and lost-response safeguards remain.
+
+Notification initialization can retry after failure and relies on actual native configuration. The settings page distinguishes client/server readiness, permits retry, and marks registration successful only after the API accepts the device. Accounts APK builds require a valid Firebase Android client via TOMI_GOOGLE_SERVICES_JSON or config/google-services.json. Server private credentials remain server-only. Complete standard LIVEKIT_* variables and FIREBASE_SERVICE_ACCOUNT_JSON are accepted as compatible alternatives to the existing names. Health exposes setup booleans without credentials.
+
+Start with **FIX_NOTIFICATIONS_ROOMS_1.3.2_AR.md**. Phone notification configuration was absent from the supplied files; configure the user's Firebase project before building. This source package does not itself activate external services or contain an APK. All source23 paths, features and PostgreSQL1.3.1 fixes remain. Current checks are in **VALIDATION-1.3.2.md**; earlier documentation follows as history.
+
+---
+
 # TOMI 1.3.1-beta.1 — PostgreSQL CI and migration fix
 
 Complete source, app **1.3.1-beta.1+19**, API **1.3.1-beta.1**. Preserves all 1.3 voice-room features. Corrects the support-event foreign key on new and existing PostgreSQL/SQLite databases without removing gift records, retry receipts, balances or cosmetics. Retired room-owner uniqueness is not recreated during startup. Failed schema initialization closes its database handle.
