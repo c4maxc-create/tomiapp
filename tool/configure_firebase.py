@@ -7,12 +7,17 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parent.parent
 PACKAGE='com.tomi.tomi_app'
 
-def configure_firebase(root=ROOT, raw=None):
+def configure_firebase(root=ROOT, raw=None, *, required=False):
     config=root/'android/app/google-services.json'
     raw=os.environ.get('TOMI_GOOGLE_SERVICES_JSON','') if raw is None else raw
     if not raw and config.is_file():
         raw=config.read_text()
+    persistent=root/'config/google-services.json'
+    if not raw and persistent.is_file():
+        raw=persistent.read_text()
     if not raw:
+        if required:
+            raise ValueError('Phone notifications require Firebase Android configuration. Set GitHub Actions secret TOMI_GOOGLE_SERVICES_JSON to the contents of google-services.json for com.tomi.tomi_app, or add config/google-services.json, then start a NEW workflow run. No APK was built with notifications disabled.')
         return False
     if len(raw.encode())>131072:
         raise ValueError('Firebase client configuration is too large.')
@@ -43,7 +48,7 @@ def configure_firebase(root=ROOT, raw=None):
     return True
 
 if __name__=='__main__':
-    enabled=configure_firebase()
+    enabled=configure_firebase(required=os.environ.get('TOMI_REQUIRE_PUSH','false').lower()=='true')
     if os.environ.get('GITHUB_ENV'):
         with open(os.environ['GITHUB_ENV'],'a') as f:
             f.write('TOMI_PUSH_CONFIGURED='+str(enabled).lower()+'\n')

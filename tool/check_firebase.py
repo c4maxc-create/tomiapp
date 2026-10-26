@@ -8,11 +8,17 @@ def main():
     with tempfile.TemporaryDirectory() as d:
         root=Path(d)
         assert configure_firebase(root,raw='') is False
+        try:configure_firebase(root,raw='',required=True)
+        except ValueError as e:assert 'TOMI_GOOGLE_SERVICES_JSON' in str(e)
+        else:raise AssertionError('Accounts APK accepted without Firebase client configuration')
         settings=root/'android/settings.gradle.kts';settings.parent.mkdir(parents=True)
         settings.write_text('pluginManagement {}\nplugins {\n}\n')
         app=root/'android/app/build.gradle.kts';app.parent.mkdir();app.write_text('plugins {}\nandroid {}\n')
         config={'project_info':{'project_id':'test-project','project_number':'123456789'},'client':[{'client_info':{'mobilesdk_app_id':'1:123456789:android:fake','android_client_info':{'package_name':'com.tomi.tomi_app'}},'api_key':[{'current_key':'fake-client-key'}]}]}
         raw=json.dumps(config)
+        persistent=root/'config/google-services.json';persistent.parent.mkdir();persistent.write_text(raw)
+        assert configure_firebase(root,raw='',required=True)
+        persistent.unlink()
         assert configure_firebase(root,raw)
         assert configure_firebase(root,raw)
         assert settings.read_text().count('com.google.gms.google-services')==1
@@ -25,5 +31,5 @@ def main():
         try:configure_firebase(root,json.dumps(config))
         except ValueError:pass
         else:raise AssertionError('Accepted a wrong package')
-    print('PASS: Firebase optional setup, client package, repeated setup and rejection of server credentials.')
+    print('PASS: Firebase required/optional setup, persistent config path, client package, repeated setup and rejection of server credentials.')
 if __name__=='__main__':main()
