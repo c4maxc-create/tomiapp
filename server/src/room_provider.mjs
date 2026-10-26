@@ -3,14 +3,16 @@ import {AccessToken, RoomServiceClient, TrackSource} from 'livekit-server-sdk';
 // Cloud token revocation is required for immediate moderator enforcement. A
 // self-hosted server cannot revoke old join tokens and is deliberately refused.
 export function roomProviderFromEnvironment(env=process.env,{client}={}) {
-  const values=['ROOM_LIVEKIT_URL','ROOM_LIVEKIT_API_KEY','ROOM_LIVEKIT_API_SECRET'].map(k=>env[k]?.trim());
+  const roomNames=['ROOM_LIVEKIT_URL','ROOM_LIVEKIT_API_KEY','ROOM_LIVEKIT_API_SECRET'];
+  const names=roomNames.some(k=>env[k]?.trim())?roomNames:['LIVEKIT_URL','LIVEKIT_API_KEY','LIVEKIT_API_SECRET'];
+  const values=names.map(k=>env[k]?.trim());
   if(values.every(v=>!v))return null;
   const [url,key,secret]=values;
   let endpoint;try{endpoint=new URL(url);}catch{}
   if(!endpoint||endpoint.protocol!=='wss:'||!endpoint.hostname.endsWith('.livekit.cloud')||
     !/^[a-z0-9-]+\.livekit\.cloud$/.test(endpoint.hostname)||endpoint.port||endpoint.username||endpoint.password||
     endpoint.search||endpoint.hash||!['','/'].includes(endpoint.pathname)||!key||!secret||secret.length<32)
-    throw new Error('Configure all three ROOM_LIVEKIT_* settings from the same LiveKit Cloud project.');
+    throw new Error('Configure all three ROOM_LIVEKIT_* settings (or all three LIVEKIT_* aliases) from the same LiveKit Cloud project.');
   const service=client??new RoomServiceClient('https://'+endpoint.hostname,key,secret,{requestTimeout:5,failover:false});
   const roomName=id=>'tomi-'+id;
   const permission=publish=>({canSubscribe:true,canPublish:publish,canPublishData:false,

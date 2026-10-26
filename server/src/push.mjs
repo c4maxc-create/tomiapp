@@ -3,8 +3,9 @@ import {createPrivateKey,sign} from 'node:crypto';
 import {ApiError,digest} from './security.mjs';
 const stamp=(offset=0)=>new Date(Date.now()+offset).toISOString();
 export function fcmFromEnvironment(env=process.env,{fetcher=fetch}={}){
- if(!env.FCM_SERVICE_ACCOUNT_JSON)return null;let key;
- try{const a=JSON.parse(env.FCM_SERVICE_ACCOUNT_JSON);if(a.type!=='service_account'||!/^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(a.project_id)||!/^.+@.+\.iam\.gserviceaccount\.com$/.test(a.client_email))throw Error();key={project:a.project_id,email:a.client_email,privateKey:createPrivateKey(a.private_key)};if(key.privateKey.asymmetricKeyType!=='rsa')throw Error();}catch{throw Error('FCM_CONFIG_INVALID');}
+ const accountJson=env.FCM_SERVICE_ACCOUNT_JSON?.trim()||env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
+ if(!accountJson)return null;let key;
+ try{const a=JSON.parse(accountJson);if(a.type!=='service_account'||!/^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(a.project_id)||!/^.+@.+\.iam\.gserviceaccount\.com$/.test(a.client_email))throw Error();key={project:a.project_id,email:a.client_email,privateKey:createPrivateKey(a.private_key)};if(key.privateKey.asymmetricKeyType!=='rsa')throw Error();}catch{throw Error('FCM_CONFIG_INVALID');}
  let cached,expires=0,refresh;
  async function accessToken(){if(cached&&Date.now()<expires)return cached;if(refresh)return refresh;
   refresh=(async()=>{const time=Math.floor(Date.now()/1000),encode=x=>Buffer.from(JSON.stringify(x)).toString('base64url'),unsigned=encode({alg:'RS256',typ:'JWT'})+'.'+encode({iss:key.email,scope:'https://www.googleapis.com/auth/firebase.messaging',aud:'https://oauth2.googleapis.com/token',iat:time,exp:time+3600}),jwt=unsigned+'.'+sign('RSA-SHA256',Buffer.from(unsigned),key.privateKey).toString('base64url');const r=await fetcher('https://oauth2.googleapis.com/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion:jwt}),signal:AbortSignal.timeout(10000),redirect:'error'});if(!r.ok)throw Error('FCM_AUTH');const data=await r.json();if(typeof data.access_token!=='string'||!Number.isFinite(data.expires_in))throw Error('FCM_AUTH');cached=data.access_token;expires=Date.now()+Math.max(0,data.expires_in-60)*1000;return cached;})();try{return await refresh;}finally{refresh=null;}
