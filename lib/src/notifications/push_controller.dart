@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+
 import '../accounts/account_controller.dart';
 
 abstract class PushDeviceClient {
@@ -20,15 +23,18 @@ abstract class PushDeviceClient {
 class FirebasePushDeviceClient implements PushDeviceClient {
   Future<bool>? initialization;
   @override
-  Future<bool> initialize() => initialization ??= initializeFirebase();
+  Future<bool> initialize() async {
+    final attempt = initialization ??= initializeFirebase();
+    final ready = await attempt;
+    // A temporary native initialization failure must be retryable.
+    if (!ready && identical(initialization, attempt)) initialization = null;
+    return ready;
+  }
+
   Future<bool> initializeFirebase() async {
-    if (!const bool.fromEnvironment('TOMI_PUSH_CONFIGURED') ||
-        kIsWeb ||
-        ![
-          TargetPlatform.android,
-          TargetPlatform.iOS,
-        ].contains(defaultTargetPlatform))
-      return false;
+    // Native Firebase is available only on the actual phone platform; a
+    // desktop renderer can emulate Android's theme without native plugins.
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return false;
     try {
       if (Firebase.apps.isEmpty)
         await Firebase.initializeApp().timeout(const Duration(seconds: 10));
@@ -102,6 +108,8 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
   final AccountController accounts;
   final PushDeviceClient client;
   bool configured = false,
+      clientReady = false,
+      checked = false,
       enabled = true,
       permissionGranted = false,
       busy = false,
@@ -130,6 +138,8 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
     identity = next;
     generation++;
     configured = false;
+    clientReady = false;
+    checked = false;
     registeredToken = null;
     registeredBinding = null;
     unawaited(
@@ -158,21 +168,24 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
     error = null;
     notify();
     try {
-      final initialized = await client.initialize();
-      if (!initialized && !disposed && gen == generation)
-        error =
-            'هذه النسخة تحتاج إعداد خدمة إشعارات الهاتف؛ صندوق الإشعارات داخل التطبيق متاح.';
-      if (!initialized || disposed || gen != generation) {
-        await drainActions();
-        return;
-      }
       final settings = await accounts.chatRequest('GET', '/v1/push/settings');
       if (disposed || gen != generation) return;
       configured = settings['configured'] == true;
       enabled = settings['enabled'] == true;
+      final initialized = await client.initialize();
+      if (disposed || gen != generation) return;
+      clientReady = initialized;
+      checked = true;
+      if (!initialized) {
+        error =
+            'إعداد إشعارات هذه النسخة غير مكتمل. حدّث التطبيق بعد تفعيل خدمة إشعارات الهاتف.';
+        await unregister();
+        await drainActions();
+        return;
+      }
       if (!configured)
         error =
-            'خدمة التنبيهات خارج التطبيق غير مفعّلة على الخادم؛ صندوق الإشعارات داخل التطبيق متاح.';
+            'خدمة إشعارات الخادم غير مفعّلة حاليًا. أعد التحديث بعد تفعيلها.';
       permissionGranted = configured && enabled
           ? await client.permission()
           : false;
@@ -241,6 +254,7 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
     if (disposed ||
         identity == null ||
         !configured ||
+        !clientReady ||
         !enabled ||
         !permissionGranted ||
         token == registeredToken)
@@ -257,6 +271,12 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
         },
       );
       if (!disposed && gen == generation) {
+        if (d['configured'] != true) {
+          configured = false;
+          error = 'خدمة إشعارات الخادم غير مفعّلة حاليًا.';
+          await accounts.mobile.bind(accounts.user?.id, null, false);
+          return;
+        }
         registeredToken = token;
         registeredBinding = d['bindingId'] as String?;
         await accounts.mobile.bind(
@@ -275,7 +295,11 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> setEnabled(bool value) async {
-    if (busy || disposed || identity == null || !configured) return;
+    if (busy || disposed || identity == null) return;
+    if (value && (!configured || !clientReady)) {
+      await connect();
+      if (disposed || identity == null || !configured || !clientReady) return;
+    }
     final gen = generation;
     busy = true;
     error = null;

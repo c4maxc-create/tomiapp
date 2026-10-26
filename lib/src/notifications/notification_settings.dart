@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../accounts/account_widgets.dart';
 import 'push_controller.dart';
 
@@ -22,11 +23,37 @@ class NotificationSettingsPage extends StatelessWidget {
             value:
                 controller.enabled &&
                 controller.permissionGranted &&
-                controller.configured,
-            onChanged: controller.busy || !controller.configured
-                ? null
-                : controller.setEnabled,
+                controller.configured &&
+                controller.clientReady &&
+                controller.registeredToken != null,
+            onChanged: controller.busy ? null : controller.setEnabled,
           ),
+          if (controller.checked) ...[
+            ListTile(
+              leading: Icon(
+                controller.clientReady
+                    ? Icons.check_circle_outline
+                    : Icons.error_outline,
+              ),
+              title: Text(
+                controller.clientReady
+                    ? 'إعداد التطبيق جاهز'
+                    : 'إعداد إشعارات التطبيق غير مكتمل',
+              ),
+            ),
+            ListTile(
+              leading: Icon(
+                controller.configured
+                    ? Icons.check_circle_outline
+                    : Icons.cloud_off_outlined,
+              ),
+              title: Text(
+                controller.configured
+                    ? 'خدمة الخادم جاهزة'
+                    : 'خدمة إشعارات الخادم غير مفعّلة',
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           const Text(
             'لحماية خصوصيتك، الإشعار ما يعرض نص الرسالة أو محتوى الصورة والتسجيل.',
@@ -38,7 +65,7 @@ class NotificationSettingsPage extends StatelessWidget {
               'تنبيهات الهاتف تحتاج إلى تفعيل الخدمة؛ الإشعارات داخل التطبيق متاحة.',
             ),
           if (controller.error != null) AccountErrorMessage(controller.error!),
-          if (controller.configured &&
+          if (controller.clientReady &&
               !controller.permissionGranted &&
               !controller.busy)
             TextButton.icon(

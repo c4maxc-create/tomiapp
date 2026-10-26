@@ -40,6 +40,7 @@ class VoiceRoomsScreen extends StatefulWidget {
 
 class _VoiceRoomsScreenState extends State<VoiceRoomsScreen> {
   VoiceRoomsController get controller => widget.accounts.voiceRooms;
+  bool openingCreation = false;
   @override
   void initState() {
     super.initState();
@@ -103,42 +104,62 @@ class _VoiceRoomsScreenState extends State<VoiceRoomsScreen> {
   }
 
   Future<void> create() async {
-    final pending = controller.pendingCreation;
-    if (pending != null) {
-      final id = await controller.create(
-        pending['title'] as String,
-        pending['capacity'] as int,
-        pending['seatCount'] as int,
-        tier: pending['tier'] as String,
-        acceptTerms: pending['acceptTerms'] == true,
-      );
-      if (id != null && mounted) await open(id);
+    if (openingCreation || controller.busy) return;
+    if (controller.inRoom) {
+      controller.error = 'غادر غرفتك الحالية قبل إنشاء غرفة أخرى.';
+      controller.notify();
       return;
     }
-    await controller.loadGifts();
-    if (!mounted) return;
-    final input = await showModalBottomSheet<_NewRoom>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      builder: (_) => Theme(
-        data: _roomLight(),
-        child: Material(
-          color: Colors.white,
-          child: _CreateRoomSheet(coins: controller.coins),
+    setState(() => openingCreation = true);
+    try {
+      final pending = controller.pendingCreation;
+      if (pending != null) {
+        final id = await controller.create(
+          pending['title'] as String,
+          pending['capacity'] as int,
+          pending['seatCount'] as int,
+          tier: pending['tier'] as String,
+          acceptTerms: pending['acceptTerms'] == true,
+        );
+        if (id != null && mounted) await open(id);
+        return;
+      }
+      unawaited(controller.loadGifts());
+      if (!mounted) return;
+      final input = await showModalBottomSheet<_NewRoom>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        backgroundColor: Colors.white,
+        builder: (_) => AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) => Theme(
+            data: _roomLight(),
+            child: Material(
+              color: Colors.white,
+              child: _CreateRoomSheet(
+                coins: controller.coins,
+                walletReady: controller.walletReady,
+                walletLoading: controller.extrasLoading,
+                serviceReady: controller.configured,
+                refreshWallet: controller.loadGifts,
+              ),
+            ),
+          ),
         ),
-      ),
-    );
-    if (input == null || !mounted) return;
-    final id = await controller.create(
-      input.title,
-      input.capacity,
-      input.seats,
-      tier: input.advanced ? 'advanced' : 'free',
-      acceptTerms: input.advanced,
-    );
-    if (id != null && mounted) await open(id);
+      );
+      if (input == null || !mounted) return;
+      final id = await controller.create(
+        input.title,
+        input.capacity,
+        input.seats,
+        tier: input.advanced ? 'advanced' : 'free',
+        acceptTerms: input.advanced,
+      );
+      if (id != null && mounted) await open(id);
+    } finally {
+      if (mounted) setState(() => openingCreation = false);
+    }
   }
 
   @override
@@ -174,17 +195,20 @@ class _VoiceRoomsScreenState extends State<VoiceRoomsScreen> {
                     tooltip: controller.pendingCreation == null
                         ? 'إنشاء غرفة صوتية'
                         : 'إكمال طلب الإنشاء',
-                    onPressed:
-                        controller.configured &&
-                            !controller.busy &&
-                            !controller.loading
-                        ? create
-                        : null,
-                    icon: const Icon(
-                      Icons.add_circle,
-                      color: Color(0xff10bfc4),
-                      size: 30,
-                    ),
+                    onPressed: controller.busy || openingCreation
+                        ? null
+                        : create,
+                    icon: controller.busy
+                        ? const SizedBox(
+                            width: 25,
+                            height: 25,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(
+                            Icons.add_circle,
+                            color: Color(0xff10bfc4),
+                            size: 30,
+                          ),
                   ),
                   IconButton(
                     tooltip: 'متجر الإطارات والدخول',
@@ -515,8 +539,16 @@ class _NewRoom {
 }
 
 class _CreateRoomSheet extends StatefulWidget {
-  const _CreateRoomSheet({required this.coins});
+  const _CreateRoomSheet({
+    required this.coins,
+    required this.walletReady,
+    required this.walletLoading,
+    required this.serviceReady,
+    required this.refreshWallet,
+  });
   final int coins;
+  final bool walletReady, walletLoading, serviceReady;
+  final Future<void> Function() refreshWallet;
   @override
   State<_CreateRoomSheet> createState() => _CreateRoomSheetState();
 }
@@ -569,7 +601,23 @@ class _CreateRoomSheetState extends State<_CreateRoomSheet> {
                 onSelectionChanged: (v) => setState(() => advanced = v.first),
               ),
               const SizedBox(height: 12),
-              Text('رصيدك: ${widget.coins} كوينز', textAlign: TextAlign.center),
+              if (!widget.serviceReady)
+                const AccountErrorMessage(
+                  'خدمة الصوت غير جاهزة حاليًا. أعد المحاولة بعد تفعيلها؛ لا يتم خصم العملات عند رفض الإنشاء.',
+                ),
+              if (widget.walletLoading)
+                const Text('جارٍ تحديث الرصيد…', textAlign: TextAlign.center)
+              else if (widget.walletReady)
+                Text(
+                  'رصيدك: ${widget.coins} كوينز',
+                  textAlign: TextAlign.center,
+                )
+              else
+                TextButton.icon(
+                  onPressed: widget.refreshWallet,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('إعادة تحميل الرصيد'),
+                ),
               const SizedBox(height: 12),
               TextFormField(
                 key: const Key('voice-room-title'),
@@ -632,7 +680,12 @@ class _CreateRoomSheetState extends State<_CreateRoomSheet> {
 
               const SizedBox(height: 18),
               FilledButton(
-                onPressed: advanced && (!accepted || widget.coins < 5799)
+                key: const Key('submit-voice-room'),
+                onPressed:
+                    advanced &&
+                        (!accepted ||
+                            !widget.walletReady ||
+                            widget.coins < 5799)
                     ? null
                     : () {
                         if (form.currentState!.validate())

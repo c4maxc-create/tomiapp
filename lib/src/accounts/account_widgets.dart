@@ -36,7 +36,12 @@ class AccountErrorMessage extends StatelessWidget {
           children: [
             const Icon(Icons.info_outline_rounded, color: TomiColors.pink),
             const SizedBox(width: 10),
-            Expanded(child: Text(message, style: const TextStyle(height: 1.6))),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(color: TomiColors.text, height: 1.6),
+              ),
+            ),
           ],
         ),
       ),

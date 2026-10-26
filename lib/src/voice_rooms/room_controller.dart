@@ -48,6 +48,7 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
   int listEpoch = 0;
   final gifts = <RoomGift>[];
   int coins = 0;
+  bool walletReady = false;
   String? nextClaim;
   bool extrasLoading = false, pickingMedia = false;
   Map<String, dynamic>? pendingGift, pendingMessage;
@@ -146,6 +147,7 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
     configured = false;
     gifts.clear();
     coins = 0;
+    walletReady = false;
     nextClaim = null;
     extrasLoading = false;
     pendingGift = null;
@@ -229,10 +231,8 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
       final index = rooms.indexWhere((r) => r.id == room.id);
       if (index >= 0) {
         final old = rooms[index],
-            next = VoiceRoom({
-              ...old.data,
-              'preferences': prefs,
-            }).preservePreferences(old);
+            next = VoiceRoom({...old.data, 'preferences': prefs})
+                .preservePreferences(old);
         if (scope == 'favorites' && !next.favorite ||
             scope == 'following' && !next.following)
           rooms.removeAt(index);
@@ -240,10 +240,8 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
           rooms[index] = next;
       }
       if (active?.id == room.id)
-        active = VoiceRoom({
-          ...active!.data,
-          'preferences': prefs,
-        }).preservePreferences(active!);
+        active = VoiceRoom({...active!.data, 'preferences': prefs})
+            .preservePreferences(active!);
       error = null;
     } on AccountFailure catch (e) {
       if (valid(gen)) {
@@ -386,16 +384,18 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
     } on AccountFailure catch (e) {
       if (valid(gen)) {
         error = e.message;
-        if (e.status >= 400 &&
-            e.status < 500 &&
-            const {
-              'ROOM_COINS_LOW',
-              'VALIDATION',
-              'ROOM_TERMS',
-              'ROOM_OWNED',
-              'ROOMS_DISABLED',
-              'COSMETIC_EXPIRED',
-            }.contains(e.code)) {
+        if (e.code == 'ROOMS_DISABLED') configured = false;
+        if ((e.status == 503 && e.code == 'ROOMS_DISABLED') ||
+            e.status >= 400 &&
+                e.status < 500 &&
+                const {
+                  'ROOM_COINS_LOW',
+                  'VALIDATION',
+                  'ROOM_TERMS',
+                  'ROOM_OWNED',
+                  'ROOMS_DISABLED',
+                  'COSMETIC_EXPIRED',
+                }.contains(e.code)) {
           try {
             if (await saveCommerce('voice-create', null, gen))
               pendingCreation = null;
@@ -794,6 +794,7 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void applyWallet(Map<String, dynamic> d) {
+    walletReady = true;
     coins = (d['coins'] as num).toInt();
     nextClaim = d['nextClaim'] as String?;
   }
@@ -1285,8 +1286,7 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
         try {
           await persistRoom();
         } catch (_) {
-          error =
-              'تعذّر حفظ الإرسال على الجهاز؛ لا تغلق الصفحة قبل إعادة المحاولة.';
+          error = 'تعذّر حفظ الإرسال على الجهاز؛ لا تغلق الصفحة قبل إعادة المحاولة.';
         }
       }
     } catch (_) {

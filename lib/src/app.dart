@@ -301,9 +301,8 @@ class _TomiAppState extends State<TomiApp> {
     builder: (context, child) => widget.textScaler == null
         ? child!
         : MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: widget.textScaler),
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: widget.textScaler),
             child: child!,
           ),
     theme: ThemeData(
@@ -430,7 +429,7 @@ class _TomiShellState extends State<TomiShell> {
                       ),
                     ),
                     const SizedBox(width: 9),
-                    TinyLabel(widget.accounts == null ? 'تجريبي' : '1.1'),
+                    TinyLabel(widget.accounts == null ? 'تجريبي' : '1.3.2'),
                   ],
                 ),
               ),
