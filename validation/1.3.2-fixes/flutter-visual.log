@@ -1,0 +1,11 @@
+00:00 +0: loading /workspace/scratch/a6e9eb31b351/notify14-work/test/notification_room132_test.dart
+00:00 +0: (setUpAll)
+00:00 +0: Firebase native initialization shares an active attempt and retries a failed attempt
+00:00 +1: notification refresh recovers native setup and registers the device with its session binding
+00:00 +2: a server that declines registration cannot show notifications as activated
+00:00 +3: enabling requests phone permission and disabling unregisters the existing token
+00:00 +4: missing notification setup remains retryable and explains client and server states
+00:00 +5: plus opens immediately during slow room and wallet reads; form survives the late balance
+00:01 +6: unconfigured service never makes plus inert; a definitive 503 clears the uncharged intent
+00:02 +7: (tearDownAll)
+00:02 +7: All tests passed!
