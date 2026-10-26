@@ -1,0 +1,12 @@
+✔ stories persist, expire after24h, follow feed and author rings track real active stories (1582.763428ms)
+✔ story retries cannot duplicate, revive deleted content, attach foreign or reused media (1209.092707ms)
+✔ followers paginate, activity is idempotent and private, store availability is honest (1968.019915ms)
+✔ blocked and suspended authors disappear from stories and activity; account erasure removes new data (1480.074548ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6376.011067
