@@ -85,6 +85,8 @@ jobs:
     needs: accounts-api
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    permissions:
+      contents: write
     steps:
       - name: Download project source
         uses: actions/checkout@v6.1.0
@@ -236,13 +238,80 @@ jobs:
         if: always() && inputs.distribution == 'signed_beta'
         run: python3 tool/configure_release.py --cleanup
 
-      - name: Upload verified TOMI artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: TOMI-1.4-beta1-${{ inputs.distribution }}
-          path: output/
-          if-no-files-found: error
-          retention-days: 7
+      - name: Publish verified TOMI downloads to Releases
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TOMI_BUILD_DISTRIBUTION: ${{ inputs.distribution }}
+        run: |
+          set -euo pipefail
+          release_tag="tomi-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          files=(output/TOMI-1.4.0-beta.1.apk)
+          case "$TOMI_BUILD_DISTRIBUTION" in
+            debug) ;;
+            signed_beta) files+=(output/TOMI-1.4.0-beta.1.aab output/RELEASE_BUILD_INFO.json) ;;
+            *) echo "Unsupported build distribution." >&2; exit 1 ;;
+          esac
+          for file in "${files[@]}"; do
+            if [[ ! -f "$file" || -L "$file" || ! -s "$file" ]]; then
+              echo "Expected a nonempty regular build file: $file" >&2
+              exit 1
+            fi
+            if (( $(stat -c %s "$file") >= 2147483648 )); then
+              echo "Build file exceeds the Releases asset size limit: $file" >&2
+              exit 1
+            fi
+          done
+          (
+            cd output
+            sha256sum -- "${files[@]#output/}"
+          ) > output/SHA256SUMS.txt
+          files+=(output/SHA256SUMS.txt)
+          notes="$RUNNER_TEMP/tomi-release-notes.md"
+          printf 'TOMI test build\n\nDistribution: %s\nCommit: %s\nWorkflow run: %s, attempt: %s\n\nDownload the .apk under Assets. SHA256SUMS.txt records the uploaded build hashes.\n' \
+            "$TOMI_BUILD_DISTRIBUTION" "$GITHUB_SHA" "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" > "$notes"
+          gh release create "$release_tag" "${files[@]}" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "TOMI 1.4.0-beta.1 ${TOMI_BUILD_DISTRIBUTION} build ${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" \
+            --draft --prerelease --latest=false --notes-file "$notes"
+          release_id="$(gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" --json databaseId --jq .databaseId)"
+          if [[ ! "$release_id" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Could not resolve this draft release ID." >&2
+            exit 1
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" > "$RUNNER_TEMP/tomi-release-receipt.json"
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          names = ['TOMI-1.4.0-beta.1.apk', 'SHA256SUMS.txt']
+          if os.environ['TOMI_BUILD_DISTRIBUTION'] == 'signed_beta':
+              names += ['TOMI-1.4.0-beta.1.aab', 'RELEASE_BUILD_INFO.json']
+          receipt = json.loads((Path(os.environ['RUNNER_TEMP']) / 'tomi-release-receipt.json').read_text())
+          tag = 'tomi-build-' + os.environ['GITHUB_RUN_ID'] + '-' + os.environ['GITHUB_RUN_ATTEMPT']
+          if (receipt.get('draft') is not True or receipt.get('prerelease') is not True
+                  or receipt.get('tag_name') != tag or receipt.get('target_commitish') != os.environ['GITHUB_SHA']):
+              raise SystemExit('Release does not match this verified build; left unpublished.')
+          assets = receipt.get('assets', [])
+          if len(assets) != len(names) or {a.get('name') for a in assets} != set(names):
+              raise SystemExit('Release assets are incomplete; left unpublished.')
+          for asset in assets:
+              path = Path('output') / asset['name']
+              if asset.get('state') != 'uploaded' or asset.get('size') != path.stat().st_size:
+                  raise SystemExit('Release asset upload is incomplete; left unpublished.')
+              if asset.get('digest') is not None:
+                  with path.open('rb') as stream:
+                      digest = 'sha256:' + hashlib.file_digest(stream, 'sha256').hexdigest()
+                  if asset['digest'] != digest:
+                      raise SystemExit('Release asset digest mismatch; left unpublished.')
+          print('Verified the uploaded asset names, sizes and available server digests.')
+          PY
+          gh release edit "$release_tag" --repo "$GITHUB_REPOSITORY" \
+            --draft=false --prerelease --latest=false
+          release_url="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${release_tag}"
+          printf '\n### Download TOMI\n\n[Open APK/AAB downloads](%s)\n\nChoose the .apk file under Assets.\n' "$release_url" >> "$GITHUB_STEP_SUMMARY"
+          echo "TOMI download: $release_url"
 
       - name: Report remaining build disk space
         if: always() && hashFiles('tool/prepare_android_ci.py') != ''
