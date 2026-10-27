@@ -1,3 +1,15 @@
+# TOMI1.4 — CI timeout, complete test reports and story retry repair
+
+The full **TOMI-1.4-ci-fix.zip** source retains the1.4owner/admin features. PostgreSQL's Actions step now has15minutes and its API job40minutes. The Node test command preserves process isolation, serial execution and60-second per-test bounds, flushes report pipes and requires all173passes with no missing summary, failures, cancellations or skips before CI can continue.
+
+Full checks exposed a separate story-publication race. A retry that first missed its receipt could see already-attached media after its twin committed and incorrectly return400. Receipt rechecks now return the accepted story, including a recheck inside the existing user-lock transaction. The same check now reconciles private media message retries. The existing MP4 and voice tests force both receipt/upload orderings rather than relying on chance.
+
+Start with **CI_FIX_1.4_AR.md** and **VALIDATION-1.4-CI-FIX.md**. Upload the complete source and create a newmaincommit, update the existing API from it, and start a freshaccounts/debug workflow. App/API versions remain1.4.0-beta.1/+21. The schema, lockfiles, client and owner controls retain source25bytes; onlyhome.mjsandchat.mjschange in runtime API code. **OWNER_ADMIN_1.4_AR.md** documents activation of the owner account. Previous sections below are historical.
+
+When adding/removing Node tests, maintain `server/tools/test-suite.json` so incomplete runs cannot silently report success. Targeted diagnostics can still use `node --test` directly.
+
+---
+
 # TOMI 1.4 — owner controls and scoped moderation
 
 App **1.4.0-beta.1+21**, API **1.4.0-beta.1**. The platform owner can adjust app coins and received charisma, create and mark special accounts, suspend members and delegate seven independent moderator scopes. Audited mutations use stable request receipts, balance bounds and revision checks. Staff cannot modify balances, create accounts or grant staff access.
