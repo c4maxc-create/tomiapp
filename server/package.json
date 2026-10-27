@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node src/server.mjs",
-    "test": "node --test --test-concurrency=1 --test-timeout=60000 --test-force-exit --test-reporter=spec test/*.test.mjs"
+    "test": "node tools/test_runner.mjs"
   },
   "dependencies": {
     "livekit-server-sdk": "2.19.1",

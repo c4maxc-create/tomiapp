@@ -40,7 +40,14 @@ const send=(api,a,c,extra={})=>api.request('POST',`/v1/chats/${c.id}/messages`,{
 const device=(api,a,token='tomi_device_token_123456789012345')=>api.request('PUT','/v1/push/device',{token,platform:'android'},a.token);
 test('voice upload is private, persists, retries once and cleans after deletion',async t=>{
  const api=await fixture(t,{separate:true}),a=await api.register('voice05a'),b=await api.register('voice05b'),c=await open(api,a,b),upload=await api.upload(a,`/v1/chats/${c.id}/audio`,recording(),'audio/mp4','tomi_audio_uploads',{durationMs:5000}),requestId=randomUUID();
- const result=await Promise.all([send(api,a,c,{audioUploadId:upload.uploadId,requestId}),send(api,a,c,{audioUploadId:upload.uploadId,requestId})]);assert.equal(result[0].data.message.id,result[1].data.message.id);assert.equal(result[0].data.message.audio.durationMs,5000);assert.equal(new URL(result[0].data.message.audio.url).searchParams.get('X-Amz-Expires'),'300');
+ // Hold the first empty receipt read until the twin has attached its audio.
+ const originalQuery=api.db.query;let release,observed,paused=false;
+ const resume=new Promise(r=>release=r),miss=new Promise(r=>observed=r);
+ api.db.query=async(sql,values=[])=>{const rows=await originalQuery(sql,values);if(!paused&&sql.startsWith('SELECT id,payload_hash FROM tomi_chat_messages')&&values[1]===requestId){paused=true;observed();await resume;}return rows;};
+ let result;const retry=send(api,a,c,{audioUploadId:upload.uploadId,requestId});
+ try{await Promise.race([miss,retry.then(()=>{throw Error('Retry finished before its receipt checkpoint');})]);const first=await send(api,a,c,{audioUploadId:upload.uploadId,requestId});release();result=[first,await retry];}
+ finally{release();api.db.query=originalQuery;await retry.catch(()=>{});}
+ assert.ok(result.every(x=>[200,201].includes(x.status)),JSON.stringify(result));assert.equal(result[0].data.message.id,result[1].data.message.id);assert.equal(result[0].data.message.audio.durationMs,5000);assert.equal(new URL(result[0].data.message.audio.url).searchParams.get('X-Amz-Expires'),'300');
  await api.restart();const history=await api.request('GET',`/v1/chats/${c.id}/messages`,undefined,b.token);assert.equal(history.data.messages.length,1);assert.equal(history.data.conversation.lastMessage,'🎤 رسالة صوتية');const mid=result[0].data.message.id;await api.request('DELETE',`/v1/chats/${c.id}/messages/${mid}`,undefined,a.token);assert.equal((await send(api,a,c,{audioUploadId:upload.uploadId,requestId})).data.message.audio,null);await api.server.cleanupMedia();assert.equal(api.privateObjects.size,1);await api.db.query("UPDATE tomi_audio_uploads SET expires_at=? WHERE state='deleting'",['2000-01-01T00:00:00.000Z']);await api.server.cleanupMedia();assert.equal(api.privateObjects.size,0);
 });
 test('voice validates checksum, M4A metadata, duration, ownership, thread and blocking',async t=>{

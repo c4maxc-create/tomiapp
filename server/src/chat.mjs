@@ -111,11 +111,18 @@ export function createChat({database,storage,avatarStorage=storage,readJson,resp
     const hash=digest(JSON.stringify(stickerId||fileId?['v3',tid,text,kind,sha,replyId,stickerId]:sha||replyId||videoId?['v2',tid,text,kind,sha,replyId]:audioId?[tid,text,uploadId,audioId]:[tid,text,uploadId]));
     if([...text].length>2000||(!text&&!kind&&!stickerId)||[uploadId,audioId,videoId,fileId,stickerId].filter(Boolean).length>1)fail(400,'VALIDATION','اختَر نصًا أو ملفًا واحدًا؛ النص حتى2000 حرف.');
     let previous=await existing(database,viewer,requestId,hash),dimensions,audioInfo,videoInfo,fileInfo;
+    try{
     if(!previous&&fileId){sending(row);fileInfo=await privateMedia.verify(viewer,tid,fileId,sha);if(fileInfo.kind!=='file')fail(400,'VALIDATION','نوع الملف غير صحيح.');}
     if(!previous&&uploadId){sending(row);if(!storage)fail(503,'IMAGES_DISABLED','إرسال الصور غير متاح.');const{rows}=await database.query('SELECT * FROM tomi_image_uploads WHERE id=? AND user_id=?',[uploadId,viewer]);const u=rows[0];
      if(!u||u.state!=='pending'||u.expires_at<=now()||!u.object_key.startsWith(`tomi/chat-images/${tid}/${viewer}/`))fail(400,'UPLOAD_INVALID','الصورة انتهت أو استُخدمت؛ جهّزها مرة ثانية.');dimensions=await storage.verify(await uploadWithDigest(database,u,sha));}
     if(!previous&&audioId){sending(row);if(!storage)fail(503,'AUDIO_DISABLED','إرسال الصوت غير متاح.');const{rows}=await database.query('SELECT * FROM tomi_audio_uploads WHERE id=? AND user_id=? AND thread_id=?',[audioId,viewer,tid]),u=rows[0];if(!u||u.state!=='pending'||u.expires_at<=now())fail(400,'UPLOAD_INVALID','التسجيل انتهى أو استُخدم.');audioInfo=await storage.verifyAudio(await uploadWithDigest(database,u,sha));if(Math.abs(audioInfo.durationMs-Number(u.duration_ms))>2000)fail(400,'INVALID_AUDIO','مدة التسجيل غير صحيحة.');}
     if(!previous&&videoId){sending(row);if(!storage)fail(503,'VIDEO_DISABLED','إرسال الفيديو غير متاح.');const u=(await database.query('SELECT * FROM tomi_video_uploads WHERE id=? AND user_id=? AND thread_id=?',[videoId,viewer,tid])).rows[0];if(!u||u.state!=='pending'||u.expires_at<=now())fail(400,'UPLOAD_INVALID','الفيديو انتهى أو استُخدم.');videoInfo=await storage.verifyVideo(await uploadWithDigest(database,u,sha));}
+    }catch(error){
+     if(error.code!=='UPLOAD_INVALID')throw error;
+     // Its twin can commit between our receipt lookup and media validation.
+     // Reconcile only this actor's matching nonce; all other errors stay errors.
+     previous=await existing(database,viewer,requestId,hash);if(!previous)throw error;
+    }
     let saved;try{saved=await database.transaction(async db=>{const locked=await lock(db,viewer,tid);previous=await existing(db,viewer,requestId,hash);if(previous)return{id:previous,repeated:true,row:locked};sending(locked);
      await tools.validateReply(db,tid,replyId);
      const stamp=now(),mid=randomUUID(),changed=await db.query('UPDATE tomi_chat_threads SET next_seq=next_seq+1,updated_at=? WHERE id=? RETURNING next_seq',[stamp,tid]);

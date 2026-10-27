@@ -49,15 +49,22 @@ export function createHome({database,storage,readJson,respond,limit,userById}) {
   const text=(typeof d.text==='string'?d.text:'').trim(),image=d.imageUploadId??null,video=d.videoUploadId??null,sha=d.attachmentSha256??null;
   if(!validUuid(d.requestId)||d.text!==undefined&&typeof d.text!=='string'||[...text].length>500||image!==null&&!validUuid(image)||video!==null&&!validUuid(video)||image&&video||!text&&!image&&!video||!!(image||video)!==!!sha||sha&&!/^[a-f0-9]{64}$/.test(sha))throw new ApiError(400,'VALIDATION','اختَر صورة أو فيديو أو نصًا حتى500 حرف.');
   const hash=digest(JSON.stringify([text,image,video,sha]));
-  async function prior(){const r=(await database.query('SELECT * FROM tomi_story_receipts WHERE user_id=? AND request_id=?',[viewer,d.requestId])).rows[0];if(!r)return null;if(r.payload_hash!==hash)throw new ApiError(409,'REQUEST_CHANGED','تغيّر محتوى الطلب؛ استخدم طلبًا جديدًا.');return one(r.story_id,viewer);}
+  async function prior(db=database){const r=(await db.query('SELECT * FROM tomi_story_receipts WHERE user_id=? AND request_id=?',[viewer,d.requestId])).rows[0];if(!r)return null;if(r.payload_hash!==hash)throw new ApiError(409,'REQUEST_CHANGED','تغيّر محتوى الطلب؛ استخدم طلبًا جديدًا.');return one(r.story_id,viewer,db);}
   const old=await prior();if(old){respond(response,200,{story:old});return true;}
   const media=image||video,table=video?'tomi_video_uploads':'tomi_image_uploads';let dimensions;
-  if(media){if(!storage)throw new ApiError(503,'MEDIA_DISABLED','رفع الوسائط غير متاح حاليًا.');const row=(await database.query('SELECT * FROM '+table+' WHERE id=? AND user_id=?',[media,viewer])).rows[0];if(!row||row.state!=='pending'||row.expires_at<=stamp()||!row.object_key.startsWith('tomi/posts/'+viewer+'/'))throw new ApiError(400,'UPLOAD_INVALID','الملف منتهي أو استُخدم؛ اختَره مجددًا.');const checked=await uploadWithDigest(database,row,sha);dimensions=video?await storage.verifyVideo(checked):await storage.verify(checked);if(video&&dimensions.durationMs>60000)throw new ApiError(400,'STORY_DURATION','فيديو الستوري حتى60 ثانية.');}
+  if(media){if(!storage)throw new ApiError(503,'MEDIA_DISABLED','رفع الوسائط غير متاح حاليًا.');const row=(await database.query('SELECT * FROM '+table+' WHERE id=? AND user_id=?',[media,viewer])).rows[0];if(!row||row.state!=='pending'||row.expires_at<=stamp()||!row.object_key.startsWith('tomi/posts/'+viewer+'/')){
+    // A concurrent copy may have committed its receipt after the first lookup
+    // and before this upload read. Attached media and receipt commit together.
+    const replay=await prior();if(replay){respond(response,200,{story:replay});return true;}
+    throw new ApiError(400,'UPLOAD_INVALID','الملف منتهي أو استُخدم؛ اختَره مجددًا.');
+   }const checked=await uploadWithDigest(database,row,sha);dimensions=video?await storage.verifyVideo(checked):await storage.verify(checked);if(video&&dimensions.durationMs>60000)throw new ApiError(400,'STORY_DURATION','فيديو الستوري حتى60 ثانية.');}
   let id=randomUUID();try{await database.transaction(async db=>{
    await db.query('UPDATE tomi_users SET updated_at=updated_at WHERE id=?',[viewer]);
+   const replay=await prior(db);if(replay){id=replay.id;return;}
    const count=(await db.query('SELECT COUNT(*) n FROM tomi_stories WHERE user_id=? AND expires_at>?',[viewer,stamp()])).rows[0];if(Number(count.n)>=50)throw new ApiError(429,'STORY_LIMIT','عندك50 ستوري فعّالة؛ احذف واحدة أو انتظر انتهاءها.');
    if(media){const changed=await db.query("UPDATE "+table+" SET state='attached',width=?,height=?"+(video?',duration_ms=?':'')+" WHERE id=? AND user_id=? AND state='pending' AND expires_at>? RETURNING id",[dimensions.width,dimensions.height,...(video?[dimensions.durationMs]:[]),media,viewer,stamp()]);if(!changed.rows.length)throw new ApiError(409,'UPLOAD_INVALID','الملف سبق استعماله.');}
-   await db.query('INSERT INTO tomi_stories(id,user_id,request_id,body,image_upload_id,video_upload_id,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?)',[id,viewer,d.requestId,text,image,video,stamp(),stamp(86400000)]);
+   const createdAt=stamp(),expiresAt=new Date(Date.parse(createdAt)+86400000).toISOString();
+   await db.query('INSERT INTO tomi_stories(id,user_id,request_id,body,image_upload_id,video_upload_id,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?)',[id,viewer,d.requestId,text,image,video,createdAt,expiresAt]);
    await db.query('INSERT INTO tomi_story_receipts(user_id,request_id,story_id,payload_hash,created_at) VALUES(?,?,?,?,?)',[viewer,d.requestId,id,hash,stamp()]);
   });}catch(e){if(!isUniqueConflict(e)&&e.code!=='UPLOAD_INVALID')throw e;const replay=await prior();if(!replay)throw e;id=replay.id;}
   respond(response,201,{story:await one(id,viewer)});return true;

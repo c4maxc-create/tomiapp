@@ -94,7 +94,16 @@ test('real MP4 story publication bounds duration, survives lost acknowledgement 
  const a=await fixture(t,{images:true}),u=await a.register('video_story');
  async function prepare(bytes){const d=await a.request('POST','/v1/media/videos',{contentType:'video/mp4',byteLength:bytes.length,contentMd5:createHash('md5').update(bytes).digest('base64'),contentSha256:sha(bytes),requestId:randomUUID()},u.token);assert.equal(d.status,201);const row=(await a.db.query('SELECT * FROM tomi_video_uploads WHERE id=?',[d.data.uploadId])).rows[0];a.objects.set(row.object_key,{bytes,type:'video/mp4'});return d.data.uploadId;}
  const bytes=await readFile(new URL('fixtures/video10.mp4',import.meta.url)),id=await prepare(bytes),body={requestId:randomUUID(),videoUploadId:id,attachmentSha256:sha(bytes),text:''};
- const results=await Promise.all([a.request('POST','/v1/stories',body,u.token),a.request('POST','/v1/stories',body,u.token)]);assert.ok(results.every(x=>[200,201].includes(x.status)),JSON.stringify(results));assert.equal(results[0].data.story.id,results[1].data.story.id);assert.equal(results[0].data.story.video.durationMs,1000);
+ // Pause a retry after its empty receipt read; let the other request attach
+ // the media and commit its receipt before this retry reads the upload state.
+ // This makes the previously intermittent PostgreSQL race deterministic.
+ const originalQuery=a.db.query;let release,observed,paused=false;
+ const resume=new Promise(r=>release=r),miss=new Promise(r=>observed=r);
+ a.db.query=async(sql,values=[])=>{const result=await originalQuery(sql,values);if(!paused&&sql.startsWith('SELECT * FROM tomi_story_receipts')&&values[1]===body.requestId){paused=true;observed();await resume;}return result;};
+ let results;const retry=a.request('POST','/v1/stories',body,u.token);
+ try{await Promise.race([miss,retry.then(()=>{throw Error('Retry finished before its receipt checkpoint');})]);const first=await a.request('POST','/v1/stories',body,u.token);release();results=[first,await retry];}
+ finally{release();a.db.query=originalQuery;await retry.catch(()=>{});}
+ assert.ok(results.every(x=>[200,201].includes(x.status)),JSON.stringify(results));assert.equal(results[0].data.story.id,results[1].data.story.id);assert.equal(results[0].data.story.video.durationMs,1000);
  const long=Buffer.from(bytes);let at=0;while((at=long.indexOf('mdhd',at))>=0){const payload=at+4;assert.equal(long[payload],0);const scale=long.readUInt32BE(payload+12);long.writeUInt32BE(scale*61,payload+16);at+=4;}
  assert.equal(videoMetadata(long).durationMs,61000);const tooLong=await prepare(long);assert.equal((await a.story(u,{text:'',videoUploadId:tooLong,attachmentSha256:sha(long)})).data.error.code,'STORY_DURATION');
  await a.db.query('UPDATE tomi_stories SET expires_at=?',['2000-01-01T00:00:00.000Z']);await a.server.cleanupMedia();assert.equal((await a.db.query('SELECT state FROM tomi_video_uploads WHERE id=?',[id])).rows[0].state,'deleting');
