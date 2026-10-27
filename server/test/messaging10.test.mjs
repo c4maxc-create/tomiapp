@@ -52,10 +52,10 @@ test('0.10 replies reactions pins and their deletion persist and enforce partici
  assert.equal((await send(f,b,c,{text:'رد',replyToId:first.id})).status,400);
  await f.request(a,'PUT','/v1/chat/blocks/'+b.user.id,{blocked:true});assert.equal((await tool(b,reply.id,'pin',{pinned:true})).status,403);
 });
-test('0.10 search uses literal matching, stable sequence pages and private own request receipts',async t=>{
+test('0.10 search uses literal matching, stable sequence pages and private own request receipts',{timeout:180000},async t=>{
  const f=await fixture(t),a=await f.register('search10a'),b=await f.register('search10b'),z=await f.register('search10z'),c=await f.open(a,b);let first;
- for(let i=0;i<65;i++){const r=await send(f,a,c,{text:i===0?'100%_literal':'سؤال '+i});assert.equal(r.status,201);first??=r.data.message;}
- const found=[];let before;do{const r=await f.request(a,'GET',`/v1/chats/${c.id}/search?q=${encodeURIComponent('سؤال')}`+(before?'&before='+before:''));assert.equal(r.status,200);found.push(...r.data.messages.map(m=>m.sequence));before=r.data.nextBefore;}while(before);
+ for(let i=0;i<65;i++){const r=await send(f,a,c,{text:i===0?'100%_literal':'سؤال '+i});assert.equal(r.status,201);first??=r.data.message;if((i+1)%16===0||i===64)t.diagnostic('Search fixture messages prepared: '+(i+1)+'/65');}
+ const found=[];let before,pages=0;do{assert.ok(++pages<=3,'Search pagination exceeded the expected three pages');const r=await f.request(a,'GET',`/v1/chats/${c.id}/search?q=${encodeURIComponent('سؤال')}`+(before?'&before='+before:''));assert.equal(r.status,200);found.push(...r.data.messages.map(m=>m.sequence));const next=r.data.nextBefore;if(before!=null&&next!=null)assert.ok(next<before,'Search cursor did not move backwards');before=next;t.diagnostic('Search page completed: '+pages);}while(before);assert.equal(pages,3);
  assert.equal(found.length,64);assert.equal(new Set(found).size,64);
  assert.equal((await f.request(a,'GET',`/v1/chats/${c.id}/search?q=%25_`)).data.messages.length,1);
  assert.equal((await f.request(z,'GET',`/v1/chats/${c.id}/search?q=سؤال`)).status,404);
@@ -98,11 +98,11 @@ test('0.10 a post receipt survives deleted posts and cannot republish an uncerta
  const p=await f.request(a,'POST','/v1/posts',body);assert.equal(p.status,201);await f.restart();assert.equal((await f.request(a,'GET','/v1/posts/requests/'+nonce)).data.post.id,p.data.post.id);assert.equal((await f.request(b,'GET','/v1/posts/requests/'+nonce)).status,404);
  await f.request(a,'DELETE','/v1/posts/'+p.data.post.id);await f.restart();assert.equal((await f.request(a,'POST','/v1/posts',body)).data.error.code,'REQUEST_REMOVED');assert.equal((await f.request(a,'GET','/v1/posts/requests/'+nonce)).status,410);assert.equal(Number((await f.db.query('SELECT COUNT(*) AS n FROM tomi_posts')).rows[0].n),0);
 });
-test('0.10 room history is keyset paginated and session bound; own gift receipt remains readable after close',async t=>{
+test('0.10 room history is keyset paginated and session bound; own gift receipt remains readable after close',{timeout:180000},async t=>{
  const f=await fixture(t),a=await f.register('history10a'),b=await f.register('history10b'),z=await f.register('history10z'),rid=randomUUID(),path='/v1/rooms/'+rid;
  await f.request(a,'POST','/v1/rooms',{requestId:rid,title:'غرفة السجل',capacity:10,seatCount:4});await f.request(a,'POST',path+'/join',{});await f.request(b,'POST',path+'/join',{});
- for(let i=0;i<95;i++)assert.equal((await f.request(a,'POST',path+'/message',{requestId:randomUUID(),text:'رسالة '+i})).status,200);
- const seen=[];let before;do{const r=await f.request(b,'GET',path+'/events'+(before?'?before='+before:''));assert.equal(r.status,200);seen.push(...r.data.events.filter(e=>e.kind==='message').map(e=>e.sequence));before=r.data.nextBefore;}while(before);assert.equal(new Set(seen).size,95);assert.equal(seen.length,95);
+ for(let i=0;i<95;i++){assert.equal((await f.request(a,'POST',path+'/message',{requestId:randomUUID(),text:'رسالة '+i})).status,200);if((i+1)%32===0||i===94)t.diagnostic('Room-history fixture messages prepared: '+(i+1)+'/95');}
+ const seen=[];let before,pages=0;do{assert.ok(++pages<=10,'Room history pagination did not terminate');const r=await f.request(b,'GET',path+'/events'+(before?'?before='+before:''));assert.equal(r.status,200);seen.push(...r.data.events.filter(e=>e.kind==='message').map(e=>e.sequence));const next=r.data.nextBefore;if(before!=null&&next!=null)assert.ok(next<before,'Room-history cursor did not move backwards');before=next;}while(before);assert.equal(new Set(seen).size,95);assert.equal(seen.length,95);
  assert.equal((await f.request(z,'GET',path+'/events')).status,403);
  const other=(await f.request(null,'POST','/v1/auth/login',{username:'history10b',password:'test-only 0.10 passphrase'})).data;assert.equal((await f.request(other,'GET',path+'/events')).status,409);
  const nonce=randomUUID(),gift={requestId:nonce,recipientId:b.user.id,giftId:'rose',quantity:2},sent=await f.request(a,'POST',path+'/gift',gift);assert.equal(sent.status,200);const coins=sent.data.wallet.coins;
