@@ -36,6 +36,9 @@ try{
   await db.query("INSERT INTO tomi_room_events(room_id,sequence,actor_id,request_id,kind,body,created_at) VALUES(?,1,?,?,'gift','Restore gift',?)",[room,user,supportNonce,stamp]);
   await db.query('INSERT INTO tomi_support_events(room_id,sequence,gift_id) VALUES(?,1,?)',[room,support]);
   await db.query("INSERT INTO tomi_room_cosmetics(user_id,kind,style_id,expires_at) VALUES(?,'frame','flame',?)",[user,expiry]);
+  await db.query("INSERT INTO tomi_platform_roles(user_id,role,revision,granted_by,updated_at) VALUES(?,'moderator',1,?,?)",[reporter,user,stamp]);
+  await db.query('INSERT INTO tomi_staff_permissions(user_id,permissions) VALUES(?,?)',[reporter,JSON.stringify(['reports','bans'])]);
+  await db.query('INSERT INTO tomi_admin_profiles(user_id,special,revision) VALUES(?,1,3)',[user]);
   const expected=(await db.query('SELECT (SELECT COUNT(*) FROM tomi_users) users,(SELECT COUNT(*) FROM tomi_reports) reports,(SELECT COUNT(*) FROM tomi_room_gifts) gifts,(SELECT COUNT(*) FROM tomi_admin_audit) audit_entries')).rows[0];
   await db.close();db=null;
   const file=join(directory,'ci.tomi-backup');await createPostgresBackup({connectionString:source,output:file,key});
@@ -65,8 +68,10 @@ try{
   const policy=(await upgraded.query('SELECT tier,public_id,price FROM tomi_room_policy WHERE room_id=?',[room])).rows[0];
   assert.equal(policy.tier,'advanced');assert.equal(policy.public_id,'999950');assert.equal(Number(policy.price),5799);
   assert.equal((await upgraded.query("SELECT confdeltype FROM pg_constraint WHERE conrelid='tomi_support_events'::regclass AND conname='tomi_support_events_gift_id_fkey'")).rows[0].confdeltype,'c');
+  assert.deepEqual(JSON.parse((await upgraded.query('SELECT permissions FROM tomi_staff_permissions WHERE user_id=?',[reporter])).rows[0].permissions),['reports','bans']);
+  const adminProfile=(await upgraded.query('SELECT special,revision FROM tomi_admin_profiles WHERE user_id=?',[user])).rows[0];assert.equal(Number(adminProfile.special),1);assert.equal(Number(adminProfile.revision),3);
   await upgraded.close();upgraded=null;
-  console.log('PASS: PostgreSQL encrypted dump and authenticated local restore; row counts, credentials, erasure cleanup, moderation, identity, 1.3 support/receipts/coins/charisma/cosmetics/room policy and initialization.');
+  console.log('PASS: PostgreSQL encrypted dump and authenticated local restore; row counts, credentials, erasure cleanup, moderation, identity, 1.3 support/receipts/coins/charisma/cosmetics/room policy, 1.4 special accounts/staff permissions and initialization.');
 }finally{
   if(db)await db.close();if(restored)await restored.end();if(upgraded)await upgraded.close();
   if(created&&admin)await admin.query('DROP DATABASE tomi_restore_check');

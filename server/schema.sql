@@ -620,3 +620,14 @@ CREATE TABLE IF NOT EXISTS tomi_cosmetic_purchases (
 );
 
 CREATE INDEX IF NOT EXISTS tomi_support_user_rank ON tomi_room_support(sender_id,created_at);
+
+-- 1.4: explicit platform staff permissions and audited owner account controls.
+CREATE TABLE IF NOT EXISTS tomi_staff_permissions (
+ user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,
+ permissions TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tomi_admin_profiles (
+ user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,
+ special INTEGER NOT NULL DEFAULT 0 CHECK(special IN(0,1)),
+ revision INTEGER NOT NULL DEFAULT 0
+);

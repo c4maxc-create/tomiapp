@@ -1,3 +1,5 @@
+import {staffPermissions,legacyPermissions,validatePermissions,effectivePermissions} from './platform_access.mjs';
+import {ownerActions,prepareOwnerCommand,applyOwnerCommand,accountEconomy} from './owner_controls.mjs';
 import {randomUUID} from 'node:crypto';
 import {ApiError,digest,isUniqueConflict} from './security.mjs';
 
@@ -35,9 +37,10 @@ export function createModeration({database,ownerUserId=null,storage,readJson,res
     if(userId===ownerUserId)return 'owner';
     return (await db.query('SELECT role FROM tomi_platform_roles WHERE user_id=?',[userId])).rows[0]?.role??'member';
   }
-  async function authorize(db,current,ownerOnly=false){
+  async function authorize(db,current,ownerOnly=false,permission=null){
     await active(db,current.id);const value=await role(db,current.id);
     if(value==='member'||ownerOnly&&value!=='owner')fail(403,'ADMIN_FORBIDDEN','هذا الإجراء لإدارة التطبيق المخوّلة.');
+    if(permission&&value!=='owner'){const permissions=await effectivePermissions(db,current.id,value);if(!(Array.isArray(permission)?permission:[permission]).some(p=>permissions.includes(p)))fail(403,'ADMIN_PERMISSION','هذه الصلاحية غير ممنوحة لحسابك.');}
     return value;
   }
   async function lockUsers(db,current,others=[]){
@@ -54,7 +57,8 @@ export function createModeration({database,ownerUserId=null,storage,readJson,res
       COALESCE(p.revision,0) role_revision FROM tomi_users u LEFT JOIN tomi_account_restrictions a ON a.user_id=u.id
       LEFT JOIN tomi_platform_roles p ON p.user_id=u.id WHERE u.id=?`,[userId])).rows[0];
     if(!r)fail(404,'NOT_FOUND','الحساب غير موجود.');
-    return {suspended:!!Number(r.suspended),restrictionRevision:Number(r.restriction_revision),role:await role(db,userId),roleRevision:Number(r.role_revision)};
+    const value=await role(db,userId),profile=(await db.query('SELECT special,revision FROM tomi_admin_profiles WHERE user_id=?',[userId])).rows[0];
+    return {suspended:!!Number(r.suspended),restrictionRevision:Number(r.restriction_revision),role:value,roleRevision:Number(r.role_revision),permissions:await effectivePermissions(db,userId,value),special:!!Number(profile?.special??0),adminRevision:Number(profile?.revision??0)};
   }
   async function contentState(db,type,targetId){
     const r=(await db.query('SELECT hidden,revision FROM tomi_content_moderation WHERE target_type=? AND target_id=?',[type,targetId])).rows[0];
@@ -100,33 +104,39 @@ export function createModeration({database,ownerUserId=null,storage,readJson,res
     });
   }
 
-  const actionTypes={review_report:'report',hide_post:'post',restore_post:'post',close_room:'room',suspend_user:'account',restore_user:'account',grant_moderator:'account',revoke_moderator:'account'};
+  const actionTypes={review_report:'report',hide_post:'post',restore_post:'post',close_room:'room',suspend_user:'account',restore_user:'account',grant_moderator:'account',revoke_moderator:'account',...Object.fromEntries(ownerActions.map(a=>[a,'account']))};
   async function command(current,d){
     if(!Object.hasOwn(actionTypes,d.action))fail(400,'VALIDATION','إجراء الإدارة غير معروف.');
-    fields(d,['requestId','action','targetId','reason','expectedRevision','reportId',...(d.action==='review_report'?['status','note','publicMessage']:[])]);
+    fields(d,['requestId','action','targetId','reason','expectedRevision','reportId',...(d.action==='review_report'?['status','note','publicMessage']:[]),...(d.action==='grant_moderator'?['permissions']:[]),...(ownerActions.includes(d.action)?['amount']:[]),...(d.action==='create_account'?['username','displayName','password','special']:[])]);
     id(d.requestId);id(d.targetId);if(d.reportId!==undefined)id(d.reportId);
     if(!Number.isSafeInteger(d.expectedRevision)||d.expectedRevision<0)fail(400,'VALIDATION','حدّث بيانات العنصر قبل الإجراء.');
-    const reason=text(d.reason,500,d.action!=='review_report'),type=actionTypes[d.action],hash=digest(JSON.stringify(Object.fromEntries(Object.keys(d).sort().map(k=>[k,d[k]]))));
-    const ownerOnly=['suspend_user','restore_user','grant_moderator','revoke_moderator'].includes(d.action);
+    const reason=text(d.reason,500,d.action!=='review_report'),type=actionTypes[d.action];
+    const isCreate=d.action==='create_account',ownerControl=ownerActions.includes(d.action);
+    const hash=digest(JSON.stringify(Object.fromEntries(Object.keys(d).filter(k=>!isCreate||k!=='password').sort().map(k=>[k,d[k]]))));
+    if(d.action==='grant_moderator'&&d.permissions!==undefined)validatePermissions(d.permissions);
+    let prepared={};if(isCreate){await authorize(database,current,true);await limit('admin-create:'+current.id,10,3600000);prepared=await prepareOwnerCommand(d);}
+    const ownerOnly=ownerControl||['grant_moderator','revoke_moderator'].includes(d.action);
+    const permission=({review_report:'reports',hide_post:'posts',restore_post:'posts',close_room:'rooms',suspend_user:'bans',restore_user:'bans'})[d.action];
     let selected=null;
-    if(type!=='report')try{selected=await target(database,type,d.targetId);}catch(e){if(e.status!==404)throw e;}
+    if(type!=='report'&&!isCreate)try{selected=await target(database,type,d.targetId);}catch(e){if(e.status!==404)throw e;}
     const ended=[];
     const result=await database.transaction(async db=>{
       await lockUsers(db,current,selected?[selected.subjectUserId]:[]);
-      const ownRole=await authorize(db,current,ownerOnly);
+      const ownRole=await authorize(db,current,ownerOnly,permission);
       const replay=(await db.query('SELECT payload_hash,result FROM tomi_admin_requests WHERE actor_id=? AND request_id=?',[current.id,d.requestId])).rows[0];
       if(replay){if(replay.payload_hash!==hash)fail(409,'REQUEST_CHANGED','محتوى الإجراء تغيّر؛ استخدم طلبًا جديدًا.');return {...JSON.parse(replay.result),replayed:true};}
-      if(type!=='report'&&!selected)fail(404,'REPORT_TARGET_MISSING','المحتوى غير موجود أو انحذف.');
+      if(type!=='report'&&!isCreate&&!selected)fail(404,'REPORT_TARGET_MISSING','المحتوى غير موجود أو انحذف.');
       if(selected){
         if((await db.query('SELECT 1 FROM tomi_deleted_accounts WHERE user_id=?',[selected.subjectUserId])).rows.length)fail(410,'ACCOUNT_DELETED','حُذفت بيانات الحساب؛ لا يمكن إعادته أو منحه صلاحية.');
         await target(db,type,d.targetId);
         const subjectRole=await role(db,selected.subjectUserId);
         if(selected.subjectUserId===ownerUserId&&ownRole!=='owner'||ownRole==='moderator'&&subjectRole!=='member')fail(403,'ADMIN_PROTECTED','هذا الحساب أو المحتوى محمي من إجراء المشرف.');
-        if(type==='account'&&(d.targetId===current.id||d.targetId===ownerUserId))fail(403,'ADMIN_PROTECTED','لا يمكن تغيير صلاحيات المالك أو إيقاف حساب الإدارة الحالي.');
+        if(type==='account'&&!ownerControl&&(d.targetId===current.id||d.targetId===ownerUserId))fail(403,'ADMIN_PROTECTED','لا يمكن تغيير صلاحيات المالك أو إيقاف حساب الإدارة الحالي.');
       }
       if(d.reportId){const linked=(await db.query('SELECT target_type,target_id FROM tomi_reports WHERE id=?',[d.reportId])).rows[0];if(!linked||linked.target_type!==type||linked.target_id!==d.targetId)fail(400,'REPORT_ACTION_MISMATCH','الإجراء لا يطابق هدف البلاغ.');}
-      let revision,applied=true,before;
-      if(type==='report'){
+      let revision,applied=true,before,after,ephemeral;
+      if(ownerControl){({revision,applied,before,after,ephemeral}=await applyOwnerCommand(db,current,d,prepared));}
+      else if(type==='report'){
         await db.query('UPDATE tomi_reports SET revision=revision WHERE id=? RETURNING id',[d.targetId]);
         const r=(await db.query('SELECT * FROM tomi_reports WHERE id=?',[d.targetId])).rows[0];if(!r)fail(404,'REPORT_NOT_FOUND','البلاغ غير موجود.');
         if(!statuses.includes(d.status))fail(400,'VALIDATION','حالة البلاغ غير صحيحة.');
@@ -139,8 +149,11 @@ export function createModeration({database,ownerUserId=null,storage,readJson,res
         const state=await accountState(db,d.targetId);before=state;
         if(state.roleRevision!==d.expectedRevision)fail(409,'ADMIN_CHANGED','تغيّرت الصلاحية؛ حدّث الصفحة.');
         const next=d.action==='grant_moderator'?'moderator':'member';if(state.suspended&&next==='moderator')fail(409,'ADMIN_SUSPENDED','ألغِ إيقاف الحساب قبل منحه الصلاحية.');
-        applied=state.role!==next;revision=state.roleRevision+(applied?1:0);
+        const permissions=next==='moderator'?(d.permissions===undefined?[...legacyPermissions]:validatePermissions(d.permissions)):[];
+        applied=state.role!==next||JSON.stringify(state.permissions)!==JSON.stringify(permissions);revision=state.roleRevision+(applied?1:0);
         if(applied)await db.query('INSERT INTO tomi_platform_roles(user_id,role,revision,granted_by,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET role=excluded.role,revision=excluded.revision,granted_by=excluded.granted_by,updated_at=excluded.updated_at',[d.targetId,next,revision,current.id,now()]);
+        if(applied){if(next==='moderator')await db.query('INSERT INTO tomi_staff_permissions(user_id,permissions) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET permissions=excluded.permissions',[d.targetId,JSON.stringify(permissions)]);else await db.query('DELETE FROM tomi_staff_permissions WHERE user_id=?',[d.targetId]);}
+        after={role:next,permissions};
       }else if(type==='account'){
         const state=await accountState(db,d.targetId);before=state;
         if(state.restrictionRevision!==d.expectedRevision)fail(409,'ADMIN_CHANGED','تغيّرت حالة الحساب؛ حدّث الصفحة.');
@@ -163,11 +176,11 @@ export function createModeration({database,ownerUserId=null,storage,readJson,res
         if(applied)await db.query('INSERT INTO tomi_content_moderation(target_type,target_id,hidden,revision,reason,updated_by,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(target_type,target_id) DO UPDATE SET hidden=excluded.hidden,revision=excluded.revision,reason=excluded.reason,updated_by=excluded.updated_by,updated_at=excluded.updated_at',[type,d.targetId,hidden?1:0,revision,reason,current.id,now()]);
       }
       const receiptId=randomUUID(),stamp=now();
-      if(applied)await db.query('INSERT INTO tomi_admin_audit(id,actor_id,action,target_type,target_id,reason,report_id,details,created_at) VALUES(?,?,?,?,?,?,?,?,?)',[receiptId,current.id,d.action,type,d.targetId,reason||'تحديث حالة البلاغ',d.reportId??(type==='report'?d.targetId:null),JSON.stringify({before,revision}),stamp]);
+      if(applied)await db.query('INSERT INTO tomi_admin_audit(id,actor_id,action,target_type,target_id,reason,report_id,details,created_at) VALUES(?,?,?,?,?,?,?,?,?)',[receiptId,current.id,d.action,type,d.targetId,reason||'تحديث حالة البلاغ',d.reportId??(type==='report'?d.targetId:null),JSON.stringify({before,after,revision}),stamp]);
       const reply={receiptId,action:d.action,targetType:type,targetId:d.targetId,revision,applied,createdAt:stamp};
       await db.query('INSERT INTO tomi_admin_requests(actor_id,request_id,payload_hash,result,created_at) VALUES(?,?,?,?,?)',[current.id,d.requestId,hash,JSON.stringify(reply),stamp]);
-      return reply;
-    }).catch(e=>{if(d.action==='review_report'&&isUniqueConflict(e))fail(409,'REPORT_ALREADY_OPEN','يوجد بلاغ أحدث مفتوح للعنصر نفسه.');throw e;});
+      return {...reply,...ephemeral};
+    }).catch(e=>{if(d.action==='create_account'&&isUniqueConflict(e))fail(409,'USERNAME_TAKEN','اسم المستخدم مستخدم.');if(d.action==='review_report'&&isUniqueConflict(e))fail(409,'REPORT_ALREADY_OPEN','يوجد بلاغ أحدث مفتوح للعنصر نفسه.');throw e;});
     for(const r of ended)calls.notify(r);
     if(!result.replayed&&['close_room','suspend_user'].includes(d.action))void rooms.flush().catch(()=>{});
     if(!result.replayed&&['suspend_user','restore_user'].includes(d.action))chat.invalidateUser?.(d.targetId);
@@ -176,7 +189,7 @@ export function createModeration({database,ownerUserId=null,storage,readJson,res
 
   async function handle(request,response,url,current){
     const path=url.pathname,method=request.method;
-    if(path==='/v1/moderation/access'&&method==='GET'){respond(response,200,{role:await role(database,current.id),ownerConfigured:!!ownerUserId,reasons,statuses});return true;}
+    if(path==='/v1/moderation/access'&&method==='GET'){respond(response,200,{role:await role(database,current.id),permissions:await effectivePermissions(database,current.id,await role(database,current.id)),availablePermissions:staffPermissions,ownerConfigured:!!ownerUserId,reasons,statuses});return true;}
     if(path==='/v1/reports'&&method==='POST'){await limit('report:'+current.id,5,600000);await limit('report-day:'+current.id,20,86400000);respond(response,201,await submit(current,await readJson(request)));return true;}
     if(path==='/v1/reports'&&method==='GET'){
       const w=windowSql(page(url)),rows=(await database.query('SELECT * FROM tomi_reports WHERE reporter_id=?'+w.sql+' ORDER BY created_at DESC,id DESC LIMIT 21',[current.id,...w.args])).rows;
@@ -188,6 +201,8 @@ export function createModeration({database,ownerUserId=null,storage,readJson,res
     await authorize(database,current);await limit('admin:'+current.id,90);
     if(path==='/v1/admin/actions'&&method==='POST'){respond(response,200,await command(current,await readJson(request)));return true;}
     if(method!=='GET')return false;
+    const readPermission=path.startsWith('/v1/admin/reports')?'reports':path==='/v1/admin/metrics'?'metrics':path==='/v1/admin/audit'?'audit':path==='/v1/admin/rooms'?'rooms':path==='/v1/admin/posts'?'posts':path==='/v1/admin/users'?['accounts','bans']:null;
+    if(readPermission)await authorize(database,current,false,readPermission);
     if(path==='/v1/admin/metrics'){respond(response,200,await operations.snapshot(database));return true;}
     if(path==='/v1/admin/reports'){
       const status=url.searchParams.get('status')??'open';if(![...statuses,'all'].includes(status))fail(400,'VALIDATION','حالة البلاغ غير صحيحة.');
@@ -208,7 +223,13 @@ export function createModeration({database,ownerUserId=null,storage,readJson,res
       const pattern='%'+q.replace(/[\\%_]/g,c=>'\\'+c)+'%',w=windowSql(page(url),'u.');
       const rows=(await database.query("SELECT u.id,u.created_at FROM tomi_users u WHERE u.username LIKE ? ESCAPE '\\'"+(staff?" AND (u.id=? OR EXISTS(SELECT 1 FROM tomi_platform_roles p WHERE p.user_id=u.id AND p.role='moderator'))":'')+w.sql+' ORDER BY u.created_at DESC,u.id DESC LIMIT 21',[pattern,...(staff?[ownerUserId??'']:[]),...w.args])).rows;
       const users=await usersByIds(rows.slice(0,20).map(r=>r.id),current.id),result=paged(rows);
-      result.items=await Promise.all(result.items.map(async r=>({user:users.get(r.id),state:await accountState(database,r.id)})));respond(response,200,result);return true;
+      result.items=await Promise.all(result.items.map(async r=>({user:users.get(r.id),state:{...await accountState(database,r.id),...((await role(database,current.id))==='owner'?await accountEconomy(database,r.id):{})}})));respond(response,200,result);return true;
+    }
+    if(path==='/v1/admin/posts'){
+      const w=windowSql(page(url),'p.'),rows=(await database.query("SELECT p.id,p.user_id,p.body,p.created_at,COALESCE(m.hidden,0) hidden,COALESCE(m.revision,0) revision FROM tomi_posts p LEFT JOIN tomi_content_moderation m ON m.target_type='post' AND m.target_id=p.id WHERE 1=1"+w.sql+' ORDER BY p.created_at DESC,p.id DESC LIMIT 21',w.args)).rows;
+      const users=await usersByIds(rows.slice(0,20).map(r=>r.user_id),current.id),result=paged(rows),own=await role(database,current.id);
+      result.items=await Promise.all(result.items.map(async r=>({id:r.id,text:r.body,createdAt:r.created_at,user:users.get(r.user_id),hidden:!!Number(r.hidden),revision:Number(r.revision),protected:own!=='owner'&&(await role(database,r.user_id))!=='member'})));
+      respond(response,200,result);return true;
     }
     if(path==='/v1/admin/rooms'){
       const state=url.searchParams.get('state')??'open';if(!['open','closed','all'].includes(state))fail(400,'VALIDATION','حالة الغرفة غير صحيحة.');

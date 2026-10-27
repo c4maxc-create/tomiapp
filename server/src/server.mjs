@@ -27,7 +27,7 @@ const server = await createApp({
   origins: (process.env.CORS_ORIGINS || '').split(',').map((origin) => origin.trim()).filter(Boolean),
 });
 const port = Number(process.env.PORT || 10000);
-server.listen(port, '0.0.0.0', () => console.log(`TOMI API1.3.2-beta.1 listening on port ${port}`));
+server.listen(port, '0.0.0.0', () => console.log(`TOMI API1.4.0-beta.1 listening on port ${port}`));
 
 // Opportunistic retention cleanup; there are no passwords or raw tokens in these tables.
 const cleanup = setInterval(() => {

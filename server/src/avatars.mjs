@@ -5,8 +5,8 @@ import {imageTypes,maxImageBytes} from './images.mjs';
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const now=()=>new Date().toISOString();
 const fail=(status,code,message)=>{throw new ApiError(status,code,message);};
-export const avatarJoins=' LEFT JOIN tomi_user_avatars av ON av.user_id=u.id LEFT JOIN tomi_image_uploads ai ON ai.id=av.upload_id LEFT JOIN tomi_user_progress up ON up.user_id=u.id LEFT JOIN tomi_user_identity ui ON ui.user_id=u.id ';
-export const avatarColumns=',ai.object_key AS avatar_key,av.upload_id AS avatar_id,up.spent AS user_spent,up.gifts_sent AS user_gifts_sent,up.received AS user_received,up.gifts_received AS user_gifts_received,up.rooms_created AS user_rooms_created,ui.frame_id AS identity_frame,ui.portrait_id AS identity_portrait,ui.entrance_id AS identity_entrance,ui.revision AS identity_revision ';
+export const avatarJoins=' LEFT JOIN tomi_user_avatars av ON av.user_id=u.id LEFT JOIN tomi_image_uploads ai ON ai.id=av.upload_id LEFT JOIN tomi_user_progress up ON up.user_id=u.id LEFT JOIN tomi_user_identity ui ON ui.user_id=u.id LEFT JOIN tomi_admin_profiles ap ON ap.user_id=u.id ';
+export const avatarColumns=',ai.object_key AS avatar_key,av.upload_id AS avatar_id,up.spent AS user_spent,up.gifts_sent AS user_gifts_sent,up.received AS user_received,up.gifts_received AS user_gifts_received,up.rooms_created AS user_rooms_created,ui.frame_id AS identity_frame,ui.portrait_id AS identity_portrait,ui.entrance_id AS identity_entrance,ui.revision AS identity_revision,ap.special AS special_account ';
 export function avatarFields(row,storage){return{...identityFields(row),avatarId:row.avatar_id??null,avatarUrl:row.avatar_key?storage?.avatarUrl?.(row.avatar_key)??storage?.readUrl(row.avatar_key)??null:null};}
 export function createAvatars({database,storage,readJson,respond,limit,userById}){
  async function handle(request,response,url,current){const viewer=current.id;
