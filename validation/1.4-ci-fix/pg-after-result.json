@@ -1,0 +1,14 @@
+{
+  "test_summary_present": true,
+  "pass_summary": [
+    "173"
+  ],
+  "complete_173": true,
+  "story_race_fix": true,
+  "media_race_fix": true,
+  "expiry_clock_fix": true,
+  "completeness_gate": true,
+  "duration_ms": 267871.816345,
+  "failure_zero": true,
+  "restore_passed": true
+}

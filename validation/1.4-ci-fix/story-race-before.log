@@ -1,0 +1,26 @@
+✖ real MP4 story publication bounds duration, survives lost acknowledgement and expires its media (845.269409ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1014.071772
+
+✖ failing tests:
+
+test at test/home11.test.mjs:92:1
+✖ real MP4 story publication bounds duration, survives lost acknowledgement and expires its media (845.269409ms)
+  AssertionError [ERR_ASSERTION]: [{"status":201,"data":{"story":{"id":"62a32a73-55bd-4465-a8ea-e44b1edd32fb","text":"","createdAt":"2026-10-27T15:14:41.229Z","expiresAt":"2026-10-28T15:14:41.229Z","author":{"id":"d1d80494-83ec-470c-b410-745b8fac146a","username":"video_story","displayName":"video_story","avatarPreset":"initials","identity":{"level":1,"xp":0,"floor":0,"next":50,"remaining":50,"progress":0,"spent":0,"special":false,"charisma":0,"giftsSent":0,"received":0,"giftsReceived":0,"roomsCreated":0,"badges":[],"frameId":"none","portraitId":"none","entranceId":"none","revision":0},"avatarId":null,"avatarUrl":null},"image":null,"video":{"url":"https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.r2.cloudflarestorage.com/tomi-test/tomi/posts/d1d80494-83ec-470c-b410-745b8fac146a/e12e1892-743c-48e8-8ab2-ccc3177b72d5.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=test-access%2F20261027%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20261027T151441Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&X-Amz-Signature=e313dbea4496051b714586be6b359d5eeec70241f5c60416f2f47b86ba33fad6","width":320,"height":180,"durationMs":1000},"seen":false,"isMine":true,"viewsCount":0}}},{"status":400,"data":{"error":{"code":"UPLOAD_INVALID","message":"الملف منتهي أو استُخدم؛ اختَره مجددًا."}}}]
+      at TestContext.<anonymous> (file:///workspace/scratch/a6e9eb31b351/ci38-work/server/test/home11.test.mjs:106:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

@@ -1,0 +1,52 @@
+{
+  "baseline_source_version": 25,
+  "baseline_sha256": "28d9e4f5eccfec0c2ee6d82513a94087163e3d6b14d6cbefbde52a40b2cce28b",
+  "baseline_paths_retained": 387,
+  "app_api_versions_unchanged": true,
+  "client_owner_api_schema_dependency_files_unchanged": true,
+  "server_runtime_changes": [
+    "server/src/home.mjs",
+    "server/src/chat.mjs"
+  ],
+  "runtime_paths_checked": 110,
+  "changed_baseline_paths": [
+    ".github/workflows/tomi-android.yml",
+    "README.md",
+    "START_HERE_AR.md",
+    "TOMI-DEVELOPMENT-ROADMAP.md",
+    "TOMI-PROGRESS.md",
+    "server/package.json",
+    "server/src/chat.mjs",
+    "server/src/home.mjs",
+    "server/test/home11.test.mjs",
+    "server/test/media05.test.mjs",
+    "server/test/runner13.test.mjs"
+  ],
+  "added_paths": [
+    "CI_FIX_1.4_AR.md",
+    "VALIDATION-1.4-CI-FIX.md",
+    "server/test/fixtures/runner-output.mjs",
+    "server/test/fixtures/runner-pressure-reporter.mjs",
+    "server/test/sync_stdio.mjs",
+    "server/tools/test-suite.json",
+    "server/tools/test_runner.mjs",
+    "validation/1.4-ci-fix/check-android-ci.log",
+    "validation/1.4-ci-fix/home-target-after.log",
+    "validation/1.4-ci-fix/media-target-after.log",
+    "validation/1.4-ci-fix/original-complete-result.json",
+    "validation/1.4-ci-fix/pg-after-result.json",
+    "validation/1.4-ci-fix/pg-full-after.log",
+    "validation/1.4-ci-fix/pg-full-original-closed.log",
+    "validation/1.4-ci-fix/pg-privacy-original.log",
+    "validation/1.4-ci-fix/pg-restore-after.log",
+    "validation/1.4-ci-fix/pg-restore-original-closed.log",
+    "validation/1.4-ci-fix/results.json",
+    "validation/1.4-ci-fix/runner-target-after.log",
+    "validation/1.4-ci-fix/source-preservation.json",
+    "validation/1.4-ci-fix/sqlite-full-after.log",
+    "validation/1.4-ci-fix/sqlite-result.json",
+    "validation/1.4-ci-fix/story-race-before.log",
+    "validation/1.4-ci-fix/voice-race-before.log",
+    "validation/1.4-ci-fix/workflow-parser.log"
+  ]
+}

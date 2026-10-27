@@ -1,0 +1,26 @@
+✖ voice upload is private, persists, retries once and cleans after deletion (1404.960291ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1575.462319
+
+✖ failing tests:
+
+test at test/media05.test.mjs:41:1
+✖ voice upload is private, persists, retries once and cleans after deletion (1404.960291ms)
+  AssertionError [ERR_ASSERTION]: [{"status":201,"data":{"message":{"id":"fb68e0fb-8da6-416c-b032-61b9d88d43b4","conversationId":"01794db4-30db-4883-8734-2f0aad95b01a","sequence":1,"requestId":"301e0d79-5f56-47bd-b0f7-8cd66ef64c66","revision":0,"reply":null,"reactions":[],"stickerId":null,"file":null,"text":"","createdAt":"2026-10-27T15:28:06.227Z","deleted":false,"isMine":true,"author":{"id":"41f7c70f-0ba7-423f-ae74-d27abf490a95","username":"voice05a","displayName":"voice05a","avatarPreset":"initials","identity":{"level":1,"xp":0,"floor":0,"next":50,"remaining":50,"progress":0,"spent":0,"special":false,"charisma":0,"giftsSent":0,"received":0,"giftsReceived":0,"roomsCreated":0,"badges":[],"frameId":"none","portraitId":"none","entranceId":"none","revision":0},"avatarId":null,"avatarUrl":null},"video":null,"audio":{"url":"https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.r2.cloudflarestorage.com/chat-test/tomi/chat-audio/01794db4-30db-4883-8734-2f0aad95b01a/41f7c70f-0ba7-423f-ae74-d27abf490a95/64d09395-70d4-4bbc-b1ed-c100d079759c.m4a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=test%2F20261027%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20261027T152806Z&X-Amz-Expires=300&X-Amz-SignedHeaders=host&X-Amz-Signature=c63dd0aee5c00424eaa7cfe2f8716dc1a5af525251886e1dcfd3de8a9b9fce0e","durationMs":5000},"image":null},"conversation":{"id":"01794db4-30db-4883-8734-2f0aad95b01a","peer":{"id":"7eb8c459-94ed-46dc-a3ca-f68270115080","username":"voice05b","displayName":"voice05b","avatarPreset":"initials","identity":{"level":1,"xp":0,"floor":0,"next":50,"remaining":50,"progress":0,"spent":0,"special":false,"charisma":0,"giftsSent":0,"received":0,"giftsReceived":0,"roomsCreated":0,"badges":[],"frameId":"none","portraitId":"none","entranceId":"none","revision":0},"avatarId":null,"avatarUrl":null},"updatedAt":"2026-10-27T15:28:06.227Z","unreadCount":0,"sequence":1,"myReadSequence":0,"peerReadSequence":0,"lastMessage":"🎤 رسالة صوتية","lastMessageAt":"2026-10-27T15:28:06.227Z","lastMessageIsMine":true,"fileUploadEnabled":true,"blockedByMe":false,"blockedByPeer":false,"imageUploadEnabled":true,"audioUploadEnabled":true,"videoUploadEnabled":true,"pinnedMessageId":null,"featuresRevision":0}}},{"status":400,"data":{"error":{"code":"UPLOAD_INVALID","message":"التسجيل انتهى أو استُخدم."}}}]
+      at TestContext.<anonymous> (file:///workspace/scratch/a6e9eb31b351/ci38-work/server/test/media05.test.mjs:50:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

@@ -1,0 +1,43 @@
+{
+  "source_base": 25,
+  "app": "1.4.0-beta.1+21",
+  "api": "1.4.0-beta.1",
+  "sqlite": {
+    "tests": 173,
+    "passed": 173,
+    "failures": 0,
+    "duration_ms": 263336.406863,
+    "complete_gate": true,
+    "story_race_fix": true,
+    "media_race_fix": true,
+    "expiry_clock_fix": true
+  },
+  "postgres": {
+    "test_summary_present": true,
+    "pass_summary": [
+      "173"
+    ],
+    "complete_173": true,
+    "story_race_fix": true,
+    "media_race_fix": true,
+    "expiry_clock_fix": true,
+    "completeness_gate": true,
+    "duration_ms": 267871.816345,
+    "failure_zero": true,
+    "restore_passed": true
+  },
+  "postgres_server": "17.10",
+  "postgres_clients": "17.11",
+  "runner_regression_cases_pass": 5,
+  "android_ci_cases_pass": 8,
+  "workflow_parser_errors": 0,
+  "hosted_workflow_run_completed": false,
+  "apk_built_here": false,
+  "live_deployment_changed": false,
+  "flutter_rerun_here": false,
+  "client_schema_lock_owner_code_unchanged": true,
+  "server_runtime_changes": [
+    "home.mjs",
+    "chat.mjs"
+  ]
+}

@@ -1,0 +1,18 @@
+✔ voice upload is private, persists, retries once and cleans after deletion (1744.825033ms)
+✔ voice validates checksum, M4A metadata, duration, ownership, thread and blocking (1575.255153ms)
+✔ avatars enforce ownership and feature scope, idempotency and safe replacement (1226.691031ms)
+✔ 0.11 uploading a photo clears the animated portrait once and replay does not erase a later choice (782.047851ms)
+✔ push outbox persists and replays do not enqueue duplicates; logout detaches device (1551.81916ms)
+✔ push suppresses read, deleted, blocked and opted-out notifications (1312.524058ms)
+✔ FCM uses OAuth, generic notification content and unregistered-device handling (35.034443ms)
+✔ push retries a transient failure without resending to an accepted device (2024.411023ms)
+✔ token refresh replaces the session device and ownership transfer isolates accounts (1641.916639ms)
+✔ 0.9 FCM call data carries a deadline and cancellation without duplicate system notifications (113.166349ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12169.840746
