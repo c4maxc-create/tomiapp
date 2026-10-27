@@ -1,0 +1,10 @@
+00:00 +0: loading /workspace/scratch/a6e9eb31b351/owner14-work/test/call_api_integration_test.dart
+00:00 +0: /workspace/scratch/a6e9eb31b351/owner14-work/test/call_api_integration_test.dart: two call controllers complete offer answer ICE and hangup through the real Node API
+00:07 +1: /workspace/scratch/a6e9eb31b351/owner14-work/test/room_api_integration_test.dart: two room controllers create, join, request mic, moderate and leave via real Node API
+00:08 +2: /workspace/scratch/a6e9eb31b351/owner14-work/test/messaging_api_integration_test.dart: 0.10 Flutter disk restart reconciles real HTTP send and retains reply reaction pin search and post contracts
+00:08 +3: /workspace/scratch/a6e9eb31b351/owner14-work/test/identity_api_integration_test.dart: 0.11 Flutter identity, private favorites, daily ranking and entry effects use the real API
+00:11 +4: /workspace/scratch/a6e9eb31b351/owner14-work/test/moderation_api_integration_test.dart: 1.4 real HTTP owner balances, special accounts, scoped staff, reports and role revocation
+00:23 +5: /workspace/scratch/a6e9eb31b351/owner14-work/test/moderation_api_integration_test.dart: 1.4 real HTTP owner balances, special accounts, scoped staff, reports and role revocation
+00:25 +6: /workspace/scratch/a6e9eb31b351/owner14-work/test/moderation_api_integration_test.dart: 1.4 real HTTP owner balances, special accounts, scoped staff, reports and role revocation
+00:30 +7: /workspace/scratch/a6e9eb31b351/owner14-work/test/chat12_api_integration_test.dart: 1.2 real group chat, durable documents, stickers, read, quotes and member revocation agree with the API
+00:39 +8: All tests passed!

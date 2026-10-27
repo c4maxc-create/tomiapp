@@ -1,0 +1,32 @@
+✔ 0.12 owner is explicit server configuration and no ordinary account can grant itself a role (8277.886596ms)
+✔ 0.12 reports are private, concurrent retries are unique and active duplicates share the tracked report (5924.535162ms)
+✔ 0.12 report receipt survives target deletion and private evidence stays available to staff (7611.131867ms)
+✔ 0.12 platform moderator permissions are distinct, versioned, protected and revoked live (10754.725808ms)
+✔ 0.12 hidden posts disappear from reads, likes, comments and every feed without losing their rows (6195.62722ms)
+✔ 0.12 stable admin receipts cannot undo a later restore and replay remains available after deletion (7034.895463ms)
+✔ 0.12 report transitions use revisions, separate notes, linked targets and safe reopen rules (10667.028794ms)
+✔ 0.12 suspending an account atomically revokes sessions, ends calls and closes owned rooms with durable provider jobs (17921.090349ms)
+✔ 0.12 suspension hides account search, feed posts and ranking entries without erasing gifts (4997.781787ms)
+✔ 0.12 a call request authenticated before suspension cannot create a late call after the ban commits (4828.521313ms)
+✔ 0.12 room closure works without joining and provider failures do not clear pending revocations (5002.584104ms)
+✔ 0.12 report and audit keyset pages are private and do not skip equal timestamps (4969.274459ms)
+Request failed: Error
+✔ 0.12 metrics are authorized aggregate measurements and never include request URLs, bodies or credentials (5056.75811ms)
+✔ 0.12 strict report/action validation never changes ledger or audit on denied inputs (4367.728008ms)
+✔ 0.12 exact additive0.11 upgrade retains account credentials, identity and user progress (629.422421ms)
+✔ 1.4 owner balance adjustments are atomic, bounded, audited and idempotent under concurrent retry and restart (5988.98328ms)
+✔ 1.4 charisma withdrawal preserves lifetime gift history and sender XP while new self gifts add normally (8489.02123ms)
+✔ 1.4 scoped moderators can review reports and ban members only when granted; protected staff and owner remain protected (7629.636023ms)
+✔ 1.4 invalid privilege escalation and malformed/overflowing amounts leave data unchanged (6396.340785ms)
+✔ 1.4 special-account badge survives restart and can be revoked without granting platform permissions (8759.159915ms)
+✔ 1.4 managed-account creation preserves owner session, hides credentials from audit/receipts and never resets a password on retry (14898.841494ms)
+✔ 1.4 posts-only moderators can manage posts independently of report permissions (6077.44114ms)
+✔ 1.4 privacy erasure removes special status and delegated permissions; owner cannot recreate erased account state (5084.893514ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 169672.736751

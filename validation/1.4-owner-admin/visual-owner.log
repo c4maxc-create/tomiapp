@@ -1,0 +1,12 @@
+00:00 +0: loading /workspace/scratch/a6e9eb31b351/owner14-work/test/owner14_test.dart
+00:00 +0: (setUpAll)
+00:00 +0: accepted balance intent survives controller restart and reuses its original nonce
+00:00 +1: failed local financial intent persistence prevents a server mutation even on retry
+00:00 +2: managed account credentials remain out of drafts and creation does not change owner session
+00:00 +3: owner account tools show balances, finance form and explicit moderator permission selection
+00:12 +4: owner controls remain reachable on a compact enlarged-text screen
+00:14 +5: report-only staff cannot see finance, staff assignment or post moderation controls
+00:16 +6: posts-only staff have a usable posts tab without report access
+00:16 +7: special identity has an accessible public badge without a frame
+00:16 +8: (tearDownAll)
+00:16 +8: All tests passed!

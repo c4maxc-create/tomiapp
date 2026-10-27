@@ -1,0 +1,25 @@
+{
+  "server": "PostgreSQL 17.10",
+  "clients": "pg_dump/pg_restore 17.11 (Ubuntu noble-pgdg)",
+  "native_server_package": {
+    "url": "https://registry.npmjs.org/@embedded-postgres/linux-x64/-/linux-x64-17.10.0-beta.17.tgz",
+    "integrity": "sha512-hU4Sgna19ixDP/l3P/zkHhQ9B0JDV39qA97RNz55QcngeRjFC5/1G36LZjODVJ84kVJHUTQMmly7nzWO8js8kg==",
+    "verified": true
+  },
+  "client_packages": [
+    {
+      "Package": "postgresql-client-17",
+      "Version": "17.11-1.pgdg24.04+2",
+      "Filename": "pool/main/p/postgresql-17/postgresql-client-17_17.11-1.pgdg24.04+2_amd64.deb",
+      "SHA256": "b3b071b67a814a382516d6f6241b529c52f909672457e2f48083acce047b634f"
+    },
+    {
+      "Package": "libpq5",
+      "Version": "18.6-1.pgdg24.04+2",
+      "Filename": "pool/main/p/postgresql-18/libpq5_18.6-1.pgdg24.04+2_amd64.deb",
+      "SHA256": "b487c5ed2ceb9244c6a9d6ae65818ed6707c3c44a2e14488394ae4194c52c53b"
+    }
+  ],
+  "scope": "Local TCP127.0.0.1 ephemeral tomi_test/tomi_restore_check; no remote/user database accessed",
+  "runtime_note": "Executor maps UID0 only. A test-only first-geteuid interposer allowed the upstream root startup guard; later ownership checks, SQL and database protocol are unchanged. Unix sockets disabled because this executor refuses them. Runtime and interposer excluded from deliverable."
+}
