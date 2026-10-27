@@ -1,6 +1,7 @@
 class UserIdentity {
   const UserIdentity([this.data = const {}]);
   final Map<String, dynamic> data;
+  bool get special => data['special'] == true;
   bool get available => data.isNotEmpty;
   int get level => (data['level'] as num?)?.toInt() ?? 1;
   int get xp => (data['xp'] as num?)?.toInt() ?? 0;

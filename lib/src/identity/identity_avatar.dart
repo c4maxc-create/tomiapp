@@ -17,15 +17,42 @@ class IdentityDecoration extends StatelessWidget {
   final String name;
   final Widget child;
   @override
-  Widget build(BuildContext c) =>
-      identity.frameId == 'none' && identity.portraitId == 'none'
-      ? child
-      : _IdentityMotion(
-          identity: identity,
-          size: size,
-          name: name,
-          child: child,
-        );
+  Widget build(BuildContext c) {
+    final base = identity.frameId == 'none' && identity.portraitId == 'none'
+        ? child
+        : _IdentityMotion(
+            identity: identity,
+            size: size,
+            name: name,
+            child: child,
+          );
+    if (!identity.special) return base;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        base,
+        PositionedDirectional(
+          end: -2,
+          bottom: -2,
+          child: Semantics(
+            label: 'حساب مميز',
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(
+                color: Color(0xfff6cd76),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.verified,
+                color: const Color(0xff362b57),
+                size: math.max(12, size * .25),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _IdentityMotion extends StatefulWidget {

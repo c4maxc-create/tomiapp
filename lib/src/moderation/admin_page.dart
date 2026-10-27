@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
+
 import 'package:flutter/material.dart';
 
 import '../accounts/account_controller.dart';
@@ -10,6 +12,7 @@ import '../messaging/video_media.dart';
 import '../social/social_models.dart';
 import 'moderation_controller.dart';
 import 'moderation_widgets.dart';
+part 'owner_controls.dart';
 
 Map<String, dynamic> _map(Object? value) =>
     (value as Map?)?.cast<String, dynamic>() ?? {};
@@ -82,11 +85,13 @@ class _AdminPageState extends State<AdminPage> {
                 runSpacing: 7,
                 children: [
                   for (final e in {
-                    'reports': 'البلاغات',
-                    'users': 'الحسابات',
-                    'rooms': 'الغرف',
-                    'metrics': 'المراقبة',
-                    'audit': 'سجل الإدارة',
+                    if (model.can('reports')) 'reports': 'البلاغات',
+                    if (model.can('posts')) 'posts': 'المنشورات',
+                    if (model.can('accounts') || model.can('bans'))
+                      'users': 'الحسابات',
+                    if (model.can('rooms')) 'rooms': 'الغرف',
+                    if (model.can('metrics')) 'metrics': 'المراقبة',
+                    if (model.can('audit')) 'audit': 'سجل الإدارة',
                     if (model.role == 'owner') 'staff': 'المشرفون',
                   }.entries)
                     ChoiceChip(
@@ -133,6 +138,15 @@ class _AdminPageState extends State<AdminPage> {
                       ),
                   ],
                 ),
+              if (model.role == 'owner')
+                OutlinedButton.icon(
+                  key: const Key('admin-create-account'),
+                  onPressed: model.actionLocked
+                      ? null
+                      : () => createManagedAccount(context, model),
+                  icon: const Icon(Icons.person_add_alt),
+                  label: const Text('إنشاء حساب مميز'),
+                ),
               if (['users', 'staff'].contains(model.section))
                 TextField(
                   key: const Key('admin-user-search'),
@@ -167,6 +181,7 @@ class _AdminPageState extends State<AdminPage> {
                   padding: const EdgeInsets.only(top: 12),
                   child: switch (model.section) {
                     'reports' => reportCard(context, row),
+                    'posts' => postCard(context, row),
                     'users' || 'staff' => accountCard(context, row),
                     'rooms' => roomCard(context, row),
                     _ => auditCard(row),
@@ -185,6 +200,35 @@ class _AdminPageState extends State<AdminPage> {
       ),
     ),
   );
+  Widget postCard(BuildContext context, Map<String, dynamic> row) => TomiCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('@${_map(row['user'])['username'] ?? ''}'),
+        Text(
+          row['text'] as String? ?? '',
+          maxLines: 5,
+          overflow: TextOverflow.ellipsis,
+        ),
+        Text(row['hidden'] == true ? 'منشور مخفي' : 'منشور ظاهر'),
+        OutlinedButton(
+          onPressed: model.actionLocked || row['protected'] == true
+              ? null
+              : () => confirmAdminAction(
+                  context,
+                  model,
+                  action: row['hidden'] == true ? 'restore_post' : 'hide_post',
+                  targetId: row['id'] as String,
+                  revision: _number(row['revision']),
+                ),
+          child: Text(
+            row['hidden'] == true ? 'استعادة المنشور' : 'إخفاء المنشور',
+          ),
+        ),
+      ],
+    ),
+  );
+
   Widget reportCard(BuildContext context, Map<String, dynamic> row) {
     final snapshot = _map(row['snapshot']), user = _map(snapshot['user']);
     return TomiCard(
@@ -254,6 +298,39 @@ class _AdminPageState extends State<AdminPage> {
             user.id,
             style: const TextStyle(fontSize: 11, color: TomiColors.muted),
           ),
+          if (model.role == 'owner') ...[
+            Text(
+              'كوينز: ${_number(state['coins'])} • كارزما: ${_number(state['charisma'])}',
+            ),
+            Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton(
+                  key: ValueKey('admin-balance-${user.id}'),
+                  onPressed: model.actionLocked
+                      ? null
+                      : () => adjustManagedBalance(context, model, user, state),
+                  child: const Text('إضافة / سحب الرصيد'),
+                ),
+                OutlinedButton(
+                  onPressed: model.actionLocked
+                      ? null
+                      : () => confirmAdminAction(
+                          context,
+                          model,
+                          action: state['special'] == true
+                              ? 'unmark_special'
+                              : 'mark_special',
+                          targetId: user.id,
+                          revision: _number(state['adminRevision']),
+                        ),
+                  child: Text(
+                    state['special'] == true ? 'إلغاء التمييز' : 'حساب مميز',
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (model.role == 'owner' && !protected)
             Wrap(
               spacing: 8,
@@ -262,16 +339,10 @@ class _AdminPageState extends State<AdminPage> {
                 OutlinedButton(
                   onPressed: model.actionLocked
                       ? null
-                      : () => confirmAdminAction(
-                          context,
-                          model,
-                          action: moderator
-                              ? 'revoke_moderator'
-                              : 'grant_moderator',
-                          targetId: user.id,
-                          revision: _number(state['roleRevision']),
-                        ),
-                  child: Text(moderator ? 'إلغاء الإشراف' : 'تعيين مشرف'),
+                      : () => editStaffPermissions(context, model, user, state),
+                  child: Text(
+                    moderator ? 'تعديل صلاحيات المشرف' : 'تعيين مشرف',
+                  ),
                 ),
                 OutlinedButton(
                   onPressed: model.actionLocked || moderator
@@ -286,6 +357,35 @@ class _AdminPageState extends State<AdminPage> {
                   child: Text(suspended ? 'إلغاء الإيقاف' : 'إيقاف الحساب'),
                 ),
               ],
+            ),
+          if (model.role == 'owner' && moderator && !protected)
+            TextButton(
+              onPressed: model.actionLocked
+                  ? null
+                  : () => confirmAdminAction(
+                      context,
+                      model,
+                      action: 'revoke_moderator',
+                      targetId: user.id,
+                      revision: _number(state['roleRevision']),
+                    ),
+              child: const Text('إلغاء الإشراف'),
+            ),
+          if (model.role != 'owner' &&
+              model.can('bans') &&
+              !protected &&
+              !moderator)
+            OutlinedButton(
+              onPressed: model.actionLocked
+                  ? null
+                  : () => confirmAdminAction(
+                      context,
+                      model,
+                      action: suspended ? 'restore_user' : 'suspend_user',
+                      targetId: user.id,
+                      revision: _number(state['restrictionRevision']),
+                    ),
+              child: Text(suspended ? 'إلغاء الحظر' : 'حظر الحساب'),
             ),
           if (model.role == 'owner' && moderator)
             const Text(
@@ -368,7 +468,9 @@ class _AdminReportPageState extends State<AdminReportPage> {
   @override
   void initState() {
     super.initState();
-    unawaited(widget.model.loadDetail(widget.reportId));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(widget.model.loadDetail(widget.reportId));
+    });
   }
 
   @override
@@ -393,9 +495,9 @@ class _AdminReportPageState extends State<AdminReportPage> {
                 AdminPendingBanner(c),
                 if (c.detailLoading) const LinearProgressIndicator(),
                 if (c.detailError != null) AccountErrorMessage(c.detailError!),
-                if (!c.staff)
+                if (!c.can('reports'))
                   const Text('لم تعد صلاحية المراجعة متاحة لهذا الحساب.'),
-                if (r.isNotEmpty && c.staff) ...[
+                if (r.isNotEmpty && c.can('reports')) ...[
                   Text(
                     reportStatusLabels[r['status']] ?? 'بلاغ',
                     style: const TextStyle(
@@ -482,7 +584,9 @@ class _AdminReportPageState extends State<AdminReportPage> {
                     icon: const Icon(Icons.fact_check_outlined),
                     label: const Text('مراجعة الحالة والملاحظات'),
                   ),
-                  if (live.isNotEmpty && r['targetType'] == 'post')
+                  if (live.isNotEmpty &&
+                      r['targetType'] == 'post' &&
+                      c.can('posts'))
                     FilledButton(
                       onPressed: c.actionLocked
                           ? null
@@ -504,6 +608,7 @@ class _AdminReportPageState extends State<AdminReportPage> {
                     ),
                   if (live.isNotEmpty &&
                       r['targetType'] == 'room' &&
+                      c.can('rooms') &&
                       state['roomState'] == 'open')
                     FilledButton(
                       onPressed: c.actionLocked
@@ -520,7 +625,7 @@ class _AdminReportPageState extends State<AdminReportPage> {
                     ),
                   if (live.isNotEmpty &&
                       r['targetType'] == 'account' &&
-                      c.role == 'owner' &&
+                      c.can('bans') &&
                       state['role'] == 'member' &&
                       r['targetId'] != c.owner)
                     FilledButton(

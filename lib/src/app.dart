@@ -429,7 +429,7 @@ class _TomiShellState extends State<TomiShell> {
                       ),
                     ),
                     const SizedBox(width: 9),
-                    TinyLabel(widget.accounts == null ? 'تجريبي' : '1.3.2'),
+                    TinyLabel(widget.accounts == null ? 'تجريبي' : '1.4'),
                   ],
                 ),
               ),
