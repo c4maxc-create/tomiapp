@@ -11,7 +11,7 @@ import 'call_api_integration_test.dart' show LocalBridge;
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test(
-    '0.12 real HTTP report tracking, staff review, content actions and role revocation',
+    '1.4 real HTTP owner balances, special accounts, scoped staff, reports and role revocation',
     () async {
       final child = await Process.start('node', [
         'server/test/fixtures/moderation-client-api.mjs',
@@ -115,12 +115,75 @@ void main() {
             .length,
         1,
       );
+      await admin.load(selected: 'users', search: member.user!.username);
+      Map<String, dynamic> state() =>
+          (admin.items.single['state'] as Map).cast<String, dynamic>();
+      final initialCoins = (state()['coins'] as num).toInt();
+      for (final op in [
+        {'action': 'add_coins', 'amount': 500},
+        {'action': 'withdraw_coins', 'amount': 150},
+        {'action': 'add_charisma', 'amount': 200},
+        {'action': 'withdraw_charisma', 'amount': 50},
+        {'action': 'mark_special'},
+      ]) {
+        expect(
+          await admin.runCommand({
+            ...op,
+            'targetId': member.user!.id,
+            'reason': 'إجراء مالك عبر HTTP',
+            'expectedRevision': state()['adminRevision'],
+          }),
+          true,
+        );
+      }
+      expect(state()['coins'], initialCoins + 350);
+      expect(state()['charisma'], 150);
+      expect(state()['special'], true);
+      expect(
+        ((await member.chatRequest('GET', '/v1/me'))['user']
+            as Map)['identity']['special'],
+        true,
+      );
+      final managedId = newRequestId(), ownerId = owner.user!.id;
+      expect(
+        await admin.runCommand({
+          'action': 'create_account',
+          'targetId': managedId,
+          'expectedRevision': 0,
+          'username': 'managed_http14',
+          'displayName': 'حساب مميز HTTP',
+          'password': 'managed HTTP test passphrase',
+          'special': true,
+          'reason': 'إنشاء حساب من لوحة المالك',
+        }),
+        true,
+      );
+      expect(admin.createdRecoveryCode, isNotNull);
+      expect(owner.user!.id, ownerId);
+      expect(
+        ((await owner.chatRequest('GET', '/v1/users/$managedId'))['user']
+            as Map)['identity']['special'],
+        true,
+      );
+      expect(
+        await admin.runCommand({
+          'action': 'grant_moderator',
+          'targetId': moderator.user!.id,
+          'expectedRevision': 1,
+          'permissions': ['reports', 'bans'],
+          'reason': 'تخصيص صلاحيات HTTP',
+        }),
+        true,
+      );
+      await mod.loadAccess();
+      expect(mod.can('bans'), true);
+      expect(mod.can('metrics'), false);
       expect(
         await admin.runCommand({
           'action': 'revoke_moderator',
           'targetId': moderator.user!.id,
           'reason': 'إنهاء صلاحية الاختبار',
-          'expectedRevision': 1,
+          'expectedRevision': 2,
         }),
         true,
       );
