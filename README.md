@@ -1,3 +1,13 @@
+# TOMI 1.4 — owner controls and scoped moderation
+
+App **1.4.0-beta.1+21**, API **1.4.0-beta.1**. The platform owner can adjust app coins and received charisma, create and mark special accounts, suspend members and delegate seven independent moderator scopes. Audited mutations use stable request receipts, balance bounds and revision checks. Staff cannot modify balances, create accounts or grant staff access.
+
+Start with **OWNER_ADMIN_1.4_AR.md**. Bind the existing owner account UUID through `TOMI_OWNER_USER_ID`; the app settings already include a copy-account-ID action. No default owner credentials or first-registration privilege is created. Publish the matching server and client source from this full package. **VALIDATION-1.4.md** records executed checks and deployment limits. Earlier1.3.2 notification/room setup still needs the user's Firebase/FCM/LiveKit values; the accounts APK keeps its required Firebase client guard.
+
+All source24 paths and existing lock dependency versions are retained. The two new tables are additive, the gift ledger remains unchanged by manual charisma adjustments, and privacy erasure removes delegated permissions and special status. Previous releases below are historical reference.
+
+---
+
 # TOMI 1.3.2-beta.1 — notification and room-creation fixes
 
 Complete Flutter source **1.3.2-beta.1+20**, API **1.3.2-beta.1**, extending canonical source23. The plus button opens the room form immediately while directory/balance reads run; wallet updates preserve input. Unavailable-service messages have readable contrast, and a definitive uncharged ROOMS_DISABLED response releases its saved creation intent. Existing paid-room consent, debit and lost-response safeguards remain.
