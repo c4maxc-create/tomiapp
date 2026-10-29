@@ -1,0 +1,66 @@
+{
+  "version": "1.5.0-beta.1+22",
+  "baseSourceSha256": "058943c49fbba5c3df8e4419988fe4cdfb810e45da5b8663752395395f1d4868",
+  "sqlite": {
+    "tests": 184,
+    "pass": 184,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "duration_ms": 410501.225343
+  },
+  "postgres": {
+    "tests": 184,
+    "pass": 184,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "duration_ms": 421654.023929,
+    "runtime": "PostgreSQL18.4 native",
+    "fsync": "on",
+    "testSandbox": "Single-uid local sandbox; test-only user/ownership reporting shim, never part of app or deployment"
+  },
+  "encryptedRestore": {
+    "passed": true,
+    "duration_seconds": 2.195,
+    "clients": "Official PGDG PostgreSQL18.6 clients, downloaded archives checked against repository SHA256",
+    "newStateVerified": [
+      "config",
+      "prizes",
+      "access",
+      "daily usage",
+      "spin receipts",
+      "group receipts",
+      "contribution credits"
+    ]
+  },
+  "dartAnalysis": {
+    "scope": "lib and test including compact layout changes",
+    "passed": true,
+    "setup": "Standalone static analysis with pinned public hosted archives SHA256; Flutter3.47.7 source and engine declarations; no Flutter setup executed"
+  },
+  "deliveryTests": 26,
+  "androidSafeguards": 8,
+  "flutterTestsLocal": {
+    "executed": false,
+    "newTestsAuthored": 4,
+    "staticAnalysisPassed": true,
+    "requiredInGitHubWorkflow": true
+  },
+  "apkBuiltLocally": false,
+  "remoteDeploymentPerformed": false,
+  "phoneAcceptance": "Pending",
+  "scope": [
+    "TOMI identity and profile",
+    "all/groups filters",
+    "swipe reply and double-tap heart",
+    "optimistic reaction/pin presentation with rollback",
+    "advanced room levels1–10",
+    "free room-only roulette",
+    "owner configuration, grant/revoke and random distribution",
+    "persistent group history",
+    "idempotent results and erasure-safe lock ordering"
+  ]
+}

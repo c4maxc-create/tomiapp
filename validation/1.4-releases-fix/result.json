@@ -1,0 +1,10 @@
+{
+  "delivery_tests": 26,
+  "delivery_seconds": 1.956,
+  "disk_tests": 8,
+  "disk_seconds": 0.007,
+  "yaml_parse": true,
+  "bash_syntax": true,
+  "previous_build_steps_unchanged": true,
+  "real_publication_performed": false
+}

@@ -1,0 +1,32 @@
+✔ 0.10 replies reactions pins and their deletion persist and enforce participant/block boundaries (1783.031823ms)
+✔ 0.10 search uses literal matching, stable sequence pages and private own request receipts (1601.760636ms)
+ℹ Search fixture messages prepared: 16/65
+ℹ Search fixture messages prepared: 32/65
+ℹ Search fixture messages prepared: 48/65
+ℹ Search fixture messages prepared: 64/65
+ℹ Search fixture messages prepared: 65/65
+ℹ Search page completed: 1
+ℹ Search page completed: 2
+ℹ Search page completed: 3
+✔ 0.10 upload init and physical-upload renewal preserve a single logical image request (1353.431046ms)
+✔ 0.10 real H264 AAC MP4 inspection streams across every header and bounds malformed metadata (11.330971ms)
+✔ 0.10 videos use separate private/public buckets, actual metadata and cleanup after deletion (1320.848587ms)
+✔ 0.10 a post receipt survives deleted posts and cannot republish an uncertain old nonce (1716.351186ms)
+✔ 0.10 room history is keyset paginated and session bound; own gift receipt remains readable after close (2507.940345ms)
+ℹ Room-history fixture messages prepared: 32/95
+ℹ Room-history fixture messages prepared: 64/95
+ℹ Room-history fixture messages prepared: 95/95
+✔ 0.10 additive migration opens the exact 0.9 schema and retains existing session and text post receipt (140.567074ms)
+✔ 1.3.1 CI runner reports failure and exits even with a listening test server (120.272034ms)
+✔ 1.3.1 CI runner reports timeout and exits even with a listening test server (258.027617ms)
+✔ 1.4 CI report pipe preserves all verdicts and the final pass under backpressure (717.562442ms)
+✔ 1.4 CI report pipe preserves all verdicts and the final failure under backpressure (732.778496ms)
+✔ 1.4 incomplete or partial-success output cannot pass the APK completeness gate (0.944198ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12467.028676

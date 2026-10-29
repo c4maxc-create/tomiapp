@@ -1,0 +1,1 @@
+PASS: YAML parser; API contents:read; Android-only contents:write; verified Releases delivery preserved; Firebase required; full 184-test completeness gate; 1.5 package/lock/workflow consistency.
