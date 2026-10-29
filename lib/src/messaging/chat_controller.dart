@@ -697,8 +697,37 @@ class ChatThreadController extends ChangeNotifier {
   Timer? typingExpiry, typingStop, readRetry;
   DateTime? lastTyping;
   bool reconciling = false;
+  final pendingReactions = <String, String?>{};
+  final pendingTools = <String>{};
+  bool pinPending = false;
+  String? pendingPinId;
+  String? get pinnedMessageId =>
+      pinPending ? pendingPinId : conversation.pinnedMessageId;
+  ChatMessage present(ChatMessage m) {
+    if (m.deleted || !pendingReactions.containsKey(m.id)) return m;
+    final desired = pendingReactions[m.id], rows = <Map<String, dynamic>>[];
+    for (final old in m.reactions) {
+      final count =
+          (old['count'] as num).toInt() - (old['mine'] == true ? 1 : 0);
+      if (count > 0) rows.add({...old, 'count': count, 'mine': false});
+    }
+    if (desired != null) {
+      final i = rows.indexWhere((r) => r['emoji'] == desired);
+      if (i < 0)
+        rows.add({'emoji': desired, 'count': 1, 'mine': true});
+      else
+        rows[i] = {
+          ...rows[i],
+          'count': (rows[i]['count'] as int) + 1,
+          'mine': true,
+        };
+    }
+    return ChatMessage({...m.data, 'reactions': rows});
+  }
+
   List<ChatMessage> get messages =>
-      cache.values.toList()..sort((a, b) => a.sequence.compareTo(b.sequence));
+      cache.values.map(present).toList()
+        ..sort((a, b) => a.sequence.compareTo(b.sequence));
   int get highestSequence => cache.values.fold(0, (n, m) => max(n, m.sequence));
   void notify() {
     if (!disposed) {
@@ -1076,12 +1105,30 @@ class ChatThreadController extends ChangeNotifier {
     String action,
     Map<String, dynamic> body,
   ) async {
+    if (!current || m.deleted) return;
+    final key = action == 'pin' ? 'pin' : 'reaction:${m.id}';
+    if (!pendingTools.add(key)) return;
     final epoch = metadataEpoch;
-    final d = await request('PUT', '/messages/${m.id}/$action', body: body);
-    if (!current) return;
-    merge([d['message']]);
-    apply(d, epoch);
+    if (action == 'reaction') pendingReactions[m.id] = body['emoji'] as String?;
+    if (action == 'pin') {
+      pinPending = true;
+      pendingPinId = body['pinned'] == true ? m.id : null;
+    }
     notify();
+    try {
+      final d = await request('PUT', '/messages/${m.id}/$action', body: body);
+      if (!current) return;
+      merge([d['message']]);
+      apply(d, epoch);
+    } finally {
+      pendingTools.remove(key);
+      pendingReactions.remove(m.id);
+      if (action == 'pin') {
+        pinPending = false;
+        pendingPinId = null;
+      }
+      notify();
+    }
   }
 
   Future<Map<String, dynamic>> search(String text, {int? before}) => request(

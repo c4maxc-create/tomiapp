@@ -301,8 +301,9 @@ class _TomiAppState extends State<TomiApp> {
     builder: (context, child) => widget.textScaler == null
         ? child!
         : MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(textScaler: widget.textScaler),
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: widget.textScaler),
             child: child!,
           ),
     theme: ThemeData(
@@ -322,7 +323,7 @@ class _TomiAppState extends State<TomiApp> {
       ),
       navigationBarTheme: const NavigationBarThemeData(
         backgroundColor: Color(0xFF10131E),
-        indicatorColor: Color(0xFF3C305C),
+        indicatorColor: Color(0xFF254C51),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -429,7 +430,7 @@ class _TomiShellState extends State<TomiShell> {
                       ),
                     ),
                     const SizedBox(width: 9),
-                    TinyLabel(widget.accounts == null ? 'تجريبي' : '1.4'),
+                    TinyLabel(widget.accounts == null ? 'تجريبي' : '1.5'),
                   ],
                 ),
               ),
@@ -521,6 +522,8 @@ class _TomiShellState extends State<TomiShell> {
         ),
       ),
       bottomNavigationBar: NavigationBar(
+        height: 76,
+        animationDuration: const Duration(milliseconds: 180),
         backgroundColor:
             widget.accounts != null &&
                 (selected == 0 || selected == 1 || selected == 4)

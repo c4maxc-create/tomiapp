@@ -1,9 +1,12 @@
+import '../brand.dart';
 import '../accounts/account_search.dart';
 import '../messaging/voice_note.dart' show voiceTime;
 import 'story_screens.dart';
 import 'social_media.dart';
 import 'activity_screen.dart';
+
 import 'package:flutter/services.dart';
+
 import '../messaging/gallery_intent.dart';
 import '../messaging/video_media.dart';
 import 'post_draft_controller.dart';
@@ -322,9 +325,9 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                                       'TOMI',
                                       style: TextStyle(
                                         fontSize: 29,
-                                        fontStyle: FontStyle.italic,
+                                        fontStyle: FontStyle.normal,
                                         fontWeight: FontWeight.w800,
-                                        letterSpacing: -1,
+                                        letterSpacing: 3,
                                         color: Colors.white,
                                       ),
                                     ),
@@ -362,6 +365,7 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                         ),
                       ),
                     ),
+                    const TomiSignature(),
                     StoriesStrip(accounts: widget.accounts),
                   ] else
                     Padding(
@@ -589,10 +593,16 @@ class RealPostCard extends StatelessWidget {
     '${post.author.displayName} (@${post.author.username}) على TOMI\n${post.text}',
   );
   @override
-  Widget build(BuildContext c) => ColoredBox(
-    color: socialBackground,
+  Widget build(BuildContext c) => Container(
+    margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+    decoration: BoxDecoration(
+      color: TomiColors.surface,
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: TomiColors.border),
+    ),
+    clipBehavior: Clip.antiAlias,
     child: Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

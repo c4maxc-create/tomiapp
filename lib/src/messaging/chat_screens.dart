@@ -1,7 +1,9 @@
 import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:file_selector/file_selector.dart' as files;
 import 'package:url_launcher/url_launcher.dart';
+
 import 'chat_widgets.dart';
 import 'chat_groups.dart';
 
@@ -128,7 +130,6 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
                     chats.conversations
                         .where(
                           (c) =>
-                              (filter != 'unread' || c.unreadCount > 0) &&
                               (filter != 'groups' || c.isGroup) &&
                               (q.isEmpty ||
                                   c.peer.displayName.toLowerCase().contains(
@@ -256,7 +257,6 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
                                   children: [
                                     for (final item in [
                                       ('all', 'الكل'),
-                                      ('unread', 'غير المقروءة'),
                                       ('groups', 'المجموعات'),
                                     ])
                                       ChoiceChip(
@@ -783,6 +783,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
     }
     if (action == 'reply') {
       thread.chooseReply(m);
+      focus.requestFocus();
       return;
     }
     if (mutating) return;
@@ -817,7 +818,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
         action == 'reaction' ? 'reaction' : 'pin',
         action == 'reaction'
             ? {'emoji': emoji!.isEmpty ? null : emoji}
-            : {'pinned': thread.conversation.pinnedMessageId != m.id},
+            : {'pinned': thread.pinnedMessageId != m.id},
       );
     } on AccountFailure catch (e) {
       if (mounted) showNote(context, e.message);
@@ -1406,7 +1407,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                   ListTile(
                     leading: const Icon(Icons.push_pin_outlined),
                     title: Text(
-                      c.pinnedMessageId == m.id
+                      thread.pinnedMessageId == m.id
                           ? 'إلغاء التثبيت'
                           : 'تثبيت الرسالة',
                     ),
@@ -1588,6 +1589,33 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
   }
 
   Widget bubble(ChatMessage m) {
+    return Dismissible(
+      key: ValueKey('reply-swipe-${m.id}'),
+      direction: !m.deleted && thread.conversation.canSend
+          ? DismissDirection.startToEnd
+          : DismissDirection.none,
+      dismissThresholds: const {DismissDirection.startToEnd: .22},
+      movementDuration: const Duration(milliseconds: 160),
+      background: const Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Padding(
+          padding: EdgeInsets.all(18),
+          child: Icon(Icons.reply_rounded),
+        ),
+      ),
+      confirmDismiss: (_) async {
+        HapticFeedback.selectionClick();
+        if (thread.current) {
+          thread.chooseReply(m);
+          focus.requestFocus();
+        }
+        return false;
+      },
+      child: messageBubble(m),
+    );
+  }
+
+  Widget messageBubble(ChatMessage m) {
     final p = ChatPalette.of(context),
         c = thread.conversation,
         sticker = m.stickerId != null && !m.deleted,
@@ -1596,6 +1624,15 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
       alignment: m.isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
         onLongPress: () => messageActions(m),
+        onDoubleTap: !m.deleted && c.canSend
+            ? () async {
+                try {
+                  await thread.changeTool(m, 'reaction', {'emoji': '❤️'});
+                } catch (_) {
+                  if (mounted) showNote(context, 'تعذّر إضافة التفاعل.');
+                }
+              }
+            : null,
         child: Container(
           margin: const EdgeInsets.only(bottom: 5),
           padding: EdgeInsets.fromLTRB(
@@ -1918,7 +1955,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                             PopupMenuItem(
                               value: 'pin',
                               child: Text(
-                                c.pinnedMessageId == m.id
+                                thread.pinnedMessageId == m.id
                                     ? 'إلغاء التثبيت'
                                     : 'تثبيت الرسالة',
                               ),
@@ -2427,7 +2464,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                     else if (value == 'info')
                       unawaited(info());
                     else if (value == 'pinned')
-                      unawaited(showMessage(c.pinnedMessageId!));
+                      unawaited(showMessage(thread.pinnedMessageId!));
                     else
                       unawaited(toggleBlock());
                   },
@@ -2443,7 +2480,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                       value: 'search',
                       child: Text('بحث في المحادثة'),
                     ),
-                    if (c.pinnedMessageId != null)
+                    if (thread.pinnedMessageId != null)
                       const PopupMenuItem(
                         value: 'pinned',
                         child: Text('الرسالة المثبّتة'),
@@ -2474,7 +2511,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                   ),
                   Column(
                     children: [
-                      if (c.pinnedMessageId != null && h >= 360)
+                      if (thread.pinnedMessageId != null && h >= 360)
                         Material(
                           color: p.surface,
                           child: ListTile(
@@ -2495,7 +2532,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                               Icons.chevron_left_rounded,
                               size: 20,
                             ),
-                            onTap: () => showMessage(c.pinnedMessageId!),
+                            onTap: () => showMessage(thread.pinnedMessageId!),
                           ),
                         ),
                       if (thread.error != null && h >= 280)

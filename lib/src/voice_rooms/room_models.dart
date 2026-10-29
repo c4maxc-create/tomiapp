@@ -29,6 +29,10 @@ class VoiceRoom {
       ? this
       : VoiceRoom({...data, 'preferences': old.preferences});
   String get id => data['id'] as String;
+  int? get level => (data['level'] as num?)?.toInt();
+  int get levelXp => (data['levelXp'] as num?)?.toInt() ?? 0;
+  int? get levelNext => (data['levelNext'] as num?)?.toInt();
+  int get levelStart => (data['levelStart'] as num?)?.toInt() ?? 0;
   bool get advanced => data['tier'] == 'advanced';
   String? get publicId => data['publicId'] as String?;
   String? get expiresAt => data['expiresAt'] as String?;

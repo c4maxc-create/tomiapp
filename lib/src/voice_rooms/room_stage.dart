@@ -130,6 +130,22 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
               children: [
                 for (final item in <(IconData, String, VoidCallback)>[
                   (
+                    Icons.casino_outlined,
+                    'مدار الحظ',
+                    () {
+                      Navigator.pop(sheet);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => RoulettePage(
+                            accounts: c.accounts,
+                            roomId: c.active!.id,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  (
                     Icons.info_outline,
                     'معلومات الغرفة',
                     () {
@@ -753,7 +769,7 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
             Text(
               r.publicId == null
                   ? 'غرفة مجانية • إدارة متغيرة'
-                  : 'ID: ${r.publicId}',
+                  : 'ID: ${r.publicId} • المستوى ${r.level ?? 1}',
               style: TextStyle(fontSize: 10, color: _roomGold),
             ),
             const Text('  |  ', style: TextStyle(color: Colors.white24)),
@@ -1146,9 +1162,8 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
                                 child: LayoutBuilder(
                                   builder: (context, box) {
                                     if (box.maxHeight < 460 ||
-                                        MediaQuery.textScalerOf(
-                                              context,
-                                            ).scale(14) >
+                                        MediaQuery.textScalerOf(context)
+                                                .scale(14) >
                                             20)
                                       return SingleChildScrollView(
                                         child: Column(

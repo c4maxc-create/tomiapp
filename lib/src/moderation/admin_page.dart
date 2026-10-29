@@ -1,3 +1,4 @@
+import '../roulette/roulette_admin.dart';
 import 'dart:async';
 
 import 'package:flutter/services.dart';
@@ -137,6 +138,12 @@ class _AdminPageState extends State<AdminPage> {
                         onSelected: (_) => model.load(selectedFilter: e.key),
                       ),
                   ],
+                ),
+              if (model.role == 'owner')
+                FilledButton.icon(
+                  key:const Key('admin-roulette'),
+                  onPressed:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>RouletteAdminPage(accounts:widget.accounts))),
+                  icon:const Icon(Icons.casino_outlined),label:const Text('إدارة مدار الحظ • الروليت'),
                 ),
               if (model.role == 'owner')
                 OutlinedButton.icon(

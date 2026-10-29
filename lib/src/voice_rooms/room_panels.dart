@@ -880,6 +880,42 @@ class _RoomInfo extends StatelessWidget {
                       ),
                   ],
                 ),
+                if (r.advanced)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    child: Column(
+                      children: [
+                        Text(
+                          'المستوى ${r.level ?? 1} من 10',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xff253d50),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        LinearProgressIndicator(
+                          value: r.levelNext == null
+                              ? 1
+                              : ((r.levelXp - r.levelStart) /
+                                        (r.levelNext! - r.levelStart))
+                                    .clamp(0.0, 1.0),
+                          color: const Color(0xff17bfa9),
+                          backgroundColor: const Color(0xffe5edf1),
+                          minHeight: 7,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          r.levelNext == null
+                              ? 'وصلت الغرفة لأعلى مستوى • الدعم ${r.levelXp}'
+                              : 'الدعم الإجمالي ${r.levelXp} / ${r.levelNext} للمستوى التالي',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xff536d7c),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 if (r.advanced && r.expiresAt != null)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),

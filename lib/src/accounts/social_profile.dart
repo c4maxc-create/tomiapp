@@ -1,5 +1,9 @@
+import '../brand.dart';
+
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../social/feed_controller.dart';
 import '../social/social_screens.dart';
 import '../social/social_models.dart';
@@ -153,29 +157,112 @@ class _SocialProfileViewState extends State<SocialProfileView> {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              compactCount(value),
-              maxLines: 1,
-              style: const TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                compactCount(value),
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
               ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              maxLines: 1,
-              style: const TextStyle(fontSize: 12, color: Colors.white),
-            ),
-          ],
+              const SizedBox(height: 3),
+              Text(
+                label,
+                maxLines: 1,
+                style: const TextStyle(fontSize: 12, color: Colors.white),
+              ),
+            ],
+          ),
         ),
       ),
     ),
   );
+  Widget identityHeader(BuildContext context) {
+    final avatar = StoryAvatar(
+      user: user,
+      size: 100,
+      hasStory: widget.accounts.home.hasStory(user.id) || user.hasStory,
+      unseen: widget.accounts.home.hasStory(user.id)
+          ? widget.accounts.home.unseen(user.id)
+          : true,
+      add: widget.own,
+      onTap: () => openStoryAvatar(context, widget.accounts, user),
+      onAdd: () => composeStory(context, widget.accounts),
+    );
+    final name = Text(
+      user.displayName,
+      key: widget.own ? const Key('saved-profile-name') : null,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        fontWeight: FontWeight.w700,
+        fontSize: 20,
+        color: Colors.white,
+      ),
+    );
+    final stats = Row(
+      children: [
+        count(
+          user.postsCount,
+          'منشورات',
+          onTap: () {
+            if (feed.posts.isNotEmpty) openPost(feed.posts.first);
+          },
+        ),
+        count(
+          user.followersCount,
+          'متابعون',
+          onTap: () => followers('followers'),
+        ),
+        count(
+          user.followingCount,
+          'يتابع',
+          onTap: () => followers('following'),
+        ),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, box) {
+        final compact =
+            box.maxWidth < 360 ||
+            MediaQuery.textScalerOf(context).scale(16) > 22;
+        if (compact)
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  avatar,
+                  const SizedBox(width: 16),
+                  Expanded(child: name),
+                ],
+              ),
+              const SizedBox(height: 8),
+              stats,
+            ],
+          );
+        return Row(
+          children: [
+            avatar,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [name, stats],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> followers(String kind) async {
     await Navigator.push(
       context,
@@ -198,11 +285,24 @@ class _SocialProfileViewState extends State<SocialProfileView> {
           key: PageStorageKey('profile-${user.id}'),
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
+            const SliverToBoxAdapter(
+              child: TomiSignature(
+                subtitle: 'هويتك في TOMI • كل لحظة إلها مكان',
+              ),
+            ),
             SliverToBoxAdapter(
               child: Directionality(
                 textDirection: TextDirection.ltr,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 5, 12, 14),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF203749), Color(0xFF172236)],
+                    ),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(color: TomiColors.border),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(18, 8, 18, 20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -258,67 +358,7 @@ class _SocialProfileViewState extends State<SocialProfileView> {
                         ],
                       ),
                       const SizedBox(height: 18),
-                      Row(
-                        children: [
-                          StoryAvatar(
-                            user: user,
-                            size: 92,
-                            hasStory:
-                                widget.accounts.home.hasStory(user.id) ||
-                                user.hasStory,
-                            unseen: widget.accounts.home.hasStory(user.id)
-                                ? widget.accounts.home.unseen(user.id)
-                                : true,
-                            add: widget.own,
-                            onTap: () =>
-                                openStoryAvatar(context, widget.accounts, user),
-                            onAdd: () => composeStory(context, widget.accounts),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  user.displayName,
-                                  key: widget.own
-                                      ? const Key('saved-profile-name')
-                                      : null,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 16,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                Row(
-                                  children: [
-                                    count(
-                                      user.postsCount,
-                                      'منشورات',
-                                      onTap: () {
-                                        if (feed.posts.isNotEmpty)
-                                          openPost(feed.posts.first);
-                                      },
-                                    ),
-                                    count(
-                                      user.followersCount,
-                                      'متابعون',
-                                      onTap: () => followers('followers'),
-                                    ),
-                                    count(
-                                      user.followingCount,
-                                      'يتابع',
-                                      onTap: () => followers('following'),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                      identityHeader(context),
                       if (user.bio.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 12, bottom: 4),

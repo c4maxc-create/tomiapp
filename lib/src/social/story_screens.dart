@@ -21,8 +21,8 @@ import 'home_controller.dart';
 import 'social_models.dart';
 import 'social_screens.dart' show openAuthor, readPickedImage, relativeTime;
 
-const socialBackground = Color(0xFF0B1015);
-const socialSurface = Color(0xFF272C32);
+const socialBackground = Color(0xFF0C1421);
+const socialSurface = TomiColors.surface;
 
 class StoryAvatar extends StatelessWidget {
   const StoryAvatar({
@@ -59,11 +59,11 @@ class StoryAvatar extends StatelessWidget {
                   gradient: hasStory && unseen
                       ? const SweepGradient(
                           colors: [
-                            Color(0xFFFFD76F),
-                            Color(0xFFFF7B32),
-                            Color(0xFFF31985),
-                            Color(0xFFC12DDC),
-                            Color(0xFFFFD76F),
+                            Color(0xFF77DECF),
+                            Color(0xFF63BBF1),
+                            Color(0xFFB197FF),
+                            Color(0xFFF6CD76),
+                            Color(0xFF77DECF),
                           ],
                           transform: GradientRotation(.8),
                         )
