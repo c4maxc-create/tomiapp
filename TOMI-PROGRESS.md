@@ -1,4 +1,42 @@
+# تصحيح تعثر CI44 — TOMI 1.5
+
+29 أكتوبر 2026، بغداد. قُرئ logs_110810321024.zip كاملًا في مواضع الأخطاء السبعة. تشغيل GitHub44، run40879850189، commit89c8eea (بادئة فقط)، job123474873441. الخادم SQLite184/184 وPostgreSQL184/184 والاسترجاع المشفر نجحت عند المستخدم. Flutter200 ناجح،7 فاشلة،8اختبارات عقد مؤجلة للخطوة اللاحقة التي لم تصلها الوظيفة.
+
+التصحيح محدود بثلاثة ملفات إنتاجية: social_screens.dart يجعل شعار الرئيسية داخل Expanded وFittedBox بين زري الإضافة والإشعارات؛ chat_screens.dart ينقل التعرف على النقر المزدوج إلى محتوى الرسالة ويستثني صف الوقت وقائمة الخيارات لمنع تأخير النقر المفرد؛ roulette_page.dart ينقل زر اللعب إلى bottomNavigationBar داخلSafeArea فيبقى ظاهرًا وقابلًا للنقر حتى في نافذة600px. شروطالإتاحة والمحاولات واستعادةnonce والمكافآت محفوظة.
+
+الفحوص الأربعة للمنشورات/التسجيل/الحساب تشترك برسالة RenderFlex overflow9px، والخامس لا يجد قائمة حذف الرسالة، والاثنان الأخيران لا ينقران/يجدان زر الروليت بسبب موضعه خارج النافذة. كل اختباراتFlutter وأسمائها وشروطها وworkflow وserver وschema وlocks محفوظة بالبايتات. لا تعطيل فحوص أو إضافةskip أو تغيير مهلة. هذه أسباب راجحة مدعومة بالسجل والتغييرات؛ لا تُقدّم النتيجة كنجاحFlutter قبلCI.
+
+التحقق المحلي الحالي: تحليل صياغة101ملفDart بواسطةtree-sitter-dart، صفر أخطاء. هذا فحصparser فقط وليسflutter analyze أوflutter test. لاAPKجديد أو تجربةهاتف أو تشغيلCIبعيد تم هنا. قيد المراجعة التلقائية السابق على إعدادFlutter ما زال قائمًا بسبب محاولة عنوانmetadata؛ لم نكرر الإعداد أو نتجاوز الرفض. لا داعي لتكرار184خادميًا محليًا لأن الخادم لم يتغير. يبقىCIالكامل مطلوبًا على الكوميت الجديد.
+
+الخطوة التالية: تنزيلTOMI-1.5.zip المحدّث وفكّه ورفع محتوياته للمستودعToLo10/tomiapp مع الحفاظ على المسارات، Commit جديدmain، ثمActions/TOMI1.5/Run workflow جديدaccounts/debug. لاRe-runللتشغيل44 لأنه يستخدم الكوميتالقديم. لا حاجة لتغييرFirebaseأوRenderأوقاعدةالبيانات من أجل هذا التصحيح. الدليل CI44_FIX_AR.md داخل المصدر.
+
+الأساس المعتمد source2 SHA256=cbdfa1c814fecae446ad8c5cd15762b6f82b23892a9e519392cdc8f4e973a73a وكل445مسارًا محفوظة. source=libfile_44d6f3b7f05481919fdc1b9214f68ab3؛checkpoint=libfile_c0169077e2a481919271b6b001ad22cb؛progress=libfile_12c21f13df5c81918df84e1c1352da1b. الحراس2/119/134 قبلالحفظ، والأرقامالنهائية تؤخذ منإيصالالحفظ. workflow10وroadmap22 لايتغيران. عندالاستكمال اقرأهذاالتصحيحوالسجلالأحدث، ولا تستخدمdevelopment15المحليةالقديمةsource1. لا تبدأميزاتجديدةقبلنتيجةCIالجديدة.
+
+---
+
+# أحدث نقطة — تعثر اختبارات واجهات TOMI 1.5 في GitHub، مطلوب السجل الكامل
+
+29 أكتوبر 2026، بغداد. أرسل المستخدم صورتين image(20261029-133533).png وimage(20261029-133824).png، وفُتحتا من المرفقات المحلية. الرابط الظاهر للتشغيل 40879850189 والوظيفة 123474873441 في ToLo10/tomiapp، بعنوان Build TOMI 1.5.0-beta.1 APK. وظيفة Test accounts, posts and database خضراء؛ خطوات Install Flutter dependencies وAnalyze Dart source وVerify Android and Firebase configuration وCheck release configuration safeguards نجحت. التعثر في Test accounts, posts and compact screens خلال1m44s، والوظيفة فشلت في3m26s. لم تصل لبناء APK أو تسليمه.
+
+الملخص الظاهر Some tests failed، +200 و~8 و-7. أسماء أربعة من سبعة اختبارات فاشلة ظاهرة: accounts_widget_test/profile edit waits for server success and keeps text when username is taken؛ accounts_widget_test/registration presents recovery before opening the signed-in app؛ chat_test/compact chat sends, reads and deletes with the keyboard visible؛ development15_test/disabled roulette cannot submit even with daily attempts left. باقي الأسماء ورسائل الاستثناء والـstack غير ظاهرة. لا يجوز استنتاج سبب مؤكد أو تعطيل الاختبارات من الملخص وحده.
+
+الخطوة التالية للمستخدم: من نفس صفحة وظيفة Android، رمز الترس إلى يمين Search logs، ثم Download log archive، ويرفع ZIP السجل هنا. المرجع الرسمي https://docs.github.com/en/actions/how-tos/monitor-workflows/use-workflow-run-logs يؤكد قائمة سجل الوظيفة وتنزيل الأرشيف. عند وصوله اقرأ كل الأخطاء السبعة كاملة، استعد المصدر1.5 النهائي أدناه، أصلح أسبابها، نفذ الفحوص المناسبة ضمن حدود البيئة، واحفظ حزمة كاملة. لا تعِد تشغيل نفس الكوميت أو تغيّر Firebase/Render أو المهلات دون دليل. لا تدّع أن الكود أُصلح أو APK أُنتج في هذه الجولة.
+
+تنبيه استكمال مهم: نسخة scratch في development15 رجعت إلى source1/progress131، وهي أقدم من التسليم النهائي. المصدر المعتمد ما زال TOMI-1.5.zip الإصدار2، libfile_44d6f3b7f05481919fdc1b9214f68ab3، 2444203بايت و445ملفًا وSHA256=cbdfa1c814fecae446ad8c5cd15762b6f82b23892a9e519392cdc8f4e973a73a. استعده من هويته قبل أي تعديل. الـcheckpoint119 مطابق. سحبنا أحدث progress133 واحتفظنا به كاملًا أسفل هذه الإضافة؛ الحفظ الحالي يستبدل السجل وحده بالحارس133. لا تعديل أو إعادة تغليف للمصدر أوworkflow أوخارطة في هذه الجولة، ولا إعادة لفحوص184 الناجحة. القيد السابق على إعدادFlutter ما زال قائمًا، ولا محاولة لتجاوز المراجعة التلقائية.
+
+---
+
 # أحدث نقطة مكتملة — TOMI 1.5
+
+إيصال الحفظ الفعلي بعد اكتمال النسخة:
+- TOMI-1.5.zip: الإصدار2، libfile_44d6f3b7f05481919fdc1b9214f68ab3، file_00000000c81882308452bb0ec10d9045.
+- الملف445 مسارًا، 2444203 بايت، وكل425 مسارًا قديمًا محفوظة؛ تحققت444 بصمة وCRC.
+- SHA256: cbdfa1c814fecae446ad8c5cd15762b6f82b23892a9e519392cdc8f4e973a73a.
+- checkpoint: libfile_c0169077e2a481919271b6b001ad22cb، الإصدار119، مطابق بايتًا للمصدر النهائي. اسمه التاريخي TOMI-1.4-work-checkpoint.zip لكن المحتوى1.5.
+- الخارطة: libfile_6e42cfdad47c8191b6f908ec1ae8e59d، الإصدار22. workflow: libfile_ed60f5584bc08191bd93b6fe8e9098ad، الإصدار10.
+- كل عمليات الحفظ الخمس نجحت وتطابقت الهوية المحلية. حُفظ progress132 ضمن التجميعة؛ هذا الإيصال يضاف إلى ملف الاستكمال المستقل دون تعديلZIP أو بصمته.
+- رابط المصدر: https://chatgpt.com/library?file_id=libfile_44d6f3b7f05481919fdc1b9214f68ab3&account_id=personal
+
 
 29 أكتوبر 2026، بغداد. هذا القسم أحدث من كل السجل المحفوظ أدناه.
 
