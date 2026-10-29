@@ -1,3 +1,29 @@
+# TOMI 1.5.0-beta.1
+
+النسخة الحالية: هوية TOMI، تحسينات المحادثات، مستويات الغرف المتقدمة ومدار الحظ بصلاحيات المالك. دليل التحديث والاستخدام: **UPDATE_1.5_AR.md**. التحقق: **VALIDATION-1.5.md**. نقطة الاستكمال: **TOMI-PROGRESS.md**. الأقسام التالية سجل المراحل السابقة.
+
+---
+
+# TOMI 1.4 — APK downloads in Releases
+
+Current source: **TOMI-1.4-releases-fix.zip**. The hosted APK built successfully but Artifact creation was denied by the account's storage quota. The workflow now uploads verified build files to a unique repository prerelease, pinned to the build commit, checks its draft/upload receipt, publishes it and puts a download link in the job summary. Existing repository read permissions govern access. Android alone requests contents:write with the built-in token.
+
+Replace only **.github/workflows/tomi-android.yml**, commit on main and start a fresh accounts/debug run. Then download **TOMI-1.4.0-beta.1.apk** under **Releases → Assets**. **RELEASES_DOWNLOAD_FIX_AR.md** gives the steps. **VALIDATION-1.4-RELEASES-FIX.md** records 26 delivery scenarios, eight disk checks, YAML/Bash checks and preservation limits. Production/client/schema/tests/locks match source27; all API, restore, Flutter and signing gates remain. App/API versions stay 1.4.0-beta.1/+21.
+
+The complete source preserves all 419 previous paths and all owner/admin features. No live publication was performed here. **TOMI-PROGRESS.md** records continuation. Earlier release instructions below are history.
+
+---
+
+# TOMI 1.4 — run 40 search-test timeout
+
+Current full source: **TOMI-1.4-ci40-fix.zip**. Run 40 passed 172 of 173 tests; the search integration case exceeded its 60-second bound on GitHub. The two dense messaging scenarios now have explicit three-minute budgets, retain all 65/95 API sends and assertions, and add bounded pagination checks. The global 60-second test limit, PostgreSQL step (15 minutes), API job (40 minutes) and 173-test completeness gate remain unchanged.
+
+For the already-uploaded source, replace only **server/test/messaging10.test.mjs**, commit on main and start a fresh accounts/debug workflow. **CI_FIX_RUN40_AR.md** has the upload steps. **VALIDATION-1.4-RUN40.md** records 13/13 SQLite and 13/13 native PostgreSQL checks with fsync enabled. No app/API runtime, client, schema, workflow or owner feature changed in this patch; versions remain 1.4.0-beta.1/+21. The complete ZIP preserves all 412 original paths. **TOMI-PROGRESS.md** contains the continuation record.
+
+Earlier release documentation follows as history.
+
+---
+
 # TOMI1.4 — CI timeout, complete test reports and story retry repair
 
 The full **TOMI-1.4-ci-fix.zip** source retains the1.4owner/admin features. PostgreSQL's Actions step now has15minutes and its API job40minutes. The Node test command preserves process isolation, serial execution and60-second per-test bounds, flushes report pipes and requires all173passes with no missing summary, failures, cancellations or skips before CI can continue.
