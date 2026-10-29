@@ -1624,15 +1624,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
       alignment: m.isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
         onLongPress: () => messageActions(m),
-        onDoubleTap: !m.deleted && c.canSend
-            ? () async {
-                try {
-                  await thread.changeTool(m, 'reaction', {'emoji': '❤️'});
-                } catch (_) {
-                  if (mounted) showNote(context, 'تعذّر إضافة التفاعل.');
-                }
-              }
-            : null,
         child: Container(
           margin: const EdgeInsets.only(bottom: 5),
           padding: EdgeInsets.fromLTRB(
@@ -1670,6 +1661,20 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              GestureDetector(
+        onDoubleTap: !m.deleted && c.canSend
+            ? () async {
+                try {
+                  await thread.changeTool(m, 'reaction', {'emoji': '❤️'});
+                } catch (_) {
+                  if (mounted) showNote(context, 'تعذّر إضافة التفاعل.');
+                }
+              }
+            : null,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
               if (c.isGroup &&
                   !m.isMine &&
                   !m.deleted &&
@@ -1906,6 +1911,9 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                     ),
                   ),
               ],
+                  ],
+                ),
+              ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.end,

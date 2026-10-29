@@ -200,6 +200,35 @@ class _RoulettePageState extends State<RoulettePage>
             ),
           ],
         ),
+        bottomNavigationBar: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+            child: FilledButton.icon(
+              key: const Key('roulette-spin'),
+              onPressed:
+                  !busy &&
+                      !loading &&
+                      state != null &&
+                      (pendingId != null || allowed && remaining > 0)
+                  ? spin
+                  : null,
+              icon: busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.casino_outlined),
+              label: Text(
+                busy
+                    ? 'نؤكّد النتيجة…'
+                    : pendingId != null
+                    ? 'استعادة المحاولة'
+                    : 'دوّر مجانًا',
+              ),
+            ),
+          ),
+        ),
         body: ListView(
           padding: const EdgeInsets.all(20),
           children: [
@@ -328,30 +357,6 @@ class _RoulettePageState extends State<RoulettePage>
                 ),
               ),
             const SizedBox(height: 16),
-            FilledButton.icon(
-              key: const Key('roulette-spin'),
-              onPressed:
-                  !busy &&
-                      !loading &&
-                      state != null &&
-                      (pendingId != null || allowed && remaining > 0)
-                  ? spin
-                  : null,
-              icon: busy
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.casino_outlined),
-              label: Text(
-                busy
-                    ? 'نؤكّد النتيجة…'
-                    : pendingId != null
-                    ? 'استعادة المحاولة'
-                    : 'دوّر مجانًا',
-              ),
-            ),
             const SizedBox(height: 20),
             const Text(
               'الجوائز وفرص ظهورها',

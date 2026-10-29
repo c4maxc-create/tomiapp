@@ -286,8 +286,8 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                                 color: Colors.white,
                               ),
                             ),
-                            const Spacer(),
-                            PopupMenuButton<String>(
+                            Expanded(
+                              child: PopupMenuButton<String>(
                               tooltip: 'قائمة المنشورات',
                               onSelected: (value) async {
                                 if (value == 'search') {
@@ -316,7 +316,9 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                                     child: Text(e.value),
                                   ),
                               ],
-                              child: const Padding(
+                              child: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Padding(
                                 padding: EdgeInsets.all(8),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -338,9 +340,10 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                                     ),
                                   ],
                                 ),
+                                ),
                               ),
                             ),
-                            const Spacer(),
+                            ),
                             IconButton(
                               tooltip: 'الإشعارات',
                               onPressed: () => Navigator.push(
