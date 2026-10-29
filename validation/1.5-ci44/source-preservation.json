@@ -1,0 +1,12 @@
+{
+  "baseline_paths": 445,
+  "missing": [],
+  "modified_existing": [
+    "TOMI-PROGRESS.md",
+    "lib/src/messaging/chat_screens.dart",
+    "lib/src/roulette/roulette_page.dart",
+    "lib/src/social/social_screens.dart"
+  ],
+  "all_tests_workflow_server_schema_locks_byte_identical": true,
+  "flutter_test_run_locally": false
+}
