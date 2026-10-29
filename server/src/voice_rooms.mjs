@@ -67,7 +67,7 @@ export function createVoiceRooms({database,provider,readJson,respond,limit,users
       myRole:me?.role??null,canControl:!!me&&me.session_hash===current.tokenHash,
       moderationPending:(await db.query('SELECT 1 FROM tomi_voice_jobs WHERE room_id=? LIMIT 1',[r.id])).rows.length>0};
     Object.assign(result,await policyFields(db,r));
-    result.features=await features.snapshot(db,r,current,me,details);
+    result.features=await features.snapshot(db,{...r,tier:result.tier},current,me,details);
     result.preferences=await social.preferences(db,r.id,current.id);
     const users=details?await usersByIds([...new Set([r.owner_id,...members.map(m=>m.user_id)])],current.id,db):null;
     if(details){await decorateRoomUsers(db,users);result.owner=users.get(r.owner_id);}

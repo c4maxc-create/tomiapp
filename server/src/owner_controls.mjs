@@ -36,6 +36,7 @@ export async function applyOwnerCommand(db,current,d,prepared){
    await db.query('INSERT INTO tomi_room_wallets(user_id,coins,next_claim) VALUES(?,?,?) ON CONFLICT(user_id) DO NOTHING',[d.targetId,welcomeCoins,new Date(Date.now()+86400000).toISOString()]);
    const q=await db.query('UPDATE tomi_room_wallets SET coins=coins+? WHERE user_id=? AND coins+? BETWEEN 0 AND 9000000000000 RETURNING coins',[delta,d.targetId,delta]);
    if(q.rows.length!==1)fail(409,'ADMIN_BALANCE','تغيّر الرصيد؛ حدّث بيانات الحساب.');after.coins=Number(q.rows[0].coins);
+   if(delta>0)await db.query('INSERT INTO tomi_contribution_credits(user_id,total) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET total=CASE WHEN tomi_contribution_credits.total+excluded.total>9000000000000 THEN 9000000000000 ELSE tomi_contribution_credits.total+excluded.total END',[d.targetId,delta]);
   }else{
    await db.query('INSERT INTO tomi_user_progress(user_id) VALUES(?) ON CONFLICT(user_id) DO NOTHING',[d.targetId]);
    const q=await db.query('UPDATE tomi_user_progress SET received=received+? WHERE user_id=? AND received+? BETWEEN 0 AND 9000000000000 RETURNING received',[delta,d.targetId,delta]);

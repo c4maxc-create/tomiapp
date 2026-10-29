@@ -57,7 +57,7 @@ export function createRoomFeatures({database,storage,usersByIds,job,bump,remove}
    companionEnabled:o.companion_enabled===undefined||Number(o.companion_enabled)===1,
    chatDisabled:Number(o.chat_disabled)===1,imagesDisabled:Number(o.images_disabled)===1,
    highQuality:o.high_quality===undefined||Number(o.high_quality)===1,passwordRequired:!!o.password_hash,
-   image:await picture(db,o.image_upload_id),hasLevels:false};
+   image:await picture(db,o.image_upload_id),hasLevels:r.tier==='advanced'};
   if(details){
    result.seats=(await db.query('SELECT seat,locked,muted FROM tomi_room_seats WHERE room_id=?',[r.id])).rows.map(v=>({seat:Number(v.seat),locked:!!v.locked,muted:!!v.muted}));
    if(me&&me.session_hash===current.tokenHash){
@@ -250,7 +250,7 @@ export function createRoomFeatures({database,storage,usersByIds,job,bump,remove}
   fail(404,'REQUEST_NOT_FOUND','لم يُسجّل هذا الإرسال بعد.');
  }
  return {walletFor:wallet,options,snapshot,history,receipt,entry,verifyJoin,validateSeat,freeSeat,prepare,action,audit,readAdministration,
-  catalog:{gifts:giftCatalog,hasLevels:false,welcomeCoins,dailyCoins,trial:true},
+  catalog:{gifts:giftCatalog,hasLevels:true,welcomeCoins,dailyCoins,trial:true},
   async wallet(current){return database.transaction(db=>wallet(db,current.id));},
   async claim(current){return database.transaction(async db=>{
    await wallet(db,current.id);

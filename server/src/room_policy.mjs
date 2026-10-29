@@ -18,7 +18,11 @@ export async function createPolicy(db,r,tier){
 }
 export async function policyFields(db,r){
  const p=await policy(db,r);
- return {tier:p.tier,publicId:p.public_id,advancedPrice,hasLevels:false,lastOwnerVisit:p.last_owner_visit,
+ const xp=p.tier==='advanced'?Number((await db.query('SELECT COALESCE(SUM(total),0) xp FROM tomi_room_all_gifts WHERE room_id=?',[r.id])).rows[0].xp):0;
+ const thresholds=[0,1000,5000,15000,40000,100000,250000,600000,1500000,3000000];
+ const level=p.tier==='advanced'?thresholds.filter(v=>xp>=v).length:null;
+ const next=level!==null&&level<10?thresholds[level]:null;
+ return {level,levelXp:xp,levelStart:level===null?0:thresholds[level-1],levelNext:next,tier:p.tier,publicId:p.public_id,advancedPrice,hasLevels:p.tier==='advanced',lastOwnerVisit:p.last_owner_visit,
   expiresAt:p.tier==='advanced'?new Date(Date.parse(p.last_owner_visit)+roomLifetime).toISOString():null};
 }
 // Room row is already locked by caller. Transfer applies only to active peers.

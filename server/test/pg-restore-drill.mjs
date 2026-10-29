@@ -39,6 +39,14 @@ try{
   await db.query("INSERT INTO tomi_platform_roles(user_id,role,revision,granted_by,updated_at) VALUES(?,'moderator',1,?,?)",[reporter,user,stamp]);
   await db.query('INSERT INTO tomi_staff_permissions(user_id,permissions) VALUES(?,?)',[reporter,JSON.stringify(['reports','bans'])]);
   await db.query('INSERT INTO tomi_admin_profiles(user_id,special,revision) VALUES(?,1,3)',[user]);
+  const rouletteNonce=randomUUID(),rouletteReceipt=randomUUID(),rouletteResult=JSON.stringify({requestId:rouletteNonce,coins:1500,prize:{id:'star',coins:20}});
+  const roulettePrizes=JSON.stringify([{id:'star',label:'نجمة',icon:'⭐',coins:20,weight:1},{id:'none',label:'حظ أوفر',icon:'✨',coins:0,weight:0}]);
+  await db.query("UPDATE tomi_roulette_config SET revision=17,mode='selected',daily_limit=8,prizes=? WHERE id=1",[roulettePrizes]);
+  await db.query('INSERT INTO tomi_roulette_access(user_id,allowed,updated_at) VALUES(?,1,?)',[user,stamp]);
+  await db.query('INSERT INTO tomi_roulette_daily(user_id,day,used) VALUES(?,?,2)',[user,'2026-10-29']);
+  await db.query('INSERT INTO tomi_roulette_spins(user_id,request_id,room_id,result,created_at) VALUES(?,?,?,?,?)',[user,rouletteNonce,room,rouletteResult,stamp]);
+  await db.query("INSERT INTO tomi_roulette_requests(actor_id,request_id,fingerprint,result,action,created_at) VALUES(?,?,?,?,'random',?)",[user,rouletteReceipt,'restore-test',JSON.stringify({selectedIds:[user],count:1}),stamp]);
+  await db.query('INSERT INTO tomi_contribution_credits(user_id,total) VALUES(?,5000)',[user]);
   const expected=(await db.query('SELECT (SELECT COUNT(*) FROM tomi_users) users,(SELECT COUNT(*) FROM tomi_reports) reports,(SELECT COUNT(*) FROM tomi_room_gifts) gifts,(SELECT COUNT(*) FROM tomi_admin_audit) audit_entries')).rows[0];
   await db.close();db=null;
   const file=join(directory,'ci.tomi-backup');await createPostgresBackup({connectionString:source,output:file,key});
@@ -70,8 +78,15 @@ try{
   assert.equal((await upgraded.query("SELECT confdeltype FROM pg_constraint WHERE conrelid='tomi_support_events'::regclass AND conname='tomi_support_events_gift_id_fkey'")).rows[0].confdeltype,'c');
   assert.deepEqual(JSON.parse((await upgraded.query('SELECT permissions FROM tomi_staff_permissions WHERE user_id=?',[reporter])).rows[0].permissions),['reports','bans']);
   const adminProfile=(await upgraded.query('SELECT special,revision FROM tomi_admin_profiles WHERE user_id=?',[user])).rows[0];assert.equal(Number(adminProfile.special),1);assert.equal(Number(adminProfile.revision),3);
+  const roulette=(await upgraded.query('SELECT * FROM tomi_roulette_config WHERE id=1')).rows[0];
+  assert.equal(Number(roulette.revision),17);assert.equal(roulette.mode,'selected');assert.equal(roulette.prizes,roulettePrizes);
+  assert.equal(Number((await upgraded.query('SELECT allowed FROM tomi_roulette_access WHERE user_id=?',[user])).rows[0].allowed),1);
+  assert.equal(Number((await upgraded.query('SELECT used FROM tomi_roulette_daily WHERE user_id=?',[user])).rows[0].used),2);
+  assert.equal((await upgraded.query('SELECT result FROM tomi_roulette_spins WHERE request_id=?',[rouletteNonce])).rows[0].result,rouletteResult);
+  assert.equal(JSON.parse((await upgraded.query('SELECT result FROM tomi_roulette_requests WHERE request_id=?',[rouletteReceipt])).rows[0].result).count,1);
+  assert.equal(Number((await upgraded.query('SELECT total FROM tomi_contribution_credits WHERE user_id=?',[user])).rows[0].total),5000);
   await upgraded.close();upgraded=null;
-  console.log('PASS: PostgreSQL encrypted dump and authenticated local restore; row counts, credentials, erasure cleanup, moderation, identity, 1.3 support/receipts/coins/charisma/cosmetics/room policy, 1.4 special accounts/staff permissions and initialization.');
+  console.log('PASS: PostgreSQL encrypted dump and authenticated local restore; row counts, credentials, erasure cleanup, moderation, identity, 1.3 support/receipts/coins/charisma/cosmetics/room policy, 1.4 special accounts/staff permissions 1.5 roulette configuration/access/usage/receipts/contributions and initialization.');
 }finally{
   if(db)await db.close();if(restored)await restored.end();if(upgraded)await upgraded.close();
   if(created&&admin)await admin.query('DROP DATABASE tomi_restore_check');

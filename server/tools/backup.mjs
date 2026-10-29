@@ -46,7 +46,7 @@ export async function createPostgresBackup({connectionString,output,key,dumpBina
       if((await processState.done).failed)throw Error('pg_dump failed; check installed PostgreSQL client version and access');
     }
     const result=await encryptBackup(Readable.from(stream()),output,key);
-    const manifest={...result,schemaVersion:'1.4.0-beta.1',payload:'pg_dump-custom',hasClientWarnings:processState.warnings};
+    const manifest={...result,schemaVersion:'1.5.0-beta.1',payload:'pg_dump-custom',hasClientWarnings:processState.warnings};
     await writeFile(output+'.json',JSON.stringify(manifest,null,2)+'\n',{flag:'wx',mode:0o600});return manifest;
   }finally{
     if(processState?.p.exitCode===null)processState.p.kill('SIGTERM');

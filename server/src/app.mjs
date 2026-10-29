@@ -1,3 +1,4 @@
+import {createRoulette} from './roulette.mjs';
 import {createHome,recordActivity} from './home.mjs';
 import {createIdentity} from './identity.mjs';
 import {createModeration} from './moderation.mjs';
@@ -138,6 +139,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   const calls=createCalls({database,iceProvider,readJson,respond:json,limit,userById,emit:chat.emit,enqueuePush:push.enqueueCall,autoSweep:callAutoSweep});
   const operations=createOperations();
   const moderation=createModeration({database,ownerUserId,storage,readJson,respond:json,limit,userById,usersByIds,rooms,calls,chat,operations,accountGate:requestGuard.gate});
+  const roulette=createRoulette({database,ownerUserId,readJson,respond:json,limit,accountGate:requestGuard.gate});
   const deletion=createAccountDeletion({database,guard:requestGuard,ownerUserId,storage,chatStorage,readJson,respond:json,limit,session,rooms,calls,chat,dummyHash,autoSweep:deletionAutoSweep,clock:deletionClock});
   const privacy=createPrivacy(privacyConfig);
   const server = createServer(async (request, response) => {
@@ -168,7 +170,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       if(privacy.handle(request,response,url))return;
       if (method === 'GET' && (path === '/health' || path === '/')) {
         await database.query('SELECT 1 AS ready');
-        json(response, 200, { status: 'ok', service: 'TOMI API', version: '1.4.0-beta.1', features: { phoneNotifications: push.configured, voiceRooms: !!roomProvider } });
+        json(response, 200, { status: 'ok', service: 'TOMI API', version: '1.5.0-beta.1', features: { phoneNotifications: push.configured, voiceRooms: !!roomProvider } });
         return;
       }
 
@@ -254,6 +256,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       await requestGuard.run(current,async()=>{
       if(await moderation.handle(request,response,url,current))return;
       await limit(`requests:user:${current.id}`, 300);
+      if(await roulette.handle(request,response,url,current))return;
       if(await identity.handle(request,response,url,current))return;
       if (await rooms.handle(request,response,url,current)) return;
       if (await calls.handle(request,response,url,current)) return;

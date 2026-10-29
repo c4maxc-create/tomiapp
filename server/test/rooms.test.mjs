@@ -138,7 +138,7 @@ test('gifts debit exactly once, persist a receipt and account support across res
  const api=await fixture(t),a=await api.register('gift_owner'),b=await api.register('gift_guest'),r=await api.create(a);
  await api.act(a,r,'join');await api.act(b,r,'join');const body={requestId:randomUUID(),recipientId:b.user.id,giftId:'diamond',quantity:3};
  const one=await api.act(a,r,'gift',body);assert.equal(one.status,200,JSON.stringify(one.data));assert.equal(one.data.wallet.coins,700);
- assert.equal(one.data.room.hasLevels,false);assert.equal(one.data.room.features.level,undefined);assert.equal(one.data.room.features.xp,undefined);
+ assert.equal(one.data.room.hasLevels,true);assert.equal(one.data.room.features.level,undefined);assert.equal(one.data.room.features.xp,undefined);
  const replay=await api.act(a,r,'gift',body);assert.equal(replay.data.receiptId,one.data.receiptId);assert.equal(replay.data.wallet.coins,700);
  assert.equal((await api.act(a,r,'gift',{...body,quantity:4})).data.error.code,'REQUEST_CHANGED');
  await api.restart();const live=await api.get(b,r);assert.equal(live.features.xp,undefined);assert.equal(live.features.events.filter(e=>e.kind==='gift').length,1);

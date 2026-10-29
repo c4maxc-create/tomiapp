@@ -631,3 +631,35 @@ CREATE TABLE IF NOT EXISTS tomi_admin_profiles (
  special INTEGER NOT NULL DEFAULT 0 CHECK(special IN(0,1)),
  revision INTEGER NOT NULL DEFAULT 0
 );
+
+-- 1.5 additive roulette access, receipts and contribution metrics.
+CREATE TABLE IF NOT EXISTS tomi_roulette_config (
+ id INTEGER PRIMARY KEY CHECK(id=1),revision INTEGER NOT NULL DEFAULT 0,
+ mode TEXT NOT NULL DEFAULT 'everyone',daily_limit INTEGER NOT NULL DEFAULT 5,prizes TEXT NOT NULL DEFAULT '[]'
+);
+INSERT INTO tomi_roulette_config(id) VALUES(1) ON CONFLICT(id) DO NOTHING;
+CREATE TABLE IF NOT EXISTS tomi_roulette_access (
+ user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,
+ allowed INTEGER NOT NULL CHECK(allowed IN(0,1)),updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tomi_roulette_daily (
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,day TEXT NOT NULL,
+ used INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(user_id,day)
+);
+CREATE TABLE IF NOT EXISTS tomi_roulette_spins (
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,request_id TEXT NOT NULL,
+ room_id TEXT NOT NULL REFERENCES tomi_voice_rooms(id) ON DELETE CASCADE,
+ result TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(user_id,request_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_roulette_requests (
+ actor_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,request_id TEXT NOT NULL,
+ fingerprint TEXT NOT NULL,result TEXT NOT NULL,action TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(actor_id,request_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_contribution_credits (
+ user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,
+ total BIGINT NOT NULL DEFAULT 0 CHECK(total>=0 AND total<=9000000000000)
+);
+CREATE INDEX IF NOT EXISTS tomi_activity_message_sender ON tomi_chat_messages(sender_id,created_at);
+
+CREATE INDEX IF NOT EXISTS tomi_roulette_recent ON tomi_roulette_spins(user_id,created_at,request_id);
+CREATE INDEX IF NOT EXISTS tomi_roulette_groups ON tomi_roulette_requests(created_at,request_id);
