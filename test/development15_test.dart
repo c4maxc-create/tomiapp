@@ -159,39 +159,75 @@ void main() {
       expect(t.messages.single.reactions.single['emoji'], '❤️');
     },
   );
-  testWidgets(
-    'lost roulette acknowledgement retries the exact saved turn and shows the server prize',
-    (tester) async {
+  const recoveryTest =
+      'lost roulette acknowledgement retries the exact saved turn and shows the server prize';
+  const recoveryViewports = [
+    Size(800, 600),
+    Size(400, 900),
+    Size(320, 640),
+    Size(800, 420),
+  ];
+  for (var i = 0; i < recoveryViewports.length; i++) {
+    final viewport = recoveryViewports[i];
+    testWidgets(i == 0 ? recoveryTest : '$recoveryTest on $viewport', (
+      tester,
+    ) async {
+      // MediaQuery alone does not resize the test render surface. Use the
+      // actual viewport for both layout and scroll/hit-test calculations.
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = viewport;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
       final api = Roulette15Api(),
           a = await chatAccount(api, MemoryDraftStore());
       addTearDown(a.dispose);
       await tester.pumpWidget(
         MaterialApp(
-          home: MediaQuery(
-            data: const MediaQueryData(
-              size: Size(400, 900),
-              disableAnimations: true,
-            ),
-            child: RoulettePage(accounts: a, roomId: 'room15'),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: true),
+            child: child!,
           ),
+          home: RoulettePage(accounts: a, roomId: 'room15'),
         ),
       );
       await tester.pumpAndSettle();
       final button = find.byKey(const Key('roulette-spin'));
-      await tester.ensureVisible(button);
+      expect(button.hitTestable(), findsOneWidget);
       await tester.tap(button);
       await tester.pumpAndSettle();
       expect(find.text('استعادة المحاولة'), findsOneWidget);
       expect(api.requestIds.length, 1);
-      await tester.ensureVisible(button);
+      expect(button.hitTestable(), findsOneWidget);
       await tester.tap(button);
       await tester.pumpAndSettle();
       expect(api.requestIds.length, 2);
       expect(api.requestIds[0], api.requestIds[1]);
-      expect(find.textContaining('رصيدك 1010'), findsOneWidget);
       expect(a.voiceRooms.coins, 1010);
-    },
-  );
+
+      // ListView creates off-screen children lazily. Reach the result just as
+      // a user would; finding the fixed spin button cannot scroll this list.
+      final balance = find.textContaining('رصيدك 1010');
+      await tester.scrollUntilVisible(
+        balance,
+        150,
+        scrollable: find
+            .descendant(
+              of: find.byType(ListView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+        maxScrolls: 20,
+      );
+      await tester.pumpAndSettle();
+      expect(balance, findsOneWidget);
+      expect(balance.hitTestable(), findsOneWidget);
+      expect(find.text('+10 كوينز • رصيدك 1010'), findsOneWidget);
+      expect(api.requestIds.length, 2);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+  }
   testWidgets('disabled roulette cannot submit even with daily attempts left', (
     tester,
   ) async {
