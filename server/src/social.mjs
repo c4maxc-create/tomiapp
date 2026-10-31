@@ -82,5 +82,5 @@ export function createSocial({database,storage,readJson,respond,limit,userById,c
  }
  let cleaning=false;
  async function cleanup(){if(!storage||cleaning)return;cleaning=true;try{const{rows}=await database.query("SELECT id,object_key FROM tomi_image_uploads WHERE state<>'attached' AND expires_at<=? AND object_key LIKE ? ORDER BY expires_at LIMIT 20",[now(),cleanupPrefix+'%']);for(const r of rows)try{await storage.delete(r.object_key);await database.query("DELETE FROM tomi_image_uploads WHERE id=? AND state<>'attached' AND expires_at<=?",[r.id,now()]);}catch{console.error('Media cleanup deferred');}}finally{cleaning=false;}}
- return {handle,cleanup:async()=>{await cleanup();await cleanupVideos(database,storage,cleanupPrefix);}};
+ return {handle,getPost,cleanup:async()=>{await cleanup();await cleanupVideos(database,storage,cleanupPrefix);}};
 }

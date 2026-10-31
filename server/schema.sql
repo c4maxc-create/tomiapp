@@ -663,3 +663,66 @@ CREATE INDEX IF NOT EXISTS tomi_activity_message_sender ON tomi_chat_messages(se
 
 CREATE INDEX IF NOT EXISTS tomi_roulette_recent ON tomi_roulette_spins(user_id,created_at,request_id);
 CREATE INDEX IF NOT EXISTS tomi_roulette_groups ON tomi_roulette_requests(created_at,request_id);
+
+-- 1.6 shared room roulette. All stakes and settlements use database transactions.
+CREATE TABLE IF NOT EXISTS tomi_live_roulette_state (
+ id INTEGER PRIMARY KEY CHECK(id=1),data TEXT NOT NULL DEFAULT '{}',revision BIGINT NOT NULL DEFAULT 0
+);
+INSERT INTO tomi_live_roulette_state(id) VALUES(1) ON CONFLICT(id) DO NOTHING;
+CREATE TABLE IF NOT EXISTS tomi_live_roulette_rounds (
+ id TEXT PRIMARY KEY,day TEXT NOT NULL,started_at BIGINT NOT NULL,result TEXT,settled_at BIGINT
+);
+CREATE INDEX IF NOT EXISTS tomi_live_roulette_recent ON tomi_live_roulette_rounds(started_at DESC,id);
+CREATE TABLE IF NOT EXISTS tomi_live_roulette_bets (
+ round_id TEXT NOT NULL REFERENCES tomi_live_roulette_rounds(id) ON DELETE CASCADE,
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ chips TEXT NOT NULL,total BIGINT NOT NULL,payout BIGINT NOT NULL DEFAULT 0,gross_payout BIGINT NOT NULL DEFAULT 0,settled INTEGER NOT NULL DEFAULT 0,
+ PRIMARY KEY(round_id,user_id)
+);
+CREATE INDEX IF NOT EXISTS tomi_live_roulette_user ON tomi_live_roulette_bets(user_id,round_id);
+CREATE TABLE IF NOT EXISTS tomi_live_roulette_requests (
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,request_id TEXT NOT NULL,
+ fingerprint TEXT NOT NULL,result TEXT NOT NULL,created_at BIGINT NOT NULL,PRIMARY KEY(user_id,request_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_live_roulette_last (
+ user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,chips TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tomi_live_roulette_daily (
+ day TEXT NOT NULL,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ total_bet BIGINT NOT NULL DEFAULT 0,total_payout BIGINT NOT NULL DEFAULT 0,wins BIGINT NOT NULL DEFAULT 0,
+ PRIMARY KEY(day,user_id)
+);
+CREATE INDEX IF NOT EXISTS tomi_live_roulette_daily_rank ON tomi_live_roulette_daily(day,total_payout DESC,wins DESC,user_id);
+CREATE TABLE IF NOT EXISTS tomi_live_roulette_award_days (day TEXT PRIMARY KEY,created_at BIGINT NOT NULL);
+CREATE TABLE IF NOT EXISTS tomi_live_roulette_awards (
+ day TEXT NOT NULL,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,rank INTEGER NOT NULL,prize BIGINT NOT NULL,credited BIGINT NOT NULL,
+ PRIMARY KEY(day,rank),UNIQUE(day,user_id)
+);
+
+-- 1.6 post sharing and recipient-controlled stranger requests.
+CREATE TABLE IF NOT EXISTS tomi_post_shares (
+ message_id TEXT PRIMARY KEY REFERENCES tomi_chat_messages(id) ON DELETE CASCADE,
+ post_id TEXT REFERENCES tomi_posts(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS tomi_post_share_receipts (
+ sender_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,request_id TEXT NOT NULL,
+ target_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,post_id TEXT NOT NULL,
+ fingerprint TEXT NOT NULL,result TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(sender_id,request_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_post_share_requests (
+ id TEXT PRIMARY KEY,sender_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ recipient_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ post_id TEXT REFERENCES tomi_posts(id) ON DELETE SET NULL,client_nonce TEXT NOT NULL,
+ state TEXT NOT NULL CHECK(state IN('pending','accepted','blocked')),created_at TEXT NOT NULL,updated_at TEXT NOT NULL,
+ UNIQUE(sender_id,client_nonce)
+);
+CREATE INDEX IF NOT EXISTS tomi_post_share_inbox ON tomi_post_share_requests(recipient_id,state,created_at,id);
+CREATE TABLE IF NOT EXISTS tomi_post_share_pairs (
+ sender_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ recipient_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,created_at TEXT NOT NULL,
+ PRIMARY KEY(sender_id,recipient_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_post_share_actions (
+ actor_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,request_id TEXT NOT NULL,
+ fingerprint TEXT NOT NULL,result TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(actor_id,request_id)
+);

@@ -1,3 +1,4 @@
+import {charismaStatus} from './charisma_catalog.mjs';
 import {ApiError} from './security.mjs';
 
 // User XP is separate from room XP: one point per trial coin spent on a
@@ -39,7 +40,7 @@ export function identityFields(r){
  if(rooms>0)badges.push({id:'host',name:'صاحب مجلس',icon:'room'});
  if(giftsReceived>=3)badges.push({id:'welcomed',name:'محبوب السالفة',icon:'star'});
  const safe=(category,id)=>styleAllowed(category,id,status.level)?id:'none';
- return {identity:{...status,spent,special:!!Number(r.special_account??0),charisma:received,giftsSent:sent,received,giftsReceived,roomsCreated:rooms,badges,
+ return {identity:{...status,spent,special:!!Number(r.special_account??0),charisma:received,charismaTier:charismaStatus(received),giftsSent:sent,received,giftsReceived,roomsCreated:rooms,badges,
   frameId:safe('frames',r.identity_frame),portraitId:safe('portraits',r.identity_portrait),entranceId:safe('entrances',r.identity_entrance),revision:Number(r.identity_revision??0)}};
 }
 export async function giftProgress(db,sender,recipient,total){
