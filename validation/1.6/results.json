@@ -1,0 +1,34 @@
+{
+  "dateBaghdad": "2026-11-01",
+  "app": "1.6.0-beta.1+23",
+  "api": "1.6.0-beta.1",
+  "sqlite": {
+    "pass": 208,
+    "fail": 0,
+    "skipped": 0,
+    "cancelled": 0,
+    "durationMs": 265021.096298
+  },
+  "postgres": {
+    "version": "18.4 native",
+    "fsync": true,
+    "pass": 208,
+    "fail": 0,
+    "skipped": 0,
+    "cancelled": 0,
+    "durationMs": 278488.535859,
+    "testOnlyOwnershipAdapter": true
+  },
+  "restore": "passed with nonempty1.6 rows",
+  "deliveryScenarios": 26,
+  "androidDiskScenarios": 8,
+  "bashSyntaxSteps": 28,
+  "dartSyntaxFiles": 107,
+  "dartTypeAnalysis": false,
+  "widgetTestsAdded": 9,
+  "widgetTestsExecuted": false,
+  "flutterExecution": false,
+  "apkBuilt": false,
+  "productionDeployment": false,
+  "localAnalysisBlock": "Automatic review rejected Dart analysis for an attempted Google Analytics connection; not retried or bypassed."
+}

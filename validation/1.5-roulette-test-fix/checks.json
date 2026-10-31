@@ -1,0 +1,37 @@
+{
+  "baseline_source_version": 3,
+  "baseline_sha256": "33ffae1585509f120ca247e3cb3f2bfe4d6c9ef1566375c9f628ba75d2d1d925",
+  "baseline_paths": 448,
+  "only_executable_change": "test/development15_test.dart",
+  "production_and_workflow_and_dependency_bytes_unchanged": true,
+  "original_controller_tests_and_disabled_test_bytes_unchanged": true,
+  "original_nonce_reward_and_wallet_checks_preserved": true,
+  "viewports": [
+    [
+      800,
+      600
+    ],
+    [
+      400,
+      900
+    ],
+    [
+      320,
+      640
+    ],
+    [
+      800,
+      420
+    ]
+  ],
+  "added_recovery_cases": 3,
+  "local_syntax_files": 101,
+  "syntax_errors": [],
+  "local_dart_analyze_executed": false,
+  "local_flutter_tests_executed": false,
+  "hosted_log_observed": {
+    "passed": 206,
+    "failed": 1,
+    "deferred_contract_tests": 8
+  }
+}

@@ -1,0 +1,1 @@
+Parsed 101 Dart files in lib and test with tree-sitter-dart; syntax errors: 0. This is syntax validation, not Dart type analysis or Flutter widget execution.

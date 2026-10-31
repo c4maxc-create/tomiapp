@@ -1,0 +1,31 @@
+test_debug_download_and_hash_manifest (__main__.DeliveryTest.test_debug_download_and_hash_manifest) ... ok
+test_older_api_without_digest_still_checks_sizes_and_names (__main__.DeliveryTest.test_older_api_without_digest_still_checks_sizes_and_names) ... ok
+test_rejects_api_failure (__main__.DeliveryTest.test_rejects_api_failure) ... ok
+test_rejects_bad_mode (__main__.DeliveryTest.test_rejects_bad_mode) ... ok
+test_rejects_create_failure (__main__.DeliveryTest.test_rejects_create_failure) ... ok
+test_rejects_duplicate_asset (__main__.DeliveryTest.test_rejects_duplicate_asset) ... ok
+test_rejects_empty_apk (__main__.DeliveryTest.test_rejects_empty_apk) ... ok
+test_rejects_empty_release_id (__main__.DeliveryTest.test_rejects_empty_release_id) ... ok
+test_rejects_invalid_release_id (__main__.DeliveryTest.test_rejects_invalid_release_id) ... ok
+test_rejects_missing_aab (__main__.DeliveryTest.test_rejects_missing_aab) ... ok
+test_rejects_missing_apk (__main__.DeliveryTest.test_rejects_missing_apk) ... ok
+test_rejects_missing_asset (__main__.DeliveryTest.test_rejects_missing_asset) ... ok
+test_rejects_missing_evidence (__main__.DeliveryTest.test_rejects_missing_evidence) ... ok
+test_rejects_not_draft (__main__.DeliveryTest.test_rejects_not_draft) ... ok
+test_rejects_not_prerelease (__main__.DeliveryTest.test_rejects_not_prerelease) ... ok
+test_rejects_oversized_apk (__main__.DeliveryTest.test_rejects_oversized_apk) ... ok
+test_rejects_publish_failure (__main__.DeliveryTest.test_rejects_publish_failure) ... ok
+test_rejects_symlink_apk (__main__.DeliveryTest.test_rejects_symlink_apk) ... ok
+test_rejects_unfinished_asset (__main__.DeliveryTest.test_rejects_unfinished_asset) ... ok
+test_rejects_view_failure (__main__.DeliveryTest.test_rejects_view_failure) ... ok
+test_rejects_wrong_commit (__main__.DeliveryTest.test_rejects_wrong_commit) ... ok
+test_rejects_wrong_digest (__main__.DeliveryTest.test_rejects_wrong_digest) ... ok
+test_rejects_wrong_size (__main__.DeliveryTest.test_rejects_wrong_size) ... ok
+test_rejects_wrong_tag (__main__.DeliveryTest.test_rejects_wrong_tag) ... ok
+test_signed_bundle_and_signature_evidence_are_included (__main__.DeliveryTest.test_signed_bundle_and_signature_evidence_are_included) ... ok
+test_workflow_keeps_tests_gates_and_scopes_permissions (__main__.DeliveryTest.test_workflow_keeps_tests_gates_and_scopes_permissions) ... ok
+
+----------------------------------------------------------------------
+Ran 26 tests in 1.750s
+
+OK

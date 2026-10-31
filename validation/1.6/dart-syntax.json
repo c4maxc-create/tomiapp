@@ -1,0 +1,7 @@
+{
+  "parser": "tree_sitter_dart",
+  "files": 107,
+  "syntaxErrors": [],
+  "typeAnalysis": false,
+  "flutterExecution": false
+}
