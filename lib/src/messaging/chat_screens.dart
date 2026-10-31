@@ -1,3 +1,5 @@
+import '../social/post_share_screens.dart';
+import '../identity/charisma_badge.dart';
 import 'dart:async';
 
 import 'package:flutter/services.dart';
@@ -68,7 +70,10 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
   }
 
   Future<void> action(String value) async {
-    if (value == 'group') {
+    if (value == 'requests') {
+      await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => PostShareRequestsPage(accounts: widget.accounts)));
+      if (mounted) await chats.refresh();
+    } else if (value == 'group') {
       final c = await Navigator.push<DirectConversation>(
         context,
         MaterialPageRoute(builder: (_) => GroupCreatePage(chats: chats)),
@@ -188,7 +193,7 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
                                     PopupMenuButton<String>(
                                       key: const Key('chat-inbox-menu'),
                                       tooltip: 'قائمة المحادثات',
-                                      icon: const Icon(Icons.menu_rounded),
+                                      icon: Badge(isLabelVisible: chats.shareRequestsCount > 0, label: Text('${chats.shareRequestsCount}'), child: const Icon(Icons.menu_rounded)),
                                       onSelected: action,
                                       itemBuilder: (_) => [
                                         const PopupMenuItem(
@@ -212,6 +217,7 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
                                             title: Text('البحث عن شخص'),
                                           ),
                                         ),
+                                        PopupMenuItem(value: 'requests', child: ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.mark_email_unread_outlined), title: Text('طلبات الغرباء (${chats.shareRequestsCount})'))),
                                         const PopupMenuItem(
                                           value: 'blocked',
                                           child: ListTile(
@@ -428,6 +434,7 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
                                                       : FontWeight.w600,
                                                 ),
                                               ),
+                                              CharismaBadge(c.peer.identity),
                                               const SizedBox(height: 6),
                                               Row(
                                                 children: [
@@ -1681,7 +1688,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                   m.authorName.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 5),
-                  child: Text(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(
                     m.authorName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1690,7 +1697,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                       fontSize: 12,
                       color: p.accent,
                     ),
-                  ),
+                  ), CharismaBadge(m.authorIdentity)]),
                 ),
               if (m.deleted)
                 Text(
@@ -1742,6 +1749,16 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                         ],
                       ),
                     ),
+                  ),
+                if (m.data['sharedPost'] != null)
+                  InkWell(
+                    key: ValueKey('shared-post-${m.id}'),
+                    onTap: (m.data['sharedPost'] as Map)['available'] == true && (m.data['sharedPost'] as Map)['id'] is String
+                        ? () => Navigator.push<void>(context, MaterialPageRoute(builder: (_) => SharedPostPage(accounts: widget.chats.accounts, postId: (m.data['sharedPost'] as Map)['id'] as String))) : null,
+                    child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: p.raised, borderRadius: BorderRadius.circular(12)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.article_outlined,size: 20), SizedBox(width: 6), Flexible(child: Text('منشور مشارك'))]),
+                      Text((m.data['sharedPost'] as Map)['available'] == true ? (m.data['sharedPost'] as Map)['text'] as String : 'هذا المنشور لم يعد متاحًا',maxLines: 4,overflow: TextOverflow.ellipsis),
+                    ])),
                   ),
                 if (sticker) TomiSticker(id: m.stickerId!, size: 144),
                 if (m.video != null)
@@ -2417,6 +2434,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          Row(children: [Expanded(child:
                           Text(
                             c.peer.displayName,
                             maxLines: 1,
@@ -2427,6 +2445,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                               height: 1.2,
                             ),
                           ),
+                          ), CharismaBadge(c.peer.identity)]),
                           const SizedBox(height: 3),
                           Text(
                             status,

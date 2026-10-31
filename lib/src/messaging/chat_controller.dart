@@ -22,6 +22,7 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
   final bool realtimeEnabled;
   List<DirectConversation> conversations = [];
   int totalUnread = 0;
+  int shareRequestsCount = 0;
   String? nextCursor, error;
   bool loading = false, connected = false, foreground = true, disposed = false;
   final openingPeerIds = <String>{};
@@ -57,6 +58,7 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
     storedVoiceBytes.clear();
     conversations = [];
     totalUnread = 0;
+    shareRequestsCount = 0;
     nextCursor = null;
     error = null;
     loading = false;
@@ -146,7 +148,7 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
               if (t.visible) unawaited(t.sync(reconcile: true));
             }
           } else if (event['type'] != 'call.changed' &&
-              event['type'] != 'voice_room.changed') {
+              event['type'] != 'voice_room.changed' && event['type'] != 'roulette.live') {
             final id = event['conversationId'];
             if (id is String) {
               if (event['type'] == 'group.member-left' &&
@@ -317,6 +319,7 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
       conversations = map.values.toList()
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       totalUnread = (p['totalUnread'] as num).toInt();
+      shareRequestsCount = (p['shareRequestsCount'] as num?)?.toInt() ?? 0;
       nextCursor = p['nextCursor'] as String?;
     } on AccountFailure catch (f) {
       if (rev == listRevision) error = f.message;

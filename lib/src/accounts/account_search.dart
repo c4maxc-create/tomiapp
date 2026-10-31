@@ -1,3 +1,4 @@
+import '../identity/charisma_badge.dart';
 import '../messaging/chat_screens.dart';
 
 import 'dart:async';
@@ -120,7 +121,7 @@ class _AccountSearchPageState extends State<AccountSearchPage> {
               padding: const EdgeInsets.all(6),
               child: ListTile(
                 leading: AccountAvatar(user, size: 44),
-                title: Text(user.displayName),
+                title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(user.displayName), CharismaBadge(user.identity)]),
                 subtitle: Text(
                   '@${user.username}',
                   textDirection: TextDirection.ltr,

@@ -1,3 +1,4 @@
+import '../identity/charisma_badge.dart';
 import '../brand.dart';
 
 import 'dart:async';
@@ -195,7 +196,7 @@ class _SocialProfileViewState extends State<SocialProfileView> {
       onTap: () => openStoryAvatar(context, widget.accounts, user),
       onAdd: () => composeStory(context, widget.accounts),
     );
-    final name = Text(
+    final nameText = Text(
       user.displayName,
       key: widget.own ? const Key('saved-profile-name') : null,
       maxLines: 2,
@@ -206,6 +207,7 @@ class _SocialProfileViewState extends State<SocialProfileView> {
         color: Colors.white,
       ),
     );
+    final name = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [nameText, CharismaBadge(user.identity)]);
     final stats = Row(
       children: [
         count(

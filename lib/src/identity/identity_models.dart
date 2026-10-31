@@ -12,6 +12,18 @@ class UserIdentity {
   int get revision => (data['revision'] as num?)?.toInt() ?? 0;
   int get charisma =>
       (data['charisma'] as num? ?? data['received'] as num? ?? 0).toInt();
+  int get charismaLevel {
+    final value = (data['charismaTier'] as Map?)?['level'];
+    if (value is num) return value.toInt();
+    const minimums = [0,1000,4000,12000,30000,80000,160000,300000,500000,1000000,2000000,3500000,6000000,8500000,12000000,16000000];
+    return minimums.lastIndexWhere((n) => charisma >= n);
+  }
+  String get charismaIcon {
+    final value = (data['charismaTier'] as Map?)?['icon'];
+    if (value is String) return value;
+    final n = charismaLevel;
+    return n == 0 ? '' : n <= 3 ? '⭐' : n <= 6 ? '💎' : n <= 9 ? '👑' : n <= 12 ? '🏆' : '👑✨';
+  }
   int get giftsSent => (data['giftsSent'] as num?)?.toInt() ?? 0;
   int get giftsReceived => (data['giftsReceived'] as num?)?.toInt() ?? 0;
   String get frameId {

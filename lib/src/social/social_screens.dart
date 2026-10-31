@@ -1,4 +1,5 @@
-import '../brand.dart';
+import 'post_share_screens.dart';
+import '../identity/charisma_badge.dart';
 import '../accounts/account_search.dart';
 import '../messaging/voice_note.dart' show voiceTime;
 import 'story_screens.dart';
@@ -368,7 +369,6 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                         ),
                       ),
                     ),
-                    const TomiSignature(),
                     StoriesStrip(accounts: widget.accounts),
                   ] else
                     Padding(
@@ -591,10 +591,7 @@ class RealPostCard extends StatelessWidget {
     builder: (_) =>
         RealCommentsSheet(accounts: accounts, post: post, onUpdated: onUpdated),
   );
-  Future<void> share(BuildContext c) async => shareSocialText(
-    c,
-    '${post.author.displayName} (@${post.author.username}) على TOMI\n${post.text}',
-  );
+  Future<void> share(BuildContext c) => showPostShareSheet(c, accounts, post.id);
   @override
   Widget build(BuildContext c) => Container(
     margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
@@ -656,6 +653,7 @@ class RealPostCard extends StatelessWidget {
                               fontSize: 11,
                             ),
                           ),
+                          CharismaBadge(post.author.identity),
                         ],
                       ),
                     ),

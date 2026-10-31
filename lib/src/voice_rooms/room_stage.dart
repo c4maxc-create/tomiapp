@@ -134,15 +134,7 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
                     'مدار الحظ',
                     () {
                       Navigator.pop(sheet);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => RoulettePage(
-                            accounts: c.accounts,
-                            roomId: c.active!.id,
-                          ),
-                        ),
-                      );
+                      showLiveRoulette(context, c.accounts, c.active!.id);
                     },
                   ),
                   (
@@ -329,7 +321,7 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
               for (final member in listeners)
                 ListTile(
                   leading: AccountAvatar(member.user, size: 38),
-                  title: Text(member.user.displayName),
+                  title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(member.user.displayName), CharismaBadge(member.user.identity)]),
                   onTap: () => Navigator.pop(sheet, member),
                 ),
             ],
@@ -530,6 +522,7 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
                   ),
                 ),
               ),
+              if (person != null) CharismaBadge(person.identity),
               if (locked || muted)
                 Text(
                   locked ? 'مغلق' : 'مكتوم',

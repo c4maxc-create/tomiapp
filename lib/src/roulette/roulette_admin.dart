@@ -1,3 +1,4 @@
+import 'live_control.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -471,6 +472,7 @@ class _RouletteAdminPageState extends State<RouletteAdminPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+              OutlinedButton.icon(onPressed: () => Navigator.push<void>(context, MaterialPageRoute(builder: (_) => LiveRouletteControlPage(accounts: widget.accounts))), icon: const Icon(Icons.casino_outlined), label: const Text('تحكم الجولة القادمة • روليت الغرف')),
                   const SizedBox(height: 16),
                   SegmentedButton<String>(
                     segments: const [
@@ -484,6 +486,9 @@ class _RouletteAdminPageState extends State<RouletteAdminPage> {
                     onSelectionChanged: (s) => setState(() => mode = s.first),
                   ),
                   const SizedBox(height: 12),
+                  FilledButton(onPressed: () => submit('configure'), child: const Text('حفظ إتاحة اللعب')),
+                  const Text('صلاحية الجميع والمختارين تشمل روليت الغرف. خانات الفواكه واللحوم ونسبها ثابتة؛ نتيجة الجولة القادمة من زر التحكم أعلاه.'),
+                  ExpansionTile(title: const Text('جوائز الدوران المجاني'), subtitle: const Text('إعدادات منفصلة عن روليت الفواكه واللحوم'), children: [
                   TextField(
                     controller: daily,
                     keyboardType: TextInputType.number,
@@ -566,8 +571,9 @@ class _RouletteAdminPageState extends State<RouletteAdminPage> {
                   ),
                   FilledButton(
                     onPressed: () => submit('configure'),
-                    child: const Text('حفظ الإعدادات والجوائز'),
+                    child: const Text('حفظ جوائز الدوران المجاني'),
                   ),
+                  ]),
                   const SizedBox(height: 24),
                   const Text(
                     'منح أو سحب فردي وجماعي',

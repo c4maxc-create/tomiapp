@@ -1,3 +1,4 @@
+import '../identity/identity_models.dart';
 import '../social/social_models.dart';
 
 import 'dart:typed_data';
@@ -58,6 +59,7 @@ class ChatMessage {
       : null;
   DateTime? get createdAt =>
       DateTime.tryParse(data['createdAt'] as String? ?? '');
+  UserIdentity get authorIdentity => UserIdentity((data['author'] as Map?)?['identity'] as Map<String, dynamic>? ?? const {});
   String get authorName =>
       (data['author'] as Map?)?['displayName'] as String? ?? '';
   int get revision => (data['revision'] as num?)?.toInt() ?? 0;
