@@ -597,7 +597,7 @@ class RealPostCard extends StatelessWidget {
     margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
     decoration: BoxDecoration(
       color: TomiColors.surface,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(TomiRadius.card),
       border: Border.all(color: TomiColors.border),
     ),
     clipBehavior: Clip.antiAlias,

@@ -1,5 +1,4 @@
 import '../identity/charisma_badge.dart';
-import '../brand.dart';
 
 import 'dart:async';
 
@@ -287,11 +286,6 @@ class _SocialProfileViewState extends State<SocialProfileView> {
           key: PageStorageKey('profile-${user.id}'),
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            const SliverToBoxAdapter(
-              child: TomiSignature(
-                subtitle: 'هويتك في TOMI • كل لحظة إلها مكان',
-              ),
-            ),
             SliverToBoxAdapter(
               child: Directionality(
                 textDirection: TextDirection.ltr,
@@ -299,9 +293,9 @@ class _SocialProfileViewState extends State<SocialProfileView> {
                   margin: const EdgeInsets.symmetric(horizontal: 14),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF203749), Color(0xFF172236)],
+                      colors: [TomiColors.surface, TomiColors.background],
                     ),
-                    borderRadius: BorderRadius.circular(28),
+                    borderRadius: BorderRadius.circular(TomiRadius.card),
                     border: Border.all(color: TomiColors.border),
                   ),
                   padding: const EdgeInsets.fromLTRB(18, 8, 18, 20),

@@ -1,3 +1,4 @@
+import '../design/tomi_tokens.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -8,16 +9,16 @@ class ChatPalette {
       ChatPalette(Theme.of(c).brightness == Brightness.dark);
   final bool dark;
   Color get background =>
-      dark ? const Color(0xFF0C1421) : const Color(0xFFF2F4F7);
-  Color get surface => dark ? const Color(0xFF142333) : Colors.white;
-  Color get raised => dark ? const Color(0xFF203246) : const Color(0xFFEDF0F4);
+      dark ? TomiColors.background : const Color(0xFFF2F4F7);
+  Color get surface => dark ? TomiColors.surface : Colors.white;
+  Color get raised => dark ? TomiColors.raised : const Color(0xFFEDF0F4);
   Color get outgoing =>
-      dark ? const Color(0xFF24514F) : const Color(0xFFD8E8FF);
-  Color get incoming => dark ? const Color(0xFF203246) : Colors.white;
-  Color get text => dark ? const Color(0xFFE9EDF0) : const Color(0xFF17212D);
-  Color get muted => dark ? const Color(0xFF94A3AD) : const Color(0xFF74808F);
-  Color get line => dark ? const Color(0xFF253239) : const Color(0xFFE8ECF1);
-  Color get accent => const Color(0xFF77DECF);
+      dark ? TomiColors.outgoing : const Color(0xFFD8E8FF);
+  Color get incoming => dark ? TomiColors.raised : Colors.white;
+  Color get text => dark ? TomiColors.text : const Color(0xFF17212D);
+  Color get muted => dark ? TomiColors.muted : const Color(0xFF74808F);
+  Color get line => dark ? TomiColors.border : const Color(0xFFE8ECF1);
+  Color get accent => TomiColors.accent;
 }
 
 class ChatSurface extends StatelessWidget {
@@ -31,12 +32,12 @@ class ChatSurface extends StatelessWidget {
         scaffoldBackgroundColor: p.background,
         colorScheme: base.colorScheme.copyWith(
           primary: p.accent,
-          onPrimary: Colors.white,
+          onPrimary: p.dark ? TomiColors.background : Colors.white,
           surface: p.surface,
           onSurface: p.text,
         ),
         appBarTheme: base.appBarTheme.copyWith(
-          backgroundColor: p.surface,
+          backgroundColor: p.background,
           foregroundColor: p.text,
           titleSpacing: 0,
           scrolledUnderElevation: 0,
@@ -174,7 +175,7 @@ class TomiSticker extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                   color: ChatPalette.of(context).dark
                       ? const Color(0xFFBBDCFF)
-                      : const Color(0xFF24514F),
+                      : TomiColors.outgoing,
                 ),
               ),
             ),

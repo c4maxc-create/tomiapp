@@ -12,7 +12,7 @@ List<Color> _roomSky(VoiceRoom r) => switch (r.background) {
   'dusk' => const [Color(0xff301447), Color(0xff772f75), Color(0xff221033)],
   'forest' => const [Color(0xff062c32), Color(0xff176b64), Color(0xff061c30)],
   'midnight' => const [Color(0xff090f27), Color(0xff263259), Color(0xff080c20)],
-  _ => const [Color(0xff080b22), Color(0xff161035), Color(0xff160d3c)],
+  _ => const [TomiColors.background, TomiColors.surface, TomiColors.background],
 };
 
 class VoiceRoomPage extends StatefulWidget {
@@ -111,7 +111,7 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
   Future<void> tools() => showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
-    backgroundColor: const Color(0xff101629),
+    backgroundColor: TomiColors.surface,
     builder: (sheet) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
@@ -915,7 +915,7 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
   Widget composer(VoiceRoom r) {
     final request = c.me?.seat == null, requested = c.me?.requestedAt != null;
     return Container(
-      color: const Color(0xff071b48).withValues(alpha: .90),
+      color: TomiColors.surface.withValues(alpha: .90),
       child: SafeArea(
         top: false,
         child: Padding(
@@ -1102,7 +1102,7 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
     builder: (context, _) {
       final r = c.active;
       return Theme(
-        data: ThemeData.dark(useMaterial3: true),
+        data: TomiTheme.dark(),
         child: PopScope(
           canPop: r == null || leaving,
           onPopInvokedWithResult: (didPop, _) {
@@ -1110,7 +1110,7 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
           },
           child: Scaffold(
             resizeToAvoidBottomInset: true,
-            backgroundColor: const Color(0xff071b48),
+            backgroundColor: TomiColors.surface,
             body: r == null
                 ? SafeArea(
                     child: Center(

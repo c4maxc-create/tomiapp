@@ -1697,7 +1697,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                       fontSize: 12,
                       color: p.accent,
                     ),
-                  ), CharismaBadge(m.authorIdentity)]),
+                  ), CharismaBadge(m.authorIdentity, compact: true)]),
                 ),
               if (m.deleted)
                 Text(
@@ -2445,7 +2445,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                               height: 1.2,
                             ),
                           ),
-                          ), CharismaBadge(c.peer.identity)]),
+                          ), Flexible(child: CharismaBadge(c.peer.identity, compact: true))]),
                           const SizedBox(height: 3),
                           Text(
                             status,

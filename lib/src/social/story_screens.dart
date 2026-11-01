@@ -21,7 +21,7 @@ import 'home_controller.dart';
 import 'social_models.dart';
 import 'social_screens.dart' show openAuthor, readPickedImage, relativeTime;
 
-const socialBackground = Color(0xFF0C1421);
+const socialBackground = TomiColors.background;
 const socialSurface = TomiColors.surface;
 
 class StoryAvatar extends StatelessWidget {

@@ -1,3 +1,4 @@
+import 'design/tomi_theme.dart';
 import 'social/activity_screen.dart';
 import 'social/story_screens.dart' show socialBackground;
 import 'messaging/chat_screens.dart';
@@ -306,41 +307,7 @@ class _TomiAppState extends State<TomiApp> {
             ).copyWith(textScaler: widget.textScaler),
             child: child!,
           ),
-    theme: ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: TomiColors.background,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: TomiColors.accent,
-        brightness: Brightness.dark,
-        surface: TomiColors.surface,
-      ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: TomiColors.background,
-        foregroundColor: TomiColors.text,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-      ),
-      navigationBarTheme: const NavigationBarThemeData(
-        backgroundColor: Color(0xFF10131E),
-        indicatorColor: Color(0xFF254C51),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: TomiColors.raised,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
-      ),
-      snackBarTheme: const SnackBarThemeData(
-        behavior: SnackBarBehavior.floating,
-      ),
-    ),
+    theme: TomiTheme.dark(),
     home: accountHome(),
   );
 }
@@ -430,7 +397,7 @@ class _TomiShellState extends State<TomiShell> {
                       ),
                     ),
                     const SizedBox(width: 9),
-                    TinyLabel(widget.accounts == null ? 'تجريبي' : '1.6'),
+                    TinyLabel(widget.accounts == null ? 'تجريبي' : '1.6.1'),
                   ],
                 ),
               ),

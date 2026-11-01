@@ -1,16 +1,7 @@
 import 'package:flutter/material.dart';
 
-class TomiColors {
-  static const background = Color(0xFF0C1421);
-  static const surface = Color(0xFF142333);
-  static const raised = Color(0xFF203246);
-  static const border = Color(0xFF30465A);
-  static const accent = Color(0xFF77DECF);
-  static const pink = Color(0xFFF292BC);
-  static const gold = Color(0xFFF6CD76);
-  static const text = Color(0xFFF3F1FA);
-  static const muted = Color(0xFFA1A8C0);
-}
+import 'design/tomi_tokens.dart';
+export 'design/tomi_tokens.dart';
 
 void showNote(BuildContext context, String text) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
@@ -45,7 +36,7 @@ class TomiCard extends StatelessWidget {
   Widget build(BuildContext context) => Material(
     color: TomiColors.surface,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(TomiRadius.card),
       side: BorderSide(color: TomiColors.border.withAlpha(140)),
     ),
     clipBehavior: Clip.antiAlias,
