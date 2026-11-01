@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-23",
+  "app_version": "1.1.0-beta.1+16",
+  "api_version": "1.1.0-beta.1",
+  "baseline_source_version": 18,
+  "baseline_sha256": "9f7e499dbced5dd196669dd58ef9f95e1b3918e9e94a87729bcfd91da9ec4d94",
+  "flutter": "3.47.7",
+  "framework_revision": "abaf9c523780a608bd46686fd5e53740a07077f8",
+  "dart": "3.13.5",
+  "analyze": "No issues found",
+  "focused": {
+    "passed": 29,
+    "skipped": 0,
+    "failed": 0
+  },
+  "full": {
+    "passed": 166,
+    "skipped": 7,
+    "failed": 0
+  },
+  "real_http_contracts": {
+    "passed": 7,
+    "skipped": 0,
+    "failed": 0
+  },
+  "distinct_executed_dart_tests": 173,
+  "new_regression_cases": 8,
+  "dart_source_and_test_files_parsed": 87,
+  "official_workflow_parser_errors": 0,
+  "flutter_lock_unchanged": true,
+  "backend_native_tools_workflow_unchanged": true,
+  "android_build_performed": false,
+  "physical_phone_acceptance_performed": false,
+  "environment": "CI=true, FLUTTER_SUPPRESS_ANALYTICS=true, DART_SUPPRESS_ANALYTICS=true; TAR_OPTIONS=--no-same-owner for root-mapped SDK artifact extraction",
+  "evidence_sha256": {
+    "changed-dart-format.log": "115b870c0ff8a85db92b19daa01750abeefc8c10e9351cceef0676b9f510bed3",
+    "dart-all-parse.log": "9a76668948e89be38cb3e7e55ce7c23c469946ba8fe07888a4539056ea70d8bf",
+    "dart-sdk-parse.log": "16b91d0aca5a769cdf4e305a79e58b7247ca7151701054c340494e0fc7968054",
+    "flutter-analyze.log": "a8e8b5d19407fa94f99081cc289b34079ae42268c9634126d74ddfe79ac3e7df",
+    "flutter-focused.log": "77b1c8e9fb91eebb25aee26111e18fb83aacc915d321c154a42deb904363d8cb",
+    "flutter-full.log": "fd727cff3e70c16b907a3bf33dc46b0f55fc32481fac62e8203afe6c2e5ffd07",
+    "flutter-http-contracts.log": "245469c5cc4cbeb089f663a98ed9604b00818fe6acd664c990826cdd0d29ecd9",
+    "flutter-pub-get.log": "84a9f794b730a107d127af31af50c171965f80b77026f6012cfc55f6ea4a25bb",
+    "flutter-version.json": "f073c4464257049ea574fb01538df28e4d476168ac90c6b093616adb2ed45419",
+    "workflow-parser.log": "54a884c7c41953b03bf063a38a42d297df63150f0f2c46a33d4950f2cb0b9c39"
+  }
+}

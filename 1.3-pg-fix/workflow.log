@@ -1,0 +1,1 @@
+PASS: YAML parsed; PostgreSQL17 retained; serial tests, individual timeout60s, SQLite/PG/restore step limits8/8/5min; overall30min unchanged; Android depends on API/restore success; Flutter test and Render URL retained.

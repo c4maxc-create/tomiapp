@@ -1,0 +1,2 @@
+[0.008s][warning][perf,memops] Cannot use file /tmp/hsperfdata_root/6 because it is locked by another process (errno = 11)
+PASS: 11 native notification policy scenarios.

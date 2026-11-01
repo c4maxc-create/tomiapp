@@ -1,0 +1,11 @@
+test_debug_does_not_touch_signing_or_require_secrets (__main__.ReleaseToolsTest.test_debug_does_not_touch_signing_or_require_secrets) ... ok
+test_missing_or_invalid_release_inputs_fail_closed (__main__.ReleaseToolsTest.test_missing_or_invalid_release_inputs_fail_closed) ... ok
+test_real_test_key_is_verified_private_idempotent_and_removed (__main__.ReleaseToolsTest.test_real_test_key_is_verified_private_idempotent_and_removed) ... ok
+test_release_readiness_requires_matching_deployment_contact_and_device_gate (__main__.ReleaseToolsTest.test_release_readiness_requires_matching_deployment_contact_and_device_gate) ... ok
+test_wrong_certificate_cleans_private_material_before_gradle_change (__main__.ReleaseToolsTest.test_wrong_certificate_cleans_private_material_before_gradle_change) ... ok
+test_wrong_private_key_password_fails_without_fallback (__main__.ReleaseToolsTest.test_wrong_private_key_password_fails_without_fallback) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 2.746s
+
+OK

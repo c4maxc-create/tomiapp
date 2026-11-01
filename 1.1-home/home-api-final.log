@@ -1,0 +1,15 @@
+✔ stories persist, expire after24h, follow feed and author rings track real active stories (1427.460483ms)
+✔ story retries cannot duplicate, revive deleted content, attach foreign or reused media (1060.93594ms)
+✔ followers paginate, activity is idempotent and private, store availability is honest (1697.889577ms)
+✔ blocked and suspended authors disappear from stories and activity; account erasure removes new data (1360.394818ms)
+✔ saved posts are private, paginated and removed with their source post (1344.544746ms)
+✔ real MP4 story publication bounds duration, survives lost acknowledgement and expires its media (842.914637ms)
+✔ social push payloads use a real channel, contain no content and route to the matching account (23.98004ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7906.220042

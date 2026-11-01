@@ -1,0 +1,17 @@
+00:00 +0: loading /workspace/scratch/a6e9eb31b351/tomi_12_chat_work/test/chat12_test.dart
+00:00 +0: chat1.2 inbox fits Size(320.0, 640.0) at 1.0 text and filters immediately
+00:01 +1: chat1.2 bubbles and composer fit Size(320.0, 640.0) at 1.0 with keyboard
+00:01 +2: chat1.2 inbox fits Size(320.0, 640.0) at 2.0 text and filters immediately
+00:01 +3: chat1.2 bubbles and composer fit Size(320.0, 640.0) at 2.0 with keyboard
+00:01 +4: chat1.2 inbox fits Size(800.0, 420.0) at 1.0 text and filters immediately
+00:01 +5: chat1.2 bubbles and composer fit Size(800.0, 420.0) at 1.0 with keyboard
+00:01 +6: chat1.2 inbox fits Size(800.0, 420.0) at 2.0 text and filters immediately
+00:01 +7: chat1.2 bubbles and composer fit Size(800.0, 420.0) at 2.0 with keyboard
+00:01 +8: emoji insertion, sticker sending and unified attachments work from the composer
+00:02 +9: inbox menu opens group creation and commits selected people
+00:03 +10: cached history opens before a delayed refresh and stays scoped to its account
+00:03 +11: document lost acknowledgement is reconciled after restart without upload or send duplication
+00:03 +12: a sticker can queue behind a slow document upload and both send once
+00:03 +13: a group removed while offline disappears on refresh and cannot send
+00:03 +14: fresh private media plays from the valid cached URL without an HTTP refresh
+00:03 +15: All tests passed!

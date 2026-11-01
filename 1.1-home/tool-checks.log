@@ -1,0 +1,7 @@
+Executed in this session after the1.1 changes:
+PASS:17 JDK native notification policy scenarios.
+PASS: Android bootstrap, original source preservation and default notification channel.
+PASS: Firebase optional client setup, package checks and server-credential rejection.
+PASS:8 Android CI disk safety tests (0.008s).
+PASS:6 release/signing safeguards (2.510s), temporary test keys cleaned.
+No Android emulator, Gradle APK build or real push-provider delivery claimed.

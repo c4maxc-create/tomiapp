@@ -1,0 +1,20 @@
+✔ stories persist, expire after24h, follow feed and author rings track real active stories (1535.44645ms)
+✔ story retries cannot duplicate, revive deleted content, attach foreign or reused media (1275.925571ms)
+✔ followers paginate, activity is idempotent and private, store availability is honest (1830.501849ms)
+✔ blocked and suspended authors disappear from stories and activity; account erasure removes new data (1421.010578ms)
+✔ text posts and profile counts survive restart; text works without R2 (1469.066974ms)
+✔ simultaneous and repeated requests cannot duplicate posts or comments (715.783953ms)
+✔ likes are idempotent; author and comment ownership are enforced (1353.72989ms)
+✔ following and own feeds paginate without duplicates at equal timestamps (1342.170205ms)
+✔ unauthenticated, empty, oversized and forged content is refused (717.955691ms)
+✔ image publication checks bytes and ownership; deleting queues safe cleanup (1402.21248ms)
+✔ missing, checksum-mismatched and fake image files are never published (714.54507ms)
+✔ R2 signing matches the published AWS Signature V4 test vector (1.528366ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14030.388785

@@ -1,0 +1,1 @@
+PASS: 9 native Java files parsed. JDK policy execution is recorded separately; Android compilation remains in CI.

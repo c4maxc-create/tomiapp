@@ -1,0 +1,10 @@
+✔ 1.2 group image, voice and video use verified private media and deletion releases their objects (1350.689646ms)
+✔ 1.2 group typing is instant for members and revoked immediately after removal (1579.601103ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3056.909493

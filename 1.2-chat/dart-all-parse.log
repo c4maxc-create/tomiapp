@@ -1,0 +1,2 @@
+PASS: all 91 Dart source/test files parsed by dart_style WASM formatter.
+This is a syntax parse, not Flutter analyze or widget execution.

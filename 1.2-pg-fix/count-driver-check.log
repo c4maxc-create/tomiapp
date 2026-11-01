@@ -1,0 +1,5 @@
+PASS: actual SQLite COUNT representation: number 1.
+PASS: installed pg default INT8 decoder representation: string 1.
+PASS: original strict assertion reproduces ERR_ASSERTION.
+PASS: corrected strict assertion accepts both driver representations and rejects 0 and 2.
+Native PostgreSQL server execution is not claimed by this driver-decoder check.

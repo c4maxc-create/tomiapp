@@ -1,0 +1,2 @@
+PASS: all144 package versions and descriptions/checksums equal the existing matching1.2/1.3 dependency lock; offline Flutter dependency resolution succeeded; no new library or dependency constraint. Original source23 seven-entry lock replaced by complete validated lock.
+PASS:329 source23 paths retained; schema.sql, schema_migrations.mjs and database.mjs byte-identical.

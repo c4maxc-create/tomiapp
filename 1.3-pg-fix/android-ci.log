@@ -1,0 +1,13 @@
+test_actual_cleanup_preserves_required_ndk_compile_tools_and_other_files (__main__.AndroidDiskTest.test_actual_cleanup_preserves_required_ndk_compile_tools_and_other_files) ... ok
+test_ci_gradle_settings_preserve_existing_jvm_and_android_settings (__main__.AndroidDiskTest.test_ci_gradle_settings_preserve_existing_jvm_and_android_settings) ... ok
+test_cleanup_denies_local_self_hosted_and_database_jobs (__main__.AndroidDiskTest.test_cleanup_denies_local_self_hosted_and_database_jobs) ... ok
+test_flutter_kotlin_and_dart_defaults_must_agree_and_match_app (__main__.AndroidDiskTest.test_flutter_kotlin_and_dart_defaults_must_agree_and_match_app) ... ok
+test_low_disk_fails_before_build_including_different_sdk_filesystem (__main__.AndroidDiskTest.test_low_disk_fails_before_build_including_different_sdk_filesystem) ... ok
+test_missing_required_ndk_is_not_replaced_by_newer_preinstalled_one (__main__.AndroidDiskTest.test_missing_required_ndk_is_not_replaced_by_newer_preinstalled_one) ... ok
+test_sdk_symlink_escape_is_rejected_before_any_deletion (__main__.AndroidDiskTest.test_sdk_symlink_escape_is_rejected_before_any_deletion) ... ok
+test_unknown_flutter_default_does_not_guess (__main__.AndroidDiskTest.test_unknown_flutter_default_does_not_guess) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.015s
+
+OK

@@ -1,0 +1,15 @@
+✔ 1.2 group creation, private membership, merged inbox, read state and idempotency survive restart (2241.52038ms)
+✔ 1.2 direct stickers and private documents are real messages with checksummed uploads and retries (1444.163635ms)
+✔ 1.2 group reply, reactions, pin and owner deletion enforce scope and update tombstones (1738.044521ms)
+✔ 1.2 new group members cannot read earlier history; removal revokes access; ownership transfers on leave (1672.572807ms)
+✔ 1.2 group attachments cannot cross conversations and private files expire without public URLs (1651.455875ms)
+✔ 1.2 group notifications are per recipient, deduplicated and stop after read, block or leave (1661.509245ms)
+✔ 1.2 deleting an account erases group authored content, stickers and document names and transfers ownership (2031.916779ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12593.494394
