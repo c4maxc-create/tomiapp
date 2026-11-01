@@ -1,0 +1,25 @@
+{
+  "date_baghdad": "2026-11-02",
+  "kind": "minimal source compatibility fix; not a Flutter execution result",
+  "baseline_sha256": "bfc4978db3939ddbde353054a93c7a96ba937bfe772b685b876466f83357c975",
+  "baseline_paths": 502,
+  "baseline_manifest_verified": true,
+  "missing_baseline_paths": [],
+  "executable_source_config_test_paths_compared": 224,
+  "changed_executable_paths": [
+    "lib/src/roulette/live_sheet.dart"
+  ],
+  "exact_one_call_replacement_verified": true,
+  "replacement": "TickerMode.valuesOf(context).enabled",
+  "old_api_absent_from_lib_and_test": true,
+  "official_api_reference": "https://api.flutter.dev/flutter/widgets/TickerMode/valuesOf.html",
+  "workflow_unmodified": true,
+  "backend_and_tests_unmodified": true,
+  "application_version_unchanged": "1.6.1-beta.1+24",
+  "new_backend_tests_run": false,
+  "flutter_analyze_run_locally": false,
+  "flutter_tests_run_locally": false,
+  "apk_built_locally": false,
+  "constraint": "Prior automatic approval review rejected Dart/Flutter network attempts (GoogleAnalytics/metadata); no retry or bypass.",
+  "hosted_followup": "New commit and new Run workflow on main; success not yet observed."
+}
