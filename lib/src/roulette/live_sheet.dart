@@ -298,7 +298,7 @@ class _WheelBoardState extends State<_WheelBoard> with SingleTickerProviderState
   void didUpdateWidget(covariant _WheelBoard oldWidget) { super.didUpdateWidget(oldWidget); syncMotion(); }
   void syncMotion() {
     final round = LiveRoundView(widget.state, widget.now());
-    if (!widget.foreground || !TickerMode.of(context) || MediaQuery.disableAnimationsOf(context) || round.phase != LiveRoundPhase.spinning) {
+    if (!widget.foreground || !TickerMode.valuesOf(context).enabled || MediaQuery.disableAnimationsOf(context) || round.phase != LiveRoundPhase.spinning) {
       motion.stop(); spinningRound = null; return;
     }
     if (!motion.isAnimating || spinningRound != round.id) {
