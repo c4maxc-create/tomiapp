@@ -23,8 +23,8 @@ if a[:2]==['release','create']:
  assert '--draft' in a and '--prerelease' in a and '--latest=false' in a
  assert a[a.index('--target')+1]==os.environ['GITHUB_SHA']
  assert a[a.index('--repo')+1]=='fixture/tomi'
- allowed={'output/TOMI-1.6.0-beta.1.apk','output/SHA256SUMS.txt'}
- if os.environ['TOMI_BUILD_DISTRIBUTION']=='signed_beta':allowed|={'output/TOMI-1.6.0-beta.1.aab','output/RELEASE_BUILD_INFO.json'}
+ allowed={'output/TOMI-1.6.1-beta.1.apk','output/SHA256SUMS.txt'}
+ if os.environ['TOMI_BUILD_DISTRIBUTION']=='signed_beta':allowed|={'output/TOMI-1.6.1-beta.1.aab','output/RELEASE_BUILD_INFO.json'}
  assert {x for x in a if x.startswith('output/')}==allowed
  sys.exit(0)
 if a[:2]==['release','view']:
@@ -35,8 +35,8 @@ if a[0]=='api':
  if mode=='api-failure':sys.exit(8)
  tag='tomi-build-'+os.environ['GITHUB_RUN_ID']+'-'+os.environ['GITHUB_RUN_ATTEMPT']
  assert a[1]=='repos/fixture/tomi/releases/1234'
- names=['TOMI-1.6.0-beta.1.apk','SHA256SUMS.txt']
- if os.environ['TOMI_BUILD_DISTRIBUTION']=='signed_beta':names+=['TOMI-1.6.0-beta.1.aab','RELEASE_BUILD_INFO.json']
+ names=['TOMI-1.6.1-beta.1.apk','SHA256SUMS.txt']
+ if os.environ['TOMI_BUILD_DISTRIBUTION']=='signed_beta':names+=['TOMI-1.6.1-beta.1.aab','RELEASE_BUILD_INFO.json']
  assets=[]
  for n in names:
   p=Path('output')/n
@@ -66,10 +66,10 @@ class DeliveryTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='tomi-delivery-fixture-') as directory:
             root = Path(directory)
             output = root / 'output'; output.mkdir()
-            apk = output / 'TOMI-1.6.0-beta.1.apk'
+            apk = output / 'TOMI-1.6.1-beta.1.apk'
             apk.write_bytes(b'fixture bytes, not an APK')
             if distribution == 'signed_beta':
-                (output / 'TOMI-1.6.0-beta.1.aab').write_bytes(b'fixture bundle')
+                (output / 'TOMI-1.6.1-beta.1.aab').write_bytes(b'fixture bundle')
                 (output / 'RELEASE_BUILD_INFO.json').write_text('{}')
             (output / 'unrelated-private-file.json').write_text('never upload')
             if mode == 'missing-apk': apk.unlink()
@@ -79,7 +79,7 @@ class DeliveryTest(unittest.TestCase):
                 apk.symlink_to(target)
             if mode == 'oversized-apk':
                 with apk.open('wb') as stream: stream.truncate(2147483648)
-            if mode == 'missing-aab': (output / 'TOMI-1.6.0-beta.1.aab').unlink()
+            if mode == 'missing-aab': (output / 'TOMI-1.6.1-beta.1.aab').unlink()
             if mode == 'missing-evidence': (output / 'RELEASE_BUILD_INFO.json').unlink()
             binary=root/'bin'; binary.mkdir(); gh=binary/'gh'; gh.write_text(STUB); gh.chmod(0o700)
             script=root/'publish.sh'; script.write_text(STEP['run'])
