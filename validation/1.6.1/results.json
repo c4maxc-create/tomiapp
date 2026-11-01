@@ -1,0 +1,62 @@
+{
+  "dateBaghdad": "2026-11-01",
+  "app": "1.6.1-beta.1+24",
+  "api": "1.6.1-beta.1",
+  "sqliteFull": {
+    "tests": 211,
+    "pass": 211,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "durationMs": 440032.750465
+  },
+  "postgresFull": {
+    "tests": 211,
+    "pass": 211,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "durationMs": 493659.287999
+  },
+  "sqliteFinalRoulette": {
+    "tests": 15,
+    "pass": 15,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "durationMs": 54203.077539
+  },
+  "postgresFinalRoulette": {
+    "tests": 15,
+    "pass": 15,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "durationMs": 48068.568758
+  },
+  "restore": "passed",
+  "postgresVersion": "18.4 native, fsync=on; isolated test-only UID adapter not shipped",
+  "deliveryChecks": 26,
+  "androidDiskChecks": 8,
+  "bootstrapCheck": "passed using isolated fake scaffold, not a Flutter build",
+  "bashSyntaxSteps": 28,
+  "dartSyntax": {
+    "parser": "tree_sitter_dart",
+    "files": 111,
+    "syntaxErrors": [],
+    "typeAnalysis": false,
+    "flutterExecuted": false
+  },
+  "dartTypeAnalysis": false,
+  "newDartTestsAuthored": 14,
+  "newDartTestsExecuted": false,
+  "flutterExecuted": false,
+  "apkBuiltLocally": false,
+  "productionDeployment": false,
+  "verificationOrder": "Full211 suites followed by final15 roulette cases on each database after adding the bounded HOT cache cleanup expiry.",
+  "limits": "Previous automatic review rejected Dart analysis for a Google Analytics attempt and Flutter setup for metadata access. No retry or bypass; Flutter analyze/widgets/contracts/APK remain gated in GitHub."
+}

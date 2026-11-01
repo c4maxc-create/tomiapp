@@ -1,0 +1,23 @@
+✔ 1.6 roulette exact 1000-point boundaries, independent draws, salads and per-cell payouts (1.759952ms)
+✔ 1.6 charisma tier boundaries follow supplied stars, diamonds and crowns independently from donor XP (0.379865ms)
+✔ 1.6 shared wheel membership, app-owner authorization and permission revocation are enforced (2778.437364ms)
+✔ 1.6 identical concurrent stakes debit once, reject changed receipts and never reveal another player stake (3177.773293ms)
+✔ 1.6 timed settlement is shared, credits the fixed multiplier once, persists after restart and repeats last chips (3355.595045ms)
+✔ 1.6 ended, malformed and unaffordable stakes never debit or move into a later round (3160.429167ms)
+✔ 1.6 owner controls only the next unopened round, with audited idempotent receipts and revision checks (4814.514869ms)
+✔ 1.6 rare category results pay every matched cell and persist the next two-to-six-hour schedule (5211.974383ms)
+✔ 1.6 Baghdad daily top-three awards are credited once and stay separate from gift and recharge progress (3606.276151ms)
+✔ 1.6 independent coordinators settle one persisted round without double credit (2652.43086ms)
+✔ 1.6 erasing a bettor removes private roulette records and cannot recreate their wallet during settlement (3854.783138ms)
+✔ 1.6 settlement racing owner credits and account erasure preserves one payout and erases private records (4309.453598ms)
+✔ 1.6.1 podium belongs to this round only, ranks three winners deterministically and lasts five seconds (3978.521058ms)
+✔ 1.6.1 cached HOT ranks refresh after a new committed wager without exposing another account bets (3487.051651ms)
+✔ 1.6.1 accepted wagers notify active room peers promptly without publishing stake data (3392.294837ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 48068.568758
