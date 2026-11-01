@@ -1,1 +1,0 @@
-PASS: node --check server/test/chat12.test.mjs
