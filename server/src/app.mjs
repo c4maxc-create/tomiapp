@@ -174,7 +174,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       if(privacy.handle(request,response,url))return;
       if (method === 'GET' && (path === '/health' || path === '/')) {
         await database.query('SELECT 1 AS ready');
-        json(response, 200, { status: 'ok', service: 'TOMI API', version: '1.6.0-beta.1', features: { phoneNotifications: push.configured, voiceRooms: !!roomProvider } });
+        json(response, 200, { status: 'ok', service: 'TOMI API', version: '1.6.1-beta.1', features: { phoneNotifications: push.configured, voiceRooms: !!roomProvider } });
         return;
       }
 

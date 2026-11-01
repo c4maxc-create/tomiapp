@@ -37,7 +37,9 @@ export function validateLiveChips(chips){
  return chips.map(c=>({slot:c.slot,denomination:c.denomination}));
 }
 export function createLiveRoulette({database,ownerUserId,readJson,respond,limit,usersByIds,emit,clock=Date.now,autoTick=true,unbound=fn=>fn()}){
- let timer,working=null,closed=false;
+ let timer,broadcastTimer,working=null,closed=false,hotCache=null;
+ async function broadcast(){if(closed)return;const ids=(await database.query("SELECT DISTINCT user_id FROM tomi_voice_members WHERE state='active'")).rows.map(x=>x.user_id);if(!closed)emit(ids,{type:'roulette.live'});}
+ function queueBroadcast(){if(closed||broadcastTimer)return;broadcastTimer=setTimeout(()=>{broadcastTimer=null;unbound(broadcast).catch(()=>{});},120);broadcastTimer.unref?.();}
  const owner=c=>{if(!ownerUserId||c.id!==ownerUserId)fail(403,'ADMIN_FORBIDDEN','هذا التحكم لمالك التطبيق فقط.');};
  async function row(db,lock=false){if(lock)await db.query('UPDATE tomi_live_roulette_state SET revision=revision WHERE id=1');const r=(await db.query('SELECT * FROM tomi_live_roulette_state WHERE id=1')).rows[0];return {s:decode(r.data),revision:Number(r.revision)};}
  async function save(db,s){return Number((await db.query('UPDATE tomi_live_roulette_state SET data=?,revision=revision+1 WHERE id=1 RETURNING revision',[JSON.stringify(s)])).rows[0].revision);}
@@ -93,21 +95,27 @@ export function createLiveRoulette({database,ownerUserId,readJson,respond,limit,
     if(s.phase==='spinning'&&t>=s.spinEndsAt)s.phase='results';
     if(s.phase==='results'&&t>=s.resultsEndsAt)s=await start(db,s,t);
     await daily(db,s,t);s.awardDay=rouletteDay(t);await save(db,s);changed=true;
-   });if(changed){const ids=(await database.query("SELECT DISTINCT user_id FROM tomi_voice_members WHERE state='active'")).rows.map(x=>x.user_id);emit(ids,{type:'roulette.live'});}
+   });if(changed)await broadcast();
   }).finally(()=>{working=null;});return working;
  }
  function startTimer(){if(autoTick&&!timer&&!closed){timer=setInterval(()=>advance().catch(()=>{}),1000);timer.unref?.();}}
  async function profileRows(rows,viewer,db=database){const users=await usersByIds(rows.map(r=>r.user_id),viewer,db);return rows.filter(r=>users.has(r.user_id)).map(r=>({...r,user:users.get(r.user_id)}));}
  async function snapshot(rid,c){await member(database,rid,c);await advance();startTimer();return database.transaction(async db=>{
   await member(db,rid,c);const {s,revision}=await row(db),own=(await db.query('SELECT * FROM tomi_live_roulette_bets WHERE round_id=? AND user_id=?',[s.id,c.id])).rows[0];
-  const hot=(await db.query('SELECT chips FROM tomi_live_roulette_bets WHERE round_id=?',[s.id])).rows,totals=Array(8).fill(0);for(const b of hot)for(const chip of decode(b.chips))totals[chip.slot]+=chip.denomination;
-  const ranked=totals.map((n,slot)=>({n,slot})).filter(x=>x.n>0).sort((a,b)=>b.n-a.n||a.slot-b.slot).slice(0,3),rank=new Map(ranked.map((x,i)=>[x.slot,i+1]));
+  // Public HOT ranks are reused only for this committed wheel revision.
+  if(!hotCache||hotCache.revision!==revision||hotCache.roundId!==s.id||clock()<hotCache.cachedAt||clock()-hotCache.cachedAt>=1000){
+   const hot=(await db.query('SELECT chips FROM tomi_live_roulette_bets WHERE round_id=?',[s.id])).rows,totals=Array(8).fill(0);for(const b of hot)for(const chip of decode(b.chips))totals[chip.slot]+=chip.denomination;
+   const ranked=totals.map((n,slot)=>({n,slot})).filter(x=>x.n>0).sort((a,b)=>b.n-a.n||a.slot-b.slot).slice(0,3);hotCache={revision,roundId:s.id,cachedAt:clock(),rank:new Map(ranked.map((x,i)=>[x.slot,i+1]))};
+  }
+  const rank=hotCache.rank;
   const rounds=(await db.query('SELECT * FROM tomi_live_roulette_rounds WHERE result IS NOT NULL ORDER BY started_at DESC,id DESC LIMIT 8')).rows;
-  const recent=[];for(const r of rounds){const b=(await db.query('SELECT total,payout,gross_payout FROM tomi_live_roulette_bets WHERE round_id=? AND user_id=?',[r.id,c.id])).rows[0];recent.push({roundId:r.id,day:r.day,result:decode(r.result),totalBet:Number(b?.total??0),payout:Number(b?.payout??0),grossPayout:Number(b?.gross_payout??0),participated:!!b});}
+  const history=rounds.length?(await db.query('SELECT round_id,total,payout,gross_payout FROM tomi_live_roulette_bets WHERE user_id=? AND round_id IN('+rounds.map(()=>'?').join(',')+')',[c.id,...rounds.map(r=>r.id)])).rows:[],byRound=new Map(history.map(b=>[b.round_id,b]));
+  const recent=rounds.map(r=>{const b=byRound.get(r.id);return {roundId:r.id,day:r.day,result:decode(r.result),totalBet:Number(b?.total??0),payout:Number(b?.payout??0),grossPayout:Number(b?.gross_payout??0),participated:!!b};});
   const winners=s.result?await profileRows((await db.query('SELECT user_id,total,payout FROM tomi_live_roulette_bets WHERE round_id=? AND payout>0 ORDER BY payout DESC,user_id LIMIT 3',[s.id])).rows,c.id,db):[];
-  await db.query('INSERT INTO tomi_room_wallets(user_id,coins,next_claim) VALUES(?,?,?) ON CONFLICT(user_id) DO NOTHING',[c.id,welcomeCoins,new Date(Date.now()+86400000).toISOString()]);
-  const coins=Number((await db.query('SELECT coins FROM tomi_room_wallets WHERE user_id=?',[c.id])).rows[0].coins),last=(await db.query('SELECT chips FROM tomi_live_roulette_last WHERE user_id=?',[c.id])).rows[0];
-  return {roundId:s.id,revision,day:s.day,phase:s.phase,serverTime:clock(),startedAt:s.startedAt,bettingEndsAt:s.bettingEndsAt,spinEndsAt:s.spinEndsAt,resultsEndsAt:s.resultsEndsAt,result:s.result,controlled:s.control.mode!=='random',slots:liveSlots.map(x=>({...x,hotRank:rank.get(x.slot)??0})),denominations:liveDenominations,dailyPrizes:liveDailyPrizes,allowed:await allowed(db,c.id),coins,ownBets:own?decode(own.chips):[],lastBets:last?decode(last.chips):[],recentRounds:recent,winners:winners.map(w=>({user:w.user,payout:Number(w.payout),totalBet:Number(w.total)})),myResult:s.result?recent.find(r=>r.roundId===s.id)??null:null};
+  let wallet=(await db.query('SELECT coins FROM tomi_room_wallets WHERE user_id=?',[c.id])).rows[0];
+  if(!wallet){await db.query('INSERT INTO tomi_room_wallets(user_id,coins,next_claim) VALUES(?,?,?) ON CONFLICT(user_id) DO NOTHING',[c.id,welcomeCoins,new Date(Date.now()+86400000).toISOString()]);wallet=(await db.query('SELECT coins FROM tomi_room_wallets WHERE user_id=?',[c.id])).rows[0];}
+  const coins=Number(wallet.coins),last=(await db.query('SELECT chips FROM tomi_live_roulette_last WHERE user_id=?',[c.id])).rows[0];
+  return {roundId:s.id,revision,day:s.day,phase:s.phase,serverTime:clock(),startedAt:s.startedAt,bettingEndsAt:s.bettingEndsAt,spinEndsAt:s.spinEndsAt,resultsEndsAt:s.resultsEndsAt,result:s.result,controlled:s.control.mode!=='random',slots:liveSlots.map(x=>({...x,hotRank:rank.get(x.slot)??0})),denominations:liveDenominations,dailyPrizes:liveDailyPrizes,allowed:await allowed(db,c.id),coins,ownBets:own?decode(own.chips):[],lastBets:last?decode(last.chips):[],recentRounds:recent,winnersRoundId:s.id,winners:winners.map(w=>({user:w.user,payout:Number(w.payout),totalBet:Number(w.total)})),myResult:s.result?recent.find(r=>r.roundId===s.id)??null:null};
  });}
  async function receipt(db,c,d,fingerprint){const r=(await db.query('SELECT * FROM tomi_live_roulette_requests WHERE user_id=? AND request_id=?',[c.id,d.requestId])).rows[0];if(!r)return null;if(r.fingerprint!==fingerprint)fail(409,'REQUEST_CHANGED','محتوى المحاولة تغيّر؛ استخدم طلبًا جديدًا.');return decode(r.result);}
  async function remember(db,c,d,fp,result){await db.query('INSERT INTO tomi_live_roulette_requests(user_id,request_id,fingerprint,result,created_at) VALUES(?,?,?,?,?)',[c.id,d.requestId,fp,JSON.stringify(result),clock()]);}
@@ -129,9 +137,9 @@ export function createLiveRoulette({database,ownerUserId,readJson,respond,limit,
     const fp=digest(JSON.stringify(['control',d.expectedRevision,d.mode,d.slot??null])),r=await database.transaction(async db=>{const {s}=await row(db,true),old=await receipt(db,c,d,fp);if(old)return {...old,replayed:true};if(d.expectedRevision!==s.controlRevision)fail(409,'ROULETTE_CHANGED','تغيّر التحكم؛ حدّث الصفحة.');s.nextControl={mode:d.mode,...(d.mode==='slot'?{slot:d.slot}:{})};s.controlRevision++;await save(db,s);const result={nextControl:s.nextControl,controlRevision:s.controlRevision};await remember(db,c,d,fp,result);await db.query('INSERT INTO tomi_admin_audit(id,actor_id,action,target_type,target_id,reason,details,created_at) VALUES(?,?,?,?,?,?,?,?)',[randomUUID(),c.id,'live_roulette_control','roulette',s.id,'تحديد الجولة القادمة',JSON.stringify(result),new Date(clock()).toISOString()]);return result;});respond(res,200,r);return true;
    }
   }else if(req.method==='GET'&&!m[2]){respond(res,200,await snapshot(m[1],c));return true;}
-  else if(req.method==='POST'&&m[2]==='bet'){await limit('live-roulette-bet:'+c.id,120);const result=await bet(m[1],c,await readJson(req));respond(res,200,{receipt:result,state:await snapshot(m[1],c)});return true;}
+  else if(req.method==='POST'&&m[2]==='bet'){await limit('live-roulette-bet:'+c.id,120);const result=await bet(m[1],c,await readJson(req));if(!result.replayed)queueBroadcast();respond(res,200,{receipt:result,state:await snapshot(m[1],c)});return true;}
   else if(req.method==='GET'&&m[2]==='leaderboard'){await member(database,m[1],c);await advance();const day=rouletteDay(clock()),rows=(await database.query('SELECT user_id,total_bet,total_payout,wins FROM tomi_live_roulette_daily WHERE day=? AND total_payout>0 AND NOT EXISTS(SELECT 1 FROM tomi_deleted_accounts a WHERE a.user_id=tomi_live_roulette_daily.user_id) ORDER BY total_payout DESC,wins DESC,user_id LIMIT 20',[day])).rows;respond(res,200,{day,prizes:liveDailyPrizes,users:await profileRows(rows,c.id)});return true;}
   fail(405,'METHOD','العملية غير متاحة.');
  }
- return {handle,advance,close(){closed=true;if(timer)clearInterval(timer);}};
+ return {handle,advance,close(){closed=true;if(timer)clearInterval(timer);if(broadcastTimer)clearTimeout(broadcastTimer);}};
 }

@@ -1,3 +1,5 @@
+import {once} from 'node:events';
+import WebSocket from 'ws';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -88,4 +90,34 @@ test('1.6 settlement racing owner credits and account erasure preserves one payo
  assert.equal(Number((await f.db.query('SELECT coins FROM tomi_room_wallets WHERE user_id=?',[mod.user.id])).rows[0].coins),1180);
  for(const table of ['bets','requests','last','daily','awards'])assert.equal(Number((await f.db.query('SELECT COUNT(*) n FROM tomi_live_roulette_'+table+' WHERE user_id=?',[member.user.id])).rows[0].n),0);
  await f.restart();await f.server.sweepLiveRoulette();assert.equal(Number((await f.db.query('SELECT coins FROM tomi_room_wallets WHERE user_id=?',[mod.user.id])).rows[0].coins),1180);
+});
+
+test('1.6.1 podium belongs to this round only, ranks three winners deterministically and lasts five seconds',async t=>{
+ const {f,member,mod,owner,r,state,control,step,bet}=await ready(t),fourth=await f.register('fourth_winner');
+ for(const a of [owner,fourth])assert.equal((await f.req(a,'POST',`/v1/rooms/${r.id}/join`,{})).status,200);
+ await control('slot',0);await step(42001);const first=await state();
+ for(const [a,amount] of [[member,100],[mod,20],[owner,20],[fourth,20]])assert.equal((await bet(a,[{slot:0,denomination:amount}])).status,200);
+ await step(30000);const result=await state();assert.equal(result.winnersRoundId,first.roundId);assert.equal(result.winners.length,3);
+ const tied=[mod,owner,fourth].map(a=>a.user.id).sort();assert.deepEqual(result.winners.map(w=>w.user.id),[member.user.id,...tied.slice(0,2)]);assert.deepEqual(result.winners.map(w=>w.payout),[500,100,100]);
+ await step(7000);const shown=await state();assert.equal(shown.phase,'results');assert.equal(shown.resultsEndsAt-shown.serverTime,5000);await control('slot',1);
+ await step(4999);assert.equal((await state()).phase,'results');await step(1);const next=await state();assert.notEqual(next.roundId,first.roundId);assert.deepEqual(next.winners,[]);assert.equal(next.myResult,null);
+ await bet(mod,[{slot:1,denomination:20}]);await step(30000);const second=await state();assert.equal(second.winnersRoundId,next.roundId);assert.deepEqual(second.winners.map(w=>w.user.id),[mod.user.id]);
+ assert.equal(second.recentRounds[0].roundId,next.roundId);assert.equal(second.recentRounds[1].roundId,first.roundId);assert.equal(second.recentRounds[1].payout,500);
+});
+test('1.6.1 cached HOT ranks refresh after a new committed wager without exposing another account bets',async t=>{
+ const {f,member,mod,state,bet,step}=await ready(t);await bet(member,[{slot:0,denomination:20}]);const before=await state(mod);assert.equal(before.slots[0].hotRank,1);await state(mod);
+ await bet(mod,[{slot:7,denomination:100}]);const after=await state();assert.equal(after.slots[7].hotRank,1);assert.equal(after.slots[0].hotRank,2);assert.deepEqual(after.ownBets,[{slot:0,denomination:20}]);assert.equal(after.coins,980);assert.ok(after.slots.every(s=>!Object.hasOwn(s,'totalBet')));
+ const erased=await f.req(mod,'POST','/v1/account/deletion',{password,confirmation:'حذف حسابي',requestId:randomUUID(),receiptToken:'p'.repeat(43)});assert.equal(erased.status,202);await step(1000);const cleaned=await state();assert.equal(cleaned.slots[7].hotRank,0);assert.equal(cleaned.slots[0].hotRank,1);
+});
+
+test('1.6.1 accepted wagers notify active room peers promptly without publishing stake data',async t=>{
+ const {f,member,mod,owner,state,bet}=await ready(t);await state();
+ const sockets=[];
+ try{
+  for(const actor of [mod,owner]){const w=new WebSocket(f.base.replace('http:','ws:')+'/v1/chat/socket');sockets.push(w);await once(w,'open');const ready=once(w,'message');w.send(JSON.stringify({type:'authenticate',token:actor.token}));assert.equal(JSON.parse((await ready)[0]).type,'chat.ready');}
+  const outside=[];sockets[1].on('message',v=>outside.push(JSON.parse(v)));
+  let timeout;const notified=new Promise((resolve,reject)=>{timeout=setTimeout(()=>reject(Error('No committed wager update')),1500);sockets[0].once('message',v=>resolve(JSON.parse(v)));});
+  try{assert.equal((await bet(member,[{slot:3,denomination:20}])).status,200);assert.deepEqual(await notified,{type:'roulette.live'});}finally{clearTimeout(timeout);}
+  assert.deepEqual(outside,[]);assert.equal((await state(mod)).slots[3].hotRank,1);
+ }finally{await Promise.all(sockets.map(async w=>{if(w.readyState===WebSocket.CLOSED)return;const end=once(w,'close');w.terminate();await end;}));}
 });
