@@ -1,4 +1,4 @@
-name: TOMI 1.6.1-beta.1 Android
+name: TOMI 1.7.0-beta.1 Android
 
 "on":
   workflow_dispatch:
@@ -81,7 +81,7 @@ jobs:
         run: node server/test/pg-restore-drill.mjs
 
   android:
-    name: Build TOMI 1.6.1-beta.1 APK
+    name: Build TOMI 1.7.0-beta.1 APK
     needs: accounts-api
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -176,7 +176,8 @@ jobs:
           TOMI_PRIVACY_INTEGRATION: '1'
           TOMI_HOME_INTEGRATION: '1'
           TOMI_CHAT_INTEGRATION: '1'
-        run: flutter test --no-pub test/call_api_integration_test.dart test/room_api_integration_test.dart test/messaging_api_integration_test.dart test/identity_api_integration_test.dart test/moderation_api_integration_test.dart test/privacy_api_integration_test.dart test/home_api_integration_test.dart test/chat12_api_integration_test.dart --reporter expanded
+          TOMI_GAMES_INTEGRATION: '1'
+        run: flutter test --no-pub test/call_api_integration_test.dart test/room_api_integration_test.dart test/messaging_api_integration_test.dart test/identity_api_integration_test.dart test/moderation_api_integration_test.dart test/privacy_api_integration_test.dart test/home_api_integration_test.dart test/chat12_api_integration_test.dart test/games_api_integration_test.dart --reporter expanded
 
       - name: Check signed beta deployment and phone acceptance
         if: inputs.distribution == 'signed_beta'
@@ -204,7 +205,7 @@ jobs:
             --dart-define="TOMI_PREVIEW_MODE=$TOMI_PREVIEW_MODE" \
             --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED"
           mkdir -p output
-          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-1.6.1-beta.1.apk
+          cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-1.7.0-beta.1.apk
 
       - name: Build signed beta APK and AAB
         if: inputs.distribution == 'signed_beta'
@@ -225,8 +226,8 @@ jobs:
             --dart-define="TOMI_PREVIEW_MODE=false" \
             --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED"
           mkdir -p output
-          cp build/app/outputs/flutter-apk/app-release.apk output/TOMI-1.6.1-beta.1.apk
-          cp build/app/outputs/bundle/release/app-release.aab output/TOMI-1.6.1-beta.1.aab
+          cp build/app/outputs/flutter-apk/app-release.apk output/TOMI-1.7.0-beta.1.apk
+          cp build/app/outputs/bundle/release/app-release.aab output/TOMI-1.7.0-beta.1.aab
 
       - name: Verify release signatures and artifact hashes
         if: inputs.distribution == 'signed_beta'
@@ -246,10 +247,10 @@ jobs:
         run: |
           set -euo pipefail
           release_tag="tomi-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          files=(output/TOMI-1.6.1-beta.1.apk)
+          files=(output/TOMI-1.7.0-beta.1.apk)
           case "$TOMI_BUILD_DISTRIBUTION" in
             debug) ;;
-            signed_beta) files+=(output/TOMI-1.6.1-beta.1.aab output/RELEASE_BUILD_INFO.json) ;;
+            signed_beta) files+=(output/TOMI-1.7.0-beta.1.aab output/RELEASE_BUILD_INFO.json) ;;
             *) echo "Unsupported build distribution." >&2; exit 1 ;;
           esac
           for file in "${files[@]}"; do
@@ -272,7 +273,7 @@ jobs:
             "$TOMI_BUILD_DISTRIBUTION" "$GITHUB_SHA" "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" > "$notes"
           gh release create "$release_tag" "${files[@]}" \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "TOMI 1.6.1-beta.1 ${TOMI_BUILD_DISTRIBUTION} build ${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" \
+            --title "TOMI 1.7.0-beta.1 ${TOMI_BUILD_DISTRIBUTION} build ${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" \
             --draft --prerelease --latest=false --notes-file "$notes"
           release_id="$(gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" --json databaseId --jq .databaseId)"
           if [[ ! "$release_id" =~ ^[1-9][0-9]*$ ]]; then
@@ -285,9 +286,9 @@ jobs:
           import json
           import os
           from pathlib import Path
-          names = ['TOMI-1.6.1-beta.1.apk', 'SHA256SUMS.txt']
+          names = ['TOMI-1.7.0-beta.1.apk', 'SHA256SUMS.txt']
           if os.environ['TOMI_BUILD_DISTRIBUTION'] == 'signed_beta':
-              names += ['TOMI-1.6.1-beta.1.aab', 'RELEASE_BUILD_INFO.json']
+              names += ['TOMI-1.7.0-beta.1.aab', 'RELEASE_BUILD_INFO.json']
           receipt = json.loads((Path(os.environ['RUNNER_TEMP']) / 'tomi-release-receipt.json').read_text())
           tag = 'tomi-build-' + os.environ['GITHUB_RUN_ID'] + '-' + os.environ['GITHUB_RUN_ATTEMPT']
           if (receipt.get('draft') is not True or receipt.get('prerelease') is not True
