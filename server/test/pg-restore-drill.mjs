@@ -6,6 +6,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {Client} from 'pg';
 import {openDatabase} from '../src/database.mjs';
+import {newGame} from '../src/game_engine.mjs';
 import {databaseTarget,createPostgresBackup,restorePostgresCheck} from '../tools/backup.mjs';
 
 const source=process.env.TEST_DATABASE_URL,target=databaseTarget(source);
@@ -60,6 +61,13 @@ try{
   await db.query('INSERT INTO tomi_live_roulette_award_days(day,created_at) VALUES(?,?) ON CONFLICT(day) DO NOTHING',[liveDay,liveTime+86400000]);
   await db.query('INSERT INTO tomi_live_roulette_awards(day,user_id,rank,prize,credited) VALUES(?,?,1,2000,2000)',[liveDay,user]);
   const sharedPost=randomUUID(),sharedThread=randomUUID(),sharedMessage=randomUUID(),sharedNonce=randomUUID(),shareRequest=randomUUID(),shareAction=randomUUID();
+  const gameId=randomUUID(),gameNonce=randomUUID(),gameState=JSON.stringify(newGame('uno',[{seat:0},{seat:1,bot:true}],{now:liveTime}));
+  await db.query('INSERT INTO tomi_game_progress(user_id,xp) VALUES(?,180)',[user]);
+  await db.query('INSERT INTO tomi_game_matches(id,code,kind,mode,host_id,status,revision,state,due_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',[gameId,'D00D1717','uno','practice',user,'playing',7,gameState,liveTime+30000,liveTime,liveTime]);
+  await db.query('INSERT INTO tomi_game_players(match_id,user_id,seat) VALUES(?,?,0)',[gameId,user]);
+  await db.query('INSERT INTO tomi_game_requests(user_id,request_id,fingerprint,match_id,result,created_at) VALUES(?,?,?,?,?,?)',[user,gameNonce,'restore-game-request',gameId,JSON.stringify({matchId:gameId}),liveTime]);
+  await db.query('INSERT INTO tomi_game_awards(user_id,source_kind,source_id,day,xp,created_at) VALUES(?,?,?,?,?,?)',[user,'uno',gameId,liveDay,60,liveTime]);
+  await db.query('INSERT INTO tomi_roulette_watchers(user_id,expires_at) VALUES(?,?)',[user,liveTime+15000]);
   const [low,high]=[user,reporter].sort(),sharedReceipt=JSON.stringify({status:'delivered',conversationId:sharedThread,messageId:sharedMessage});
   await db.query('INSERT INTO tomi_posts(id,user_id,request_id,body,created_at) VALUES(?,?,?,?,?)',[sharedPost,user,randomUUID(),'Restore shared post',stamp]);
   await db.query('INSERT INTO tomi_chat_threads(id,low_user_id,high_user_id,next_seq,created_at,updated_at) VALUES(?,?,?,1,?,?)',[sharedThread,low,high,stamp,stamp]);
@@ -121,8 +129,14 @@ try{
   assert.equal((await upgraded.query('SELECT state FROM tomi_post_share_requests WHERE id=?',[shareRequest])).rows[0].state,'accepted');
   assert.equal((await upgraded.query('SELECT created_at FROM tomi_post_share_pairs WHERE sender_id=? AND recipient_id=?',[user,reporter])).rows[0].created_at,stamp);
   assert.equal(JSON.parse((await upgraded.query('SELECT result FROM tomi_post_share_actions WHERE actor_id=? AND request_id=?',[reporter,shareAction])).rows[0].result).conversationId,sharedThread);
+  assert.equal(Number((await upgraded.query('SELECT xp FROM tomi_game_progress WHERE user_id=?',[user])).rows[0].xp),180);
+  const game=(await upgraded.query('SELECT * FROM tomi_game_matches WHERE id=?',[gameId])).rows[0];assert.equal(game.state,gameState);assert.equal(Number(game.revision),7);assert.equal(game.code,'D00D1717');assert.equal(JSON.parse(game.state).players[0].hand.length,7);
+  assert.equal(Number((await upgraded.query('SELECT seat FROM tomi_game_players WHERE match_id=? AND user_id=?',[gameId,user])).rows[0].seat),0);
+  assert.equal(JSON.parse((await upgraded.query('SELECT result FROM tomi_game_requests WHERE user_id=? AND request_id=?',[user,gameNonce])).rows[0].result).matchId,gameId);
+  assert.equal(Number((await upgraded.query('SELECT xp FROM tomi_game_awards WHERE user_id=? AND source_id=?',[user,gameId])).rows[0].xp),60);
+  assert.equal(Number((await upgraded.query('SELECT expires_at FROM tomi_roulette_watchers WHERE user_id=?',[user])).rows[0].expires_at),liveTime+15000);
   await upgraded.close();upgraded=null;
-  console.log('PASS: PostgreSQL encrypted dump and authenticated local restore; row counts, credentials, erasure cleanup, moderation, identity, support/receipts/coins/charisma/cosmetics/room policy, special accounts/staff permissions, roulette configuration/access/contributions, 1.6 live rounds/bets/retry receipts/daily awards/private post sharing and initialization.');
+  console.log('PASS: PostgreSQL encrypted dump and authenticated local restore; row counts, credentials, erasure cleanup, moderation, identity, support/receipts/coins/charisma/cosmetics/room policy, special accounts/staff permissions, roulette configuration/access/contributions, live rounds/private post sharing and 1.7 private hands/membership/receipts/XP/watchers and initialization.');
 }finally{
   if(db)await db.close();if(restored)await restored.end();if(upgraded)await upgraded.close();
   if(created&&admin)await admin.query('DROP DATABASE tomi_restore_check');

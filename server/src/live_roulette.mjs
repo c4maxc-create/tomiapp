@@ -2,6 +2,7 @@ import {randomInt,randomUUID} from 'node:crypto';
 import {ApiError,digest} from './security.mjs';
 import {rouletteDay} from './roulette.mjs';
 import {welcomeCoins} from './room_catalog.mjs';
+import {awardGameXp} from './game_progress.mjs';
 
 // Ported from the supplied TOMI roulette, without its unrelated games or owner username.
 export const liveSlots=Object.freeze([
@@ -38,12 +39,14 @@ export function validateLiveChips(chips){
 }
 export function createLiveRoulette({database,ownerUserId,readJson,respond,limit,usersByIds,emit,clock=Date.now,autoTick=true,unbound=fn=>fn()}){
  let timer,broadcastTimer,working=null,closed=false,hotCache=null;
- async function broadcast(){if(closed)return;const ids=(await database.query("SELECT DISTINCT user_id FROM tomi_voice_members WHERE state='active'")).rows.map(x=>x.user_id);if(!closed)emit(ids,{type:'roulette.live'});}
+ async function broadcast(){if(closed)return;const ids=(await database.query("SELECT DISTINCT user_id FROM tomi_voice_members WHERE state='active' UNION SELECT user_id FROM tomi_roulette_watchers WHERE expires_at>?",[clock()])).rows.map(x=>x.user_id);if(!closed)emit(ids,{type:'roulette.live'});}
  function queueBroadcast(){if(closed||broadcastTimer)return;broadcastTimer=setTimeout(()=>{broadcastTimer=null;unbound(broadcast).catch(()=>{});},120);broadcastTimer.unref?.();}
  const owner=c=>{if(!ownerUserId||c.id!==ownerUserId)fail(403,'ADMIN_FORBIDDEN','هذا التحكم لمالك التطبيق فقط.');};
  async function row(db,lock=false){if(lock)await db.query('UPDATE tomi_live_roulette_state SET revision=revision WHERE id=1');const r=(await db.query('SELECT * FROM tomi_live_roulette_state WHERE id=1')).rows[0];return {s:decode(r.data),revision:Number(r.revision)};}
  async function save(db,s){return Number((await db.query('UPDATE tomi_live_roulette_state SET data=?,revision=revision+1 WHERE id=1 RETURNING revision',[JSON.stringify(s)])).rows[0].revision);}
- async function member(db,rid,c){const r=(await db.query("SELECT r.state,m.session_hash,p.tier,p.last_owner_visit FROM tomi_voice_rooms r JOIN tomi_room_policy p ON p.room_id=r.id JOIN tomi_voice_members m ON m.room_id=r.id AND m.user_id=? AND m.state='active' WHERE r.id=?",[c.id,rid])).rows[0];
+ async function member(db,rid,c){
+  if(rid===null){await db.query('INSERT INTO tomi_roulette_watchers(user_id,expires_at) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET expires_at=excluded.expires_at WHERE tomi_roulette_watchers.expires_at<excluded.expires_at-5000',[c.id,clock()+15000]);return;}
+  const r=(await db.query("SELECT r.state,m.session_hash,p.tier,p.last_owner_visit FROM tomi_voice_rooms r JOIN tomi_room_policy p ON p.room_id=r.id JOIN tomi_voice_members m ON m.room_id=r.id AND m.user_id=? AND m.state='active' WHERE r.id=?",[c.id,rid])).rows[0];
   if(!r||r.state!=='open'||r.session_hash!==c.tokenHash||r.tier==='advanced'&&Date.parse(r.last_owner_visit)<=Date.now()-60*86400000)fail(403,'ROOM_MEMBERSHIP','اللعبة متاحة أثناء وجودك داخل غرفة صوتية فقط.');
  }
  async function allowed(db,uid){const c=(await db.query('SELECT mode FROM tomi_roulette_config WHERE id=1')).rows[0],a=(await db.query('SELECT allowed FROM tomi_roulette_access WHERE user_id=?',[uid])).rows[0];return a?!!Number(a.allowed):c.mode==='everyone';}
@@ -66,6 +69,7 @@ export function createLiveRoulette({database,ownerUserId,readJson,respond,limit,
    await db.query('UPDATE tomi_live_roulette_bets SET payout=?,gross_payout=?,settled=1 WHERE round_id=? AND user_id=?',[paid.credited,gross,s.id,b.user_id]);
    await db.query('INSERT INTO tomi_live_roulette_last(user_id,chips) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET chips=excluded.chips',[b.user_id,b.chips]);
    await db.query('INSERT INTO tomi_live_roulette_daily(day,user_id,total_bet,total_payout,wins) VALUES(?,?,?,?,?) ON CONFLICT(day,user_id) DO UPDATE SET total_bet=tomi_live_roulette_daily.total_bet+excluded.total_bet,total_payout=tomi_live_roulette_daily.total_payout+excluded.total_payout,wins=tomi_live_roulette_daily.wins+excluded.wins',[s.day,b.user_id,Number(b.total),gross,gross>0?1:0]);
+   await awardGameXp(db,b.user_id,'roulette',s.id,10,t);
   }
   await db.query('UPDATE tomi_live_roulette_rounds SET result=?,settled_at=? WHERE id=? AND result IS NULL',[JSON.stringify(result),t,s.id]);return {...s,result,phase:'spinning'};
  }
@@ -131,7 +135,7 @@ export function createLiveRoulette({database,ownerUserId,readJson,respond,limit,
    await save(db,s);const result={requestId:d.requestId,roundId:s.id,amount,chips,coinsAfterBet:Number(wallet.coins)};await remember(db,c,d,fp,result);return result;
   });
  }
- async function handle(req,res,url,c){const m=url.pathname.match(/^\/v1\/rooms\/([a-f0-9-]{36})\/live-roulette(?:\/(bet|leaderboard))?$/),admin=url.pathname==='/v1/admin/live-roulette';if(!m&&!admin)return false;
+ async function handle(req,res,url,c){const room=url.pathname.match(/^\/v1\/rooms\/([a-f0-9-]{36})\/live-roulette(?:\/(bet|leaderboard))?$/),lobby=url.pathname.match(/^\/v1\/games\/live-roulette(?:\/(bet|leaderboard))?$/),m=room??(lobby?[lobby[0],null,lobby[1]]:null),admin=url.pathname==='/v1/admin/live-roulette';if(!m&&!admin)return false;
   if(admin){owner(c);await advance();if(req.method==='GET'){const {s}=await row(database);respond(res,200,{nextControl:s.nextControl,controlRevision:s.controlRevision,currentControl:s.control,roundId:s.id});return true;}
    if(req.method==='POST'){await limit('roulette-live-control:'+c.id,20);const d=await readJson(req);fields(d,['requestId','expectedRevision','mode','slot']);if(!uuid(d.requestId)||!Number.isSafeInteger(d.expectedRevision)||!['random','slot','fruit_salad','meat_salad'].includes(d.mode)||d.mode==='slot'&&(!Number.isInteger(d.slot)||d.slot<0||d.slot>7)||d.mode!=='slot'&&d.slot!==undefined)fail(400,'VALIDATION','اختَر عشوائيًا أو خانة أو سلطة.');
     const fp=digest(JSON.stringify(['control',d.expectedRevision,d.mode,d.slot??null])),r=await database.transaction(async db=>{const {s}=await row(db,true),old=await receipt(db,c,d,fp);if(old)return {...old,replayed:true};if(d.expectedRevision!==s.controlRevision)fail(409,'ROULETTE_CHANGED','تغيّر التحكم؛ حدّث الصفحة.');s.nextControl={mode:d.mode,...(d.mode==='slot'?{slot:d.slot}:{})};s.controlRevision++;await save(db,s);const result={nextControl:s.nextControl,controlRevision:s.controlRevision};await remember(db,c,d,fp,result);await db.query('INSERT INTO tomi_admin_audit(id,actor_id,action,target_type,target_id,reason,details,created_at) VALUES(?,?,?,?,?,?,?,?)',[randomUUID(),c.id,'live_roulette_control','roulette',s.id,'تحديد الجولة القادمة',JSON.stringify(result),new Date(clock()).toISOString()]);return result;});respond(res,200,r);return true;
