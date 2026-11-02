@@ -1,0 +1,6 @@
+{
+  "date_baghdad": "2026-11-03",
+  "files": 120,
+  "errors": [],
+  "scope": "Python syntax parsing only; not Dart type analysis or widget execution"
+}

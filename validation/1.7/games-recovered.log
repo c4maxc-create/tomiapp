@@ -1,0 +1,39 @@
+✔ 1.7 deck has 108 unique cards with the playable colour and action distribution (1.887219ms)
+✔ 1.7 dealing conserves all cards and begins on a number (1.919592ms)
+✔ 1.7 out-of-turn and invented card actions leave the authoritative input untouched (4.111112ms)
+✔ 1.7 a draw-four cannot bypass a matching colour in the player hand (0.540195ms)
+✔ 1.7 wilds require a valid colour and coloured cards reject a forced colour (1.311056ms)
+✔ 1.7 reverse skips the opponent in a two-player match (1.071491ms)
+✔ 1.7 draw-two charges the next hand and skips that player without stacking (0.61957ms)
+✔ 1.7 drawing permits only the newly drawn playable card or passing (0.763779ms)
+✔ 1.7 forgetting UNO applies the displayed two-card rule and prevents a false one-card state (0.74353ms)
+✔ 1.7 recycling keeps the top discard and never copies another player cards (1.028152ms)
+✔ 1.7 the public table never exposes the draw pile or another private hand (0.787908ms)
+✔ 1.7 a ladder and snake move from their board square to the configured endpoint (0.538585ms)
+✔ 1.7 exact finish, overshoot and the extra six turn are enforced on the server (0.288753ms)
+✔ 1.7 full legal card matches finish while conserving every card across reshuffles (238.335868ms)
+✔ 1.7 full snakes matches reach square 100 without leaving the board (2.989757ms)
+✔ 1.7 game-level boundaries are separate and capped at level fifty (0.28428ms)
+✔ 1.7 game progress is separate from gifts and suspended accounts cannot earn new XP (2604.363879ms)
+✔ 1.7 authenticated practice deals a real private hand and rejects client XP or dice (2079.278365ms)
+✔ 1.7 duplicate creation is one persisted match and changed retries are rejected (1707.020986ms)
+✔ 1.7 a repeated roll cannot advance twice and stale revisions cannot play another turn (1543.828805ms)
+✔ 1.7 friend codes have membership boundaries and only the host starts a full table (2129.876757ms)
+✔ 1.7 blocked accounts and fifth players cannot enter a waiting table (3977.765259ms)
+✔ 1.7 reconnect and server restart restore the same cards, code and revision (2119.857182ms)
+✔ 1.7 committed completion grants XP once without changing charisma or coins (2044.442355ms)
+✔ 1.7 XP ledger caps rewarded rounds per Baghdad day and deduplicates sources (2093.43444ms)
+✔ 1.7 timeout advances a real turn without crediting unattended play (2165.756615ms)
+✔ 1.7 leaving replaces a friend with a bot and erasure removes game identifiers and private cards (2952.058774ms)
+✔ 1.7 games roulette works without a voice join and settles one source of XP (4009.537439ms)
+✔ 1.7 expiring a card match never reveals private hands in a cancelled snapshot (2672.43253ms)
+✔ 1.7 voice and games roulette share the round, stake receipt and wallet after leaving voice (30264.162125ms)
+✔ 1.7 concurrent roulette settlement and erasure cannot recreate game XP records (12002.593775ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 75073.356799

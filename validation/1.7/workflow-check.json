@@ -1,0 +1,12 @@
+{
+  "date_baghdad": "2026-11-03",
+  "version": "1.7.0-beta.1+25",
+  "api": "1.7.0-beta.1",
+  "expected_server_tests": 242,
+  "shell_steps": 28,
+  "js_syntax": "passed",
+  "yaml": "passed",
+  "permissions_and_dependencies": "passed",
+  "flutter_and_games_contract_gate_preserved": true,
+  "checks_disabled": false
+}
