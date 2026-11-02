@@ -700,6 +700,43 @@ CREATE TABLE IF NOT EXISTS tomi_live_roulette_awards (
 );
 
 -- 1.6 post sharing and recipient-controlled stranger requests.
+-- 1.7 games. Private hands are stored only in server state; membership is separate.
+CREATE TABLE IF NOT EXISTS tomi_game_progress (
+ user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,
+ xp BIGINT NOT NULL DEFAULT 0 CHECK(xp>=0 AND xp<=240100)
+);
+CREATE TABLE IF NOT EXISTS tomi_game_awards (
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ source_kind TEXT NOT NULL,source_id TEXT NOT NULL,day TEXT NOT NULL,
+ xp INTEGER NOT NULL CHECK(xp>=0),created_at BIGINT NOT NULL,
+ PRIMARY KEY(user_id,source_kind,source_id)
+);
+CREATE INDEX IF NOT EXISTS tomi_game_award_day ON tomi_game_awards(user_id,day);
+CREATE TABLE IF NOT EXISTS tomi_game_matches (
+ id TEXT PRIMARY KEY,code TEXT NOT NULL UNIQUE,kind TEXT NOT NULL CHECK(kind IN('uno','snakes')),
+ mode TEXT NOT NULL CHECK(mode IN('practice','friends')),
+ host_id TEXT REFERENCES tomi_users(id) ON DELETE SET NULL,
+ status TEXT NOT NULL CHECK(status IN('waiting','playing','finished','cancelled')),
+ revision BIGINT NOT NULL DEFAULT 0,state TEXT NOT NULL,
+ due_at BIGINT NOT NULL,created_at BIGINT NOT NULL,updated_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tomi_game_due ON tomi_game_matches(status,due_at);
+CREATE TABLE IF NOT EXISTS tomi_game_players (
+ match_id TEXT NOT NULL REFERENCES tomi_game_matches(id) ON DELETE CASCADE,
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,seat INTEGER NOT NULL CHECK(seat>=0 AND seat<4),
+ PRIMARY KEY(match_id,user_id),UNIQUE(match_id,seat)
+);
+CREATE INDEX IF NOT EXISTS tomi_game_membership ON tomi_game_players(user_id,match_id);
+CREATE TABLE IF NOT EXISTS tomi_game_requests (
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,request_id TEXT NOT NULL,
+ fingerprint TEXT NOT NULL,match_id TEXT NOT NULL REFERENCES tomi_game_matches(id) ON DELETE CASCADE,
+ result TEXT NOT NULL,created_at BIGINT NOT NULL,PRIMARY KEY(user_id,request_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_roulette_watchers (
+ user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,expires_at BIGINT NOT NULL
+);
+
+-- 1.6 post sharing and recipient-controlled stranger requests.
 CREATE TABLE IF NOT EXISTS tomi_post_shares (
  message_id TEXT PRIMARY KEY REFERENCES tomi_chat_messages(id) ON DELETE CASCADE,
  post_id TEXT REFERENCES tomi_posts(id) ON DELETE SET NULL
