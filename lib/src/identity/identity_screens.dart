@@ -23,7 +23,7 @@ class IdentitySummary extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'مستوى المستخدم ${id.level}',
+            'رتبة الدعم ${id.level}',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontWeight: FontWeight.bold,
@@ -157,7 +157,7 @@ class _IdentityStudioPageState extends State<IdentityStudioPage> {
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  'عتبات مستوى المستخدم',
+                  'عتبات رتبة الدعم',
                   style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
                 ),
                 for (var i = 0; i < catalog.thresholds.length; i++)
@@ -167,7 +167,7 @@ class _IdentityStudioPageState extends State<IdentityStudioPage> {
                           ? Icons.verified
                           : Icons.lock_outline,
                     ),
-                    title: Text('المستوى ${i + 1}'),
+                    title: Text('رتبة الدعم ${i + 1}'),
                     trailing: Text('${catalog.thresholds[i]} نقطة'),
                   ),
               ],
@@ -211,7 +211,7 @@ class _IdentityStudioPageState extends State<IdentityStudioPage> {
             title: Text(style.name),
             subtitle: Text(
               style.level > identity.level
-                  ? 'يُفتح عند المستوى ${style.level}'
+                  ? 'يُفتح عند رتبة الدعم ${style.level}'
                   : 'متاح لمستواك',
             ),
             onTap:

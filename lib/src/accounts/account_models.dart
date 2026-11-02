@@ -1,4 +1,5 @@
 import '../identity/identity_models.dart';
+import '../gaming/game_models.dart';
 
 class AccountUser {
   const AccountUser({
@@ -15,6 +16,7 @@ class AccountUser {
     this.avatarUrl,
     this.avatarId,
     this.identity = const UserIdentity(),
+    this.gameProgress = const GameProgress(),
   });
 
   final String id;
@@ -26,6 +28,7 @@ class AccountUser {
   final DateTime? storyExpiresAt;
   bool get hasStory => storyExpiresAt?.isAfter(DateTime.now()) ?? false;
   final UserIdentity identity;
+  final GameProgress gameProgress;
   final int followersCount;
   final int followingCount;
   final int postsCount;
@@ -45,6 +48,15 @@ class AccountUser {
     postsCount: postsCount,
     isFollowing: isFollowing,
     identity: value,
+    gameProgress: gameProgress,
+  );
+
+  AccountUser withGameProgress(GameProgress value) => AccountUser(
+    id: id, username: username, displayName: displayName, bio: bio,
+    avatarPreset: avatarPreset, avatarUrl: avatarUrl, avatarId: avatarId,
+    storyExpiresAt: storyExpiresAt, followersCount: followersCount,
+    followingCount: followingCount, postsCount: postsCount,
+    isFollowing: isFollowing, identity: identity, gameProgress: value,
   );
 
   factory AccountUser.fromJson(Map<String, dynamic> json) => AccountUser(
@@ -59,6 +71,7 @@ class AccountUser {
     identity: UserIdentity(
       json['identity'] as Map<String, dynamic>? ?? const {},
     ),
+    gameProgress: GameProgress.fromJson((json['gameProgress'] as Map?)?.cast<String, dynamic>() ?? const {}),
     followersCount: (json['followersCount'] as num).toInt(),
     followingCount: (json['followingCount'] as num).toInt(),
     postsCount: (json['postsCount'] as num?)?.toInt() ?? 0,

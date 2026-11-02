@@ -9,7 +9,7 @@ import '../widgets.dart';
 import 'live_controller.dart';
 import 'live_round.dart';
 
-Future<void> showLiveRoulette(BuildContext context, AccountController accounts, String roomId) => showModalBottomSheet<void>(
+Future<void> showLiveRoulette(BuildContext context, AccountController accounts, String? roomId) => showModalBottomSheet<void>(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
@@ -23,7 +23,7 @@ Future<void> showLiveRoulette(BuildContext context, AccountController accounts, 
 class LiveRouletteSheet extends StatefulWidget {
   const LiveRouletteSheet({super.key, required this.accounts, required this.roomId});
   final AccountController accounts;
-  final String roomId;
+  final String? roomId;
   @override
   State<LiveRouletteSheet> createState() => _LiveRouletteSheetState();
 }

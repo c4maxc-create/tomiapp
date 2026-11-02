@@ -21,7 +21,7 @@ class LiveRouletteController extends ChangeNotifier {
     unawaited(restore());
   }
   final AccountController accounts;
-  final String roomId;
+  final String? roomId;
   late final String accountId;
   late final int session;
   late final StreamSubscription<Map<String, dynamic>> events;
@@ -37,7 +37,7 @@ class LiveRouletteController extends ChangeNotifier {
   String? error;
   bool get current => !disposed && !invalidated && accountId.isNotEmpty && accounts.user?.id == accountId && accounts.sessionRevision == session;
   String get key => 'tomi.live.roulette.${accounts.api.baseUrl}.$accountId';
-  String get path => '/v1/rooms/$roomId/live-roulette';
+  String get path => roomId == null ? '/v1/games/live-roulette' : '/v1/rooms/$roomId/live-roulette';
   int get serverNow {
     lastNow = math.max(lastNow, clockAnchor + watch.elapsedMilliseconds - anchorElapsed);
     return lastNow;

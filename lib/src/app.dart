@@ -1,6 +1,5 @@
 import 'design/tomi_theme.dart';
 import 'social/activity_screen.dart';
-import 'social/story_screens.dart' show socialBackground;
 import 'messaging/chat_screens.dart';
 import 'messaging/chat_models.dart';
 import 'calling/call_models.dart';
@@ -377,7 +376,7 @@ class _TomiShellState extends State<TomiShell> {
     builder: (context, _) => Scaffold(
       appBar:
           widget.accounts != null &&
-              (selected == 0 || selected == 1 || selected == 4)
+              (selected == 0 || selected == 1 || selected == 3 || selected == 4)
           ? null
           : AppBar(
               titleSpacing: 18,
@@ -397,7 +396,7 @@ class _TomiShellState extends State<TomiShell> {
                       ),
                     ),
                     const SizedBox(width: 9),
-                    TinyLabel(widget.accounts == null ? 'تجريبي' : '1.6.1'),
+                    TinyLabel(widget.accounts == null ? 'تجريبي' : '1.7.0'),
                   ],
                 ),
               ),
@@ -444,18 +443,6 @@ class _TomiShellState extends State<TomiShell> {
         bottom: false,
         child: Column(
           children: [
-            if (widget.accounts != null && selected == 3)
-              const Padding(
-                padding: EdgeInsets.fromLTRB(18, 4, 18, 0),
-                child: Text(
-                  'هذا القسم معاينة؛ الحساب والمنشورات والتفاعلات فعّالة.',
-                  style: TextStyle(
-                    color: TomiColors.muted,
-                    fontSize: 11,
-                    height: 1.5,
-                  ),
-                ),
-              ),
             Expanded(
               child: IndexedStack(
                 index: selected,
@@ -475,7 +462,7 @@ class _TomiShellState extends State<TomiShell> {
                           accounts: widget.accounts!,
                           visible: selected == 2,
                         ),
-                  GamesScreen(store: widget.store),
+                  GamesScreen(store: widget.store,accounts:widget.accounts,visible:selected==3),
                   widget.accounts == null
                       ? ProfileScreen(store: widget.store)
                       : AccountProfileScreen(
@@ -491,11 +478,7 @@ class _TomiShellState extends State<TomiShell> {
       bottomNavigationBar: NavigationBar(
         height: 76,
         animationDuration: const Duration(milliseconds: 180),
-        backgroundColor:
-            widget.accounts != null &&
-                (selected == 0 || selected == 1 || selected == 4)
-            ? socialBackground
-            : null,
+        backgroundColor: TomiColors.surface,
         selectedIndex: selected,
         onDestinationSelected: (value) => setState(() => selected = value),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,

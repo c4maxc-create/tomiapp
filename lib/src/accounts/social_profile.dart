@@ -1,4 +1,5 @@
 import '../identity/charisma_badge.dart';
+import '../identity/progress_cards.dart';
 
 import 'dart:async';
 
@@ -355,6 +356,8 @@ class _SocialProfileViewState extends State<SocialProfileView> {
                       ),
                       const SizedBox(height: 18),
                       identityHeader(context),
+                      const SizedBox(height: 16),
+                      TomiProgressTiles(user: user),
                       if (user.bio.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 12, bottom: 4),
@@ -378,8 +381,8 @@ class _SocialProfileViewState extends State<SocialProfileView> {
                               style: FilledButton.styleFrom(
                                 backgroundColor: widget.own || user.isFollowing
                                     ? socialSurface
-                                    : const Color(0xFF3797EF),
-                                foregroundColor: Colors.white,
+                                    : TomiColors.accent,
+                                foregroundColor: widget.own || user.isFollowing ? TomiColors.text : TomiColors.background,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(9),
                                 ),

@@ -2,13 +2,18 @@ import 'package:flutter/material.dart';
 
 import 'model.dart';
 import 'widgets.dart';
+import 'accounts/account_controller.dart';
+import 'gaming/game_hub.dart';
 
 class GamesScreen extends StatelessWidget {
-  const GamesScreen({super.key, required this.store});
+  const GamesScreen({super.key, required this.store, this.accounts, this.visible=true});
   final TomiStore store;
+  final AccountController? accounts;
+  final bool visible;
 
   @override
-  Widget build(BuildContext context) => ListView(key: const PageStorageKey('games-scroll'),
+  Widget build(BuildContext context) => accounts == null ? preview(context) : GameHub(key:ValueKey(accounts!.user?.id),accounts:accounts!,visible:visible);
+  Widget preview(BuildContext context) => ListView(key: const PageStorageKey('games-scroll'),
     padding: const EdgeInsets.all(18), children: [
       const SectionHeading('الألعاب', subtitle: 'تحدّي صغير، ووناسة أكبر'),
       TomiCard(child: Row(children: [

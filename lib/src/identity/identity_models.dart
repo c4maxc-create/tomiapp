@@ -12,11 +12,16 @@ class UserIdentity {
   int get revision => (data['revision'] as num?)?.toInt() ?? 0;
   int get charisma =>
       (data['charisma'] as num? ?? data['received'] as num? ?? 0).toInt();
+  static const charismaThresholds = [0,1000,4000,12000,30000,80000,160000,300000,500000,1000000,2000000,3500000,6000000,8500000,12000000,16000000];
+  int get charismaMaxLevel => charismaThresholds.length - 1;
+  int get charismaMinimum => charismaThresholds[charismaLevel.clamp(0, charismaMaxLevel).toInt()];
+  int? get charismaNext => charismaLevel >= charismaMaxLevel ? null : charismaThresholds[charismaLevel + 1];
+  int get charismaRemaining => charismaNext == null ? 0 : (charismaNext! - charisma).clamp(0, 16000000).toInt();
+  double get charismaProgress => charismaNext == null ? 1 : ((charisma - charismaMinimum) / (charismaNext! - charismaMinimum)).clamp(0, 1).toDouble();
   int get charismaLevel {
     final value = (data['charismaTier'] as Map?)?['level'];
     if (value is num) return value.toInt();
-    const minimums = [0,1000,4000,12000,30000,80000,160000,300000,500000,1000000,2000000,3500000,6000000,8500000,12000000,16000000];
-    return minimums.lastIndexWhere((n) => charisma >= n);
+    return charismaThresholds.lastIndexWhere((n) => charisma >= n);
   }
   String get charismaIcon {
     final value = (data['charismaTier'] as Map?)?['icon'];

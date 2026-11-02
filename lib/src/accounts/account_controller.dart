@@ -1,5 +1,6 @@
 import '../social/home_controller.dart';
 import '../identity/identity_models.dart';
+import '../gaming/game_models.dart';
 import '../messaging/chat_controller.dart';
 import '../messaging/draft_store.dart';
 import '../messaging/chat_connection.dart';
@@ -123,6 +124,12 @@ class AccountController extends ChangeNotifier {
         next.data['roomsCreated'] == previous.data['roomsCreated'])
       return;
     _user = own.withIdentity(next);
+    _notify();
+  }
+
+  void applyGameProgress(GameProgress value, {required String accountId, required int session}) {
+    if (_user?.id != accountId || _revision != session || value.xp <= _user!.gameProgress.xp) return;
+    _user = _user!.withGameProgress(value);
     _notify();
   }
 

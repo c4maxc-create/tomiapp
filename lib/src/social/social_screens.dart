@@ -287,8 +287,10 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                                 color: Colors.white,
                               ),
                             ),
-                            Expanded(
-                              child: PopupMenuButton<String>(
+                            const Expanded(child: Text('TOMI',textDirection:TextDirection.ltr,textAlign:TextAlign.center,style:TextStyle(fontSize:27,fontWeight:FontWeight.w900,letterSpacing:4,color:TomiColors.text))),
+                            PopupMenuButton<String>(
+                              key: const Key('feed-filters'),
+                              icon: const Icon(Icons.tune_rounded,color:TomiColors.accent),
                               tooltip: 'قائمة المنشورات',
                               onSelected: (value) async {
                                 if (value == 'search') {
@@ -317,33 +319,6 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                                     child: Text(e.value),
                                   ),
                               ],
-                              child: const FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Padding(
-                                padding: EdgeInsets.all(8),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      'TOMI',
-                                      style: TextStyle(
-                                        fontSize: 29,
-                                        fontStyle: FontStyle.normal,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 3,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    Icon(
-                                      Icons.keyboard_arrow_down,
-                                      color: Colors.white,
-                                      size: 19,
-                                    ),
-                                  ],
-                                ),
-                                ),
-                              ),
-                            ),
                             ),
                             IconButton(
                               tooltip: 'الإشعارات',

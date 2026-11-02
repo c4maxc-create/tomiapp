@@ -250,12 +250,12 @@ class StoriesStrip extends StatelessWidget {
         locale: Localizations.maybeLocaleOf(context),
         maxLines: 1,
         ellipsis: '…',
-      )..layout(maxWidth: 76);
+      )..layout(maxWidth: 84);
       labelHeight = math.max(labelHeight, painter.height);
       painter.dispose();
     }
-    // Avatar72 + gap5 + padding16, with room for fractional text metrics.
-    return math.max(113.0, 94 + labelHeight.ceilToDouble());
+    // TOMI moment cards: inset20 + art66 + gap8 + list16, plus text.
+    return math.max(142.0, 116 + labelHeight.ceilToDouble());
   }
 
   @override
@@ -266,6 +266,7 @@ class StoriesStrip extends StatelessWidget {
       if (me == null) return const SizedBox.shrink();
       return Column(
         children: [
+          const Padding(padding:EdgeInsets.fromLTRB(18,8,18,0),child:Row(children:[Icon(Icons.auto_awesome_outlined,color:TomiColors.accent,size:17),SizedBox(width:7),Text('لحظات تومي',style:TextStyle(fontSize:12,fontWeight:FontWeight.w800,color:TomiColors.muted))])),
           SizedBox(
             key: const Key('story-strip'),
             height: stripHeight(c, [
@@ -293,7 +294,7 @@ class StoriesStrip extends StatelessWidget {
               onPressed: accounts.home.loadStories,
               child: const Text('تعذّر تحميل الستوريات • إعادة المحاولة'),
             ),
-          const Divider(height: 1, color: Color(0xFF252A30)),
+          const Divider(height: 1, color: TomiColors.border),
         ],
       );
     },
@@ -304,23 +305,19 @@ class StoriesStrip extends StatelessWidget {
     String label, {
     bool own = false,
   }) => Padding(
-    padding: const EdgeInsets.only(right: 14),
+    padding: const EdgeInsets.only(right: 10),
     child: SizedBox(
-      width: 76,
-      child: Column(
+      width: 104,
+      child: Material(color:TomiColors.surface,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(TomiRadius.card),side:BorderSide(color:accounts.home.hasStory(u.id)&&accounts.home.unseen(u.id)?TomiColors.accent:TomiColors.border,width:1.4)),
+       child:InkWell(borderRadius:BorderRadius.circular(TomiRadius.card),onTap:()=>own&&!accounts.home.hasStory(u.id)?composeStory(c,accounts):openStoryAvatar(c,accounts,u),
+        child:Padding(padding:const EdgeInsets.all(10),child:Column(mainAxisAlignment:MainAxisAlignment.center,
         children: [
-          StoryAvatar(
-            user: u,
-            size: 72,
-            hasStory: accounts.home.hasStory(u.id),
-            unseen: accounts.home.unseen(u.id),
-            add: own,
-            onTap: () => own && !accounts.home.hasStory(u.id)
-                ? composeStory(c, accounts)
-                : openStoryAvatar(c, accounts, u),
-            onAdd: () => composeStory(c, accounts),
-          ),
-          const SizedBox(height: 5),
+          SizedBox(height:66,child:Stack(alignment:Alignment.center,children:[
+            Transform.rotate(angle:-.10,child:Container(width:54,height:59,decoration:BoxDecoration(borderRadius:BorderRadius.circular(16),gradient:LinearGradient(colors:[TomiColors.accent.withValues(alpha:.18),TomiColors.raised]),border:Border.all(color:TomiColors.border)))),
+            AccountAvatar(u,size:43),
+            Positioned(right:1,bottom:0,child:Material(color:TomiColors.raised,shape:const CircleBorder(),child:InkWell(customBorder:const CircleBorder(),onTap:own?()=>composeStory(c,accounts):()=>openStoryAvatar(c,accounts,u),child:Padding(padding:const EdgeInsets.all(4),child:Icon(own?Icons.add_rounded:Icons.play_arrow_rounded,size:15,color:TomiColors.accent))))),
+          ])),
+          const SizedBox(height: 8),
           Text(
             label,
             key: ValueKey('story-label-${u.id}'),
@@ -329,7 +326,7 @@ class StoriesStrip extends StatelessWidget {
             style: labelStyle,
           ),
         ],
-      ),
+      )))),
     ),
   );
 }
