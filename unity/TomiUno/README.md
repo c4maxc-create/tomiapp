@@ -1,3 +1,5 @@
+> Native Unity design update, 3 November 2026: the reference composition now uses a cyan sky, green floating island, rim stones/trees, native vector card orbits/action glyphs and real front/back reveal during deal/draw. These changes are C# in this project. They have NOT been compiled or rendered in Unity Editor here, and have NOT been embedded in the Flutter APK. No browser preview was used as proof of this update. Open the scene in Unity to assess the actual appearance, clipping, performance and animation.
+
 # TOMI UNO — first motion prototype
 
 Original jade felt / champagne rim / ivory card design. This is a separate Unity **design sandbox**, not a replacement for the current Flutter game. No APK, native Flutter bridge, live multiplayer, paid assets, or Unity runtime has been added to the shipping app.

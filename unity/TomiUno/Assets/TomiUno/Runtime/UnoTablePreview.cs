@@ -50,10 +50,23 @@ namespace Tomi.Uno
             camera.transform.position = new Vector3(0, 10, -8);
             camera.transform.LookAt(Vector3.zero);
             camera.orthographic = true; camera.orthographicSize = Mathf.Max(6.3f, 9f / camera.aspect);
-            camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = Ink;
-            Mesh("Floating walnut rail", PrimitiveType.Cylinder, new Vector3(0,-.18f,0), new Vector3(7.9f,.2f,5.4f), new Color(.16f,.105f,.065f));
+            camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.16f,.72f,.87f);
+            Mesh("Floating walnut rail", PrimitiveType.Cylinder, new Vector3(0,-.18f,0), new Vector3(7.9f,.2f,5.4f), new Color(.36f,.27f,.12f));
             Mesh("Champagne metal rim", PrimitiveType.Cylinder, new Vector3(0,.02f,0), new Vector3(7.65f,.06f,5.15f), Gold);
-            Mesh("Deep jade felt", PrimitiveType.Cylinder, new Vector3(0,.1f,0), new Vector3(7.5f,.07f,5f), new Color(.035f,.24f,.21f));
+            Mesh("Deep jade felt", PrimitiveType.Cylinder, new Vector3(0,.1f,0), new Vector3(7.5f,.07f,5f), new Color(.31f,.64f,.14f));
+            // Low-poly scenery belongs to the actual Unity scene, not a mock web background.
+            for(int i=0;i<10;i++)
+            {
+                float a=i*Mathf.PI*2/10;
+                Mesh("Island stone "+i,PrimitiveType.Cube,new Vector3(Mathf.Cos(a)*6.6f,-.65f,Mathf.Sin(a)*4.1f),new Vector3(2.1f,1.25f,1.6f),new Color(.35f,.29f,.17f));
+            }
+            for(int i=0;i<6;i++)
+            {
+                float a=(i+.35f)*Mathf.PI*2/6;
+                var at=new Vector3(Mathf.Cos(a)*6.2f,.7f,Mathf.Sin(a)*3.8f);
+                Mesh("Tree trunk "+i,PrimitiveType.Cylinder,at,new Vector3(.13f,.55f,.13f),new Color(.45f,.3f,.12f));
+                Mesh("Tree canopy "+i,PrimitiveType.Sphere,at+Vector3.up*.7f,new Vector3(.9f,1.2f,.9f),new Color(.12f,.48f,.17f));
+            }
             var light = new GameObject("Soft key light").AddComponent<Light>();
             light.type = LightType.Directional; light.intensity = 1.25f;
             light.transform.rotation = Quaternion.Euler(55,-25,0);
@@ -77,8 +90,8 @@ namespace Tomi.Uno
             root = canvas.GetComponent<RectTransform>();
             if (FindFirstObjectByType<EventSystem>() == null)
                 new GameObject("Pointer input", typeof(EventSystem), typeof(StandaloneInputModule));
-            Label(root,"TOMI  /  PLAY",new Vector2(-680,445),32,Gold);
-            Label(root,designSandbox?"UNO • MOTION DESIGN SANDBOX":"UNO • HOST ADAPTER / NOT CONNECTED",new Vector2(490,445),20,Mint);
+            Label(root,"TOMI  /  PLAY",new Vector2(-680,445),32,Ink);
+            Label(root,designSandbox?"UNO • MOTION DESIGN SANDBOX":"UNO • HOST ADAPTER / NOT CONNECTED",new Vector2(490,445),20,Ink);
             Label(root,"CARD CLUB",new Vector2(0,185),16,new Color(.65f,.8f,.73f));
             turnLabel = Label(root,"YOUR TABLE. YOUR MOMENT.",new Vector2(0,225),24,Color.white);
             Seat("KATIE",new Vector2(0,350),"07",Gold);
@@ -120,9 +133,9 @@ namespace Tomi.Uno
             for(int i=0;i<7;i++)
             {
                 demoCards.Add(new CardState{id="demo-"+(demoSerial++),color=colors[i],value=values[i]});
-                var card=Card(root,demoCards[i],new Vector2(-110,15)); hand.Add(card);
+                var card=Card(root,demoCards[i],new Vector2(-110,15),reducedMotion); hand.Add(card);
                 int index=i;card.gameObject.AddComponent<Button>().onClick.AddListener(()=>Select(index));
-                yield return Fly(card,HandPoint(i,7),HandAngle(i,7),.23f);
+                yield return Fly(card,HandPoint(i,7),HandAngle(i,7),.30f,true);
                 foreach(var target in new[]{new Vector2(0,350),new Vector2(-670,15),new Vector2(670,15)})
                 {
                     var back=Card(root,null,new Vector2(-110,15));
@@ -183,9 +196,9 @@ namespace Tomi.Uno
         IEnumerator DemoDraw()
         {
             busy=true;var data=new CardState{id="demo-"+(demoSerial++),color="green",value="5"};
-            demoCards.Add(data);var card=Card(root,data,new Vector2(-110,15));hand.Add(card);
+            demoCards.Add(data);var card=Card(root,data,new Vector2(-110,15),reducedMotion);hand.Add(card);
             for(int i=0;i<hand.Count-1;i++){hand[i].anchoredPosition=HandPoint(i,hand.Count);hand[i].localEulerAngles=new Vector3(0,0,HandAngle(i,hand.Count));}
-            yield return Fly(card,HandPoint(hand.Count-1,hand.Count),HandAngle(hand.Count-1,hand.Count),.45f);
+            yield return Fly(card,HandPoint(hand.Count-1,hand.Count),HandAngle(hand.Count-1,hand.Count),.45f,true);
             int index=hand.Count-1;card.gameObject.AddComponent<Button>().onClick.AddListener(()=>Select(index));busy=false;
         }
         void Request(string type,CardState card)
@@ -223,18 +236,24 @@ namespace Tomi.Uno
             if(message!=null)message.text="Session cleared";
         }
         void ClearHand(){foreach(var card in hand)if(card!=null)Destroy(card.gameObject);hand.Clear();}
-        IEnumerator Fly(RectTransform card,Vector2 end,float angle,float seconds)
+        IEnumerator Fly(RectTransform card,Vector2 end,float angle,float seconds,bool reveal=false)
         {
-            var begin=card.anchoredPosition;var rotation=card.localRotation;float time=0;
+            var begin=card.anchoredPosition;var rotation=card.localRotation;var scale=card.localScale;var view=card.GetComponent<UnoCardReveal>();float time=0;
             float duration=reducedMotion ? 0.025f : seconds;
             while(time<duration)
             {
                 float t=Mathf.Clamp01(time/duration),ease=1-Mathf.Pow(1-t,3);
                 card.anchoredPosition=Vector2.Lerp(begin,end,ease)+Vector2.up*(reducedMotion?0:Mathf.Sin(t*Mathf.PI)*95);
                 card.localRotation=Quaternion.Slerp(rotation,Quaternion.Euler(0,0,angle),ease);
+                if(reveal&&view!=null)
+                {
+                    view.ShowFace(reducedMotion||t>=.5f);
+                    card.localScale=new Vector3(scale.x*(reducedMotion?1:Mathf.Max(.04f,Mathf.Abs(Mathf.Cos(t*Mathf.PI)))),scale.y,scale.z);
+                }
                 time+=Time.unscaledDeltaTime;yield return null;
             }
-            card.anchoredPosition=end;card.localRotation=Quaternion.Euler(0,0,angle);
+            card.anchoredPosition=end;card.localRotation=Quaternion.Euler(0,0,angle);card.localScale=scale;
+            if(reveal&&view!=null)view.ShowFace(true);
         }
         void Effect(string text,Color color){StartCoroutine(Burst(text,color));}
         IEnumerator Burst(string text,Color color)
@@ -247,14 +266,28 @@ namespace Tomi.Uno
             var p=Panel(root,name,at,new Vector2(170,100),Ink);
             Label(p,name,new Vector2(0,20),22,tint);Label(p,count+" CARDS",new Vector2(0,-17),16,Color.white);
         }
-        RectTransform Card(RectTransform parent,CardState state,Vector2 at)
+        RectTransform Card(RectTransform parent,CardState state,Vector2 at,bool faceUp=true)
         {
             var p=Panel(parent,state?.id??"draw deck",at,new Vector2(112,164),Color.white);
             var shadow=p.gameObject.AddComponent<Shadow>();shadow.effectColor=new Color(0,0,0,.45f);shadow.effectDistance=new Vector2(8,-12);
             var face=Panel(p,"Face",Vector2.zero,new Vector2(102,154),state==null?Ink:CardColor(state.color));face.GetComponent<Image>().raycastTarget=false;
-            Label(face,state?.Symbol??"T",Vector2.zero,state==null?55:62,Color.white);
-            Label(face,state?.Symbol??"TOMI",new Vector2(-28,57),16,Gold);
+            if(state!=null)
+            {
+                var art=new GameObject("Native card artwork",typeof(RectTransform),typeof(CanvasRenderer),typeof(UnoCardArtwork));
+                var rect=art.GetComponent<RectTransform>();rect.SetParent(face,false);rect.anchorMin=Vector2.zero;rect.anchorMax=Vector2.one;rect.offsetMin=rect.offsetMax=Vector2.zero;
+                art.GetComponent<UnoCardArtwork>().Configure(state);
+            }
+            var centerLabel=Label(face,state==null?"T":state.value=="skip"||state.value=="reverse"?"":state.Symbol,Vector2.zero,state==null?55:62,Color.white);
+            var numberShadow=centerLabel.gameObject.AddComponent<Shadow>();numberShadow.effectColor=new Color(0,0,0,.45f);numberShadow.effectDistance=new Vector2(2,-3);
+            Label(face,state?.Symbol??"TOMI",new Vector2(-28,57),16,state==null?Gold:Color.white);
             var bottom=Label(face,state?.Symbol??"PLAY",new Vector2(28,-57),16,Color.white);bottom.rectTransform.localEulerAngles=new Vector3(0,0,180);
+            if(state!=null)
+            {
+                var back=Panel(p,"TOMI card back",Vector2.zero,new Vector2(102,154),Ink);
+                Label(back,"T",Vector2.zero,55,Gold);Label(back,"TOMI PLAY",new Vector2(0,-45),11,Gold);
+                back.GetComponent<Image>().raycastTarget=false;
+                var view=p.gameObject.AddComponent<UnoCardReveal>();view.Front=face.gameObject;view.Back=back.gameObject;view.ShowFace(faceUp);
+            }
             return p;
         }
         RectTransform Panel(RectTransform parent,string name,Vector2 at,Vector2 size,Color color)
