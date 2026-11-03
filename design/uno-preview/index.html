@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TOMI — Card Club</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header><a class="wordmark" href="#">TOMI<span>PLAY</span></a><div class="breadcrumb">استوديو اللعب <span>/</span> أونو</div><span class="prototype">نموذج تصميم تفاعلي</span></header>
+<main><section class="intro"><div><div class="eyebrow">THE TOMI CARD CLUB / 001</div><h1>العبها على مزاجك<span>.</span></h1><p>طاولة جديدة. حركة أنعم. ونفس روح تومي.</p></div><button id="motion" class="subtle" aria-pressed="false">تقليل الحركة ◌</button></section>
+<section class="arena" aria-label="نموذج طاولة أونو"><div class="ambient one"></div><div class="ambient two"></div>
+<div class="table-meta"><span><i class="live-dot"></i> طاولة العرض</span><span dir="ltr">TOMI ORIGINALS · 04 PLAYERS</span></div>
+<div class="seat north"><div class="avatar peach">L<span>12</span></div><div><strong>ليان</strong><small>7 أوراق</small></div><div class="backs"><i></i><i></i><i></i></div></div>
+<div class="seat west"><div class="avatar blue">O<span>08</span></div><div><strong>عمر</strong><small>7 أوراق</small></div><div class="backs"><i></i><i></i><i></i></div></div>
+<div class="seat east"><div class="avatar violet">N<span>16</span></div><div><strong>نور</strong><small>7 أوراق</small></div><div class="backs"><i></i><i></i><i></i></div></div>
+<div class="table"><div class="rail"><div class="felt"><div class="stitch"></div><div class="club" dir="ltr">TOMI <b>CARD CLUB</b></div><div class="orbit"><span>→</span><span>→</span></div><div class="piles"><button id="deck" class="playing-card back" aria-label="اسحب ورقة"><span class="corner">T</span><span class="card-face">T<span>PLAY</span></span><span class="corner bottom">T</span></button><div id="discard" class="playing-card red" aria-label="آخر ورقة"><span class="corner">7</span><span class="card-face">7</span><span class="corner bottom">7</span></div></div><div class="pile-labels"><span>رزمة السحب</span><span>ورقة اللعب</span></div><div class="turn"><span class="live-dot"></span><span id="turn-label">دورك.. خلّها حلوة</span><span class="timer" dir="ltr">00:24</span></div></div></div></div>
+<div id="effect" aria-hidden="true"></div><div id="particles" aria-hidden="true"></div>
+<div class="player"><div class="avatar mint">أ<span>12</span></div><div><strong>أنت</strong><small>مستوى اللعب 12</small></div><div class="player-line"></div><span id="hand-count">7 أوراق</span></div>
+<div class="hand" id="hand" aria-label="أوراقك"></div>
+<div class="actions"><button id="draw" class="draw">＋ اسحب ورقة</button><button id="play" class="play" disabled>العب الورقة <span aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 12 12 4M4 4h8v8" stroke="currentColor" stroke-width="1.5"/></svg></span></button><button id="uno" class="uno" aria-pressed="false">UNO!</button></div>
+<div id="colors" class="color-modal" hidden><div><small>MAKE YOUR MOVE</small><h2>اختار لونك</h2><p>شنو اللون اللي تكمّل بيه؟</p><div class="color-options"><button data-color="red" aria-label="أحمر"></button><button data-color="blue" aria-label="أزرق"></button><button data-color="green" aria-label="أخضر"></button><button data-color="yellow" aria-label="أصفر"></button></div><button id="cancel-color" class="subtle">رجوع للأوراق</button></div></div>
+</section>
+<section class="studio"><div><span class="eyebrow">MOTION LAB</span><h2>جرّب الإحساس.</h2><p id="status" role="status">اختار ورقة، وبعدين اضغط «العب الورقة».</p></div><div class="samples"><button data-effect="reverse">⇄ <span>عكس الاتجاه</span></button><button data-effect="skip">⊘ <span>تخطي الدور</span></button><button data-effect="draw2">+2 <span>سحب ورقتين</span></button><button data-effect="wild4">+4 <span>تغيير اللون</span></button><button id="deal">↻ <span>وزّع من جديد</span></button></div></section>
+<footer><span>تصميم أصلي لـ TOMI · معاينة بصرية، مو مباراة متصلة</span><span dir="ltr">UNITY / C# PROJECT INCLUDED</span></footer></main>
+<script type="module" src="preview.mjs"></script></body></html>
