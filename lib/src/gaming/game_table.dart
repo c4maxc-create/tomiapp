@@ -95,7 +95,7 @@ class _GameTablePageState extends State<GameTablePage> {
     final myTurn=match['status']=='playing'&&match['turn']==match['mySeat'];
     return Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
       TomiUnoTable(match:match,onDraw:c.canAct&&match['canDraw']==true?()=>c.act('draw'):null),
-      const SizedBox(height:18),Row(children:[const Expanded(child:Text('أوراقك',style:TextStyle(fontSize:19,fontWeight:FontWeight.w800))),Text('${hand.length} ورقة • مرّر اليد',style:const TextStyle(fontSize:12,color:TomiColors.muted))]),
+      const SizedBox(height:18),Wrap(spacing:12,runSpacing:6,crossAxisAlignment:WrapCrossAlignment.center,alignment:WrapAlignment.spaceBetween,children:[const Text('أوراقك',style:TextStyle(fontSize:19,fontWeight:FontWeight.w800)),Text('${hand.length} ورقة • مرّر اليد',style:const TextStyle(fontSize:12,color:TomiColors.muted))]),
       SizedBox(height:192,child:LayoutBuilder(builder:(context,box)=>SingleChildScrollView(scrollDirection:Axis.horizontal,clipBehavior:Clip.none,
         child:SizedBox(width:math.max(box.maxWidth,62.0*math.max(0,hand.length-1)+118),height:192,child:Directionality(textDirection:TextDirection.ltr,child:Stack(clipBehavior:Clip.none,children:[
           for(final i in order)AnimatedPositioned(key:ValueKey('hand-position-${hand[i].id}'),duration:MediaQuery.disableAnimationsOf(context)?Duration.zero:const Duration(milliseconds:180),curve:Curves.easeOutCubic,left:14+i*62.0,bottom:hand[i].id==selected?29:13,

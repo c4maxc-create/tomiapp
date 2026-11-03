@@ -110,7 +110,11 @@ void main(){
         final charisma=t.getRect(find.byKey(const Key('profile-charisma-tile'))),level=t.getRect(find.byKey(const Key('profile-game-level-tile')));
         expect(charisma.top,level.top);expect(charisma.overlaps(level),false);
         await t.tap(find.byKey(const Key('profile-charisma-tile')));await t.pumpAndSettle();
-        expect(find.text('مستواك الحالي 2 من 15'),findsOneWidget);expect(find.textContaining('باقي 8000'),findsOneWidget);expect(t.takeException(),isNull);
+        expect(find.text('مستواك الحالي 2 من 15'),findsOneWidget);
+        final remaining=find.byKey(const Key('charisma-remaining'));
+        await t.scrollUntilVisible(remaining,100,scrollable:find.descendant(of:find.byType(ListView),matching:find.byType(Scrollable)),maxScrolls:20);
+        await t.pumpAndSettle();
+        expect(find.textContaining('باقي 8000'),findsOneWidget);expect(remaining.hitTestable(),findsOneWidget);expect(t.takeException(),isNull);
       });
       for(final kind in ['uno','snakes']){
         testWidgets('1.7 real table surfaces fit $kind $size/$scale',(t)async{
