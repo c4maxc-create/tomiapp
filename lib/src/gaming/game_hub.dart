@@ -12,6 +12,7 @@ import 'game_models.dart';
 import 'game_table.dart';
 import 'game_art.dart';
 import 'snakes_board.dart';
+import 'board_games.dart';
 
 class GameHub extends StatefulWidget {
   const GameHub({super.key,required this.accounts,this.visible=true});
@@ -38,7 +39,7 @@ class _GameHubState extends State<GameHub> {
       builder:(context)=>Column(mainAxisSize:MainAxisSize.min,children:[
         Padding(padding:const EdgeInsets.all(20),child:Text(gameName(kind),style:const TextStyle(fontSize:24,fontWeight:FontWeight.w800))),
         ListTile(leading:const Icon(Icons.smart_toy_outlined,color:TomiColors.accent),title:const Text('العب ضد الكمبيوتر'),subtitle:const Text('جولة مباشرة • خبرة لعب عند استيفاء الشروط'),onTap:()=>Navigator.pop(context,'practice')),
-        ListTile(leading:const Icon(Icons.groups_outlined,color:TomiColors.gold),title:const Text('أنشئ طاولة للأصدقاء'),subtitle:const Text('شارك كود الطاولة • من2إلى4لاعبين'),onTap:()=>Navigator.pop(context,'friends')),
+        ListTile(leading:const Icon(Icons.groups_outlined,color:TomiColors.gold),title:const Text('أنشئ طاولة للأصدقاء'),subtitle:Text(kind=='camel'?'شارك الكود • لاعبان أو3بفريق واحد':kind=='jackaroo'?'من2إلى4 • المقاعد الباقية يكملها الكمبيوتر':'شارك كود الطاولة • من2إلى4لاعبين'),onTap:()=>Navigator.pop(context,'friends')),
         const SizedBox(height:18),
       ]));
     if(mode!=null&&c.canAct&&await c.create(kind,mode))await table();
@@ -102,9 +103,13 @@ class _GameHubState extends State<GameHub> {
       const SizedBox(height:16),
       tile(kind:'snakes',title:'السلم والأفعى',subtitle:'100خانة ومغامرة بنرد واحد.\nحركة بيدق خطوة بخطوة.',art:Transform.rotate(angle:-.12,child:Container(width:112,height:112,decoration:BoxDecoration(borderRadius:BorderRadius.circular(12),boxShadow:const[BoxShadow(color:Colors.black45,blurRadius:14,offset:Offset(0,8))]),child:ClipRRect(borderRadius:BorderRadius.circular(12),child:const CustomPaint(painter:SnakesBoardPainter())))),onTap:c.canAct?()=>choose('snakes'):null),
       const SizedBox(height:16),
+      tile(kind:'jackaroo',title:'جاكارو',subtitle:(c.summary?['availableGames'] as List? ?? []).contains('jackaroo')?'أحجار وأوراق وفريق يسندك.\nأربعة مقاعد • فريقان.':'تحتاج تحديث الخادم لتفعيل جاكارو.',art:const SizedBox(width:112,height:112,child:CustomPaint(painter:JackarooBoardPainter())),onTap:c.canAct&&(c.summary?['availableGames'] as List? ?? []).contains('jackaroo')?()=>choose('jackaroo'):null),
+      const SizedBox(height:16),
+      tile(kind:'camel',title:'الجمل المجنون',subtitle:(c.summary?['availableGames'] as List? ?? []).contains('camel')?'طابق3ونظّف اللوح.\nتعاون مع أصحابك وانتبه للخانة!':'تحتاج تحديث الخادم لتفعيل الجمل.',art:Container(width:108,height:108,decoration:BoxDecoration(color:const Color(0xFFB9945B),borderRadius:BorderRadius.circular(20)),child:const Center(child:Text('🐪\n🥕  🧀  🍀',textAlign:TextAlign.center,style:TextStyle(fontSize:24)))),onTap:c.canAct&&(c.summary?['availableGames'] as List? ?? []).contains('camel')?()=>choose('camel'):null),
+      const SizedBox(height:16),
       tile(kind:'roulette',title:'الروليت',subtitle:'نفس جولات الغرف ونفس رصيدك.\nافتحها مباشرة من هنا.',art:Container(width:108,height:108,decoration:BoxDecoration(shape:BoxShape.circle,gradient:const RadialGradient(colors:[TomiColors.raised,TomiColors.background]),border:Border.all(color:TomiColors.gold,width:4),boxShadow:const[BoxShadow(color:Colors.black45,blurRadius:14,offset:Offset(0,8))]),child:const Center(child:Text('🍉\n🍗  ✦  🍊',textAlign:TextAlign.center,style:TextStyle(fontSize:24)))),onTap:c.current&&!c.busy?roulette:null),
       const SizedBox(height:20),TomiProgressTiles(user:displayUser),const SizedBox(height:14),
-      const Text('الكارزما من دعم الهدايا، والمستوى من اللعب. أونو والسلم والأفعى بدون رسوم دخول أو جوائز عملات. الروليت تستخدم رصيدك وتعرض قواعدها قبل الرهان.',style:TextStyle(fontSize:11,color:TomiColors.muted,height:1.8)),
+      const Text('الكارزما من دعم الهدايا، والمستوى من اللعب. أونو والسلم والأفعى وجاكارو والجمل بدون رسوم دخول أو جوائز عملات. الروليت تستخدم رصيدك وتعرض قواعدها قبل الرهان.',style:TextStyle(fontSize:11,color:TomiColors.muted,height:1.8)),
     ]));
   });
 }

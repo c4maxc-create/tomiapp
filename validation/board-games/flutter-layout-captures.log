@@ -1,0 +1,31 @@
+00:00 +0: loading /workspace/tomiapp/tool/capture_board_games.dart
+00:00 +0: /workspace/tomiapp/tool/capture_board_games.dart: capture jackaroo server-backed layout
+00:00 +1: /workspace/tomiapp/tool/capture_board_games.dart: capture jackaroo server-backed layout
+00:02 +2: /workspace/tomiapp/tool/capture_board_games.dart: capture jackaroo server-backed layout
+00:02 +3: /workspace/tomiapp/tool/capture_board_games.dart: capture jackaroo server-backed layout
+00:03 +4: /workspace/tomiapp/tool/capture_board_games.dart: capture jackaroo server-backed layout
+00:03 +5: /workspace/tomiapp/test/board_games_test.dart: camel table and rules fit Size(320.0, 640.0) at 2.0 text
+00:03 +6: /workspace/tomiapp/tool/capture_board_games.dart: capture camel server-backed layout
+00:03 +7: /workspace/tomiapp/tool/capture_board_games.dart: capture camel server-backed layout
+00:04 +8: /workspace/tomiapp/tool/capture_board_games.dart: capture camel server-backed layout
+00:04 +9: /workspace/tomiapp/tool/capture_board_games.dart: capture camel server-backed layout
+00:04 +10: /workspace/tomiapp/tool/capture_board_games.dart: capture camel server-backed layout
+00:04 +11: /workspace/tomiapp/test/board_games_test.dart: jackaroo sends one server choice through the existing durable controller
+00:05 +12: /workspace/tomiapp/test/board_games_test.dart: camel covered piece is disabled and an exposed tile sends its server identity
+00:05 +13: /workspace/tomiapp/test/games17_test.dart: 1.7 gift charisma and game-level boundaries remain independent
+00:05 +14: /workspace/tomiapp/test/games17_test.dart: 1.7 board topology follows the serpentine physical board
+00:05 +15: /workspace/tomiapp/test/games17_test.dart: 1.7 lost game reply retries one durable intent without inventing a result
+00:06 +16: /workspace/tomiapp/test/games17_test.dart: 1.7 logout fences a delayed game reply and removes private table data
+00:06 +17: /workspace/tomiapp/test/games17_test.dart: 1.7 side-by-side progress and charisma detail fit Size(320.0, 640.0)/1.0
+00:08 +18: /workspace/tomiapp/test/games17_test.dart: 1.7 real table surfaces fit uno Size(320.0, 640.0)/1.0
+00:08 +19: /workspace/tomiapp/test/games17_test.dart: 1.7 real table surfaces fit snakes Size(320.0, 640.0)/1.0
+00:08 +20: /workspace/tomiapp/test/games17_test.dart: 1.7 side-by-side progress and charisma detail fit Size(320.0, 640.0)/2.0
+00:09 +21: /workspace/tomiapp/test/games17_test.dart: 1.7 real table surfaces fit uno Size(320.0, 640.0)/2.0
+00:09 +22: /workspace/tomiapp/test/games17_test.dart: 1.7 real table surfaces fit snakes Size(320.0, 640.0)/2.0
+00:09 +23: /workspace/tomiapp/test/games17_test.dart: 1.7 side-by-side progress and charisma detail fit Size(800.0, 420.0)/1.0
+00:09 +24: /workspace/tomiapp/test/games17_test.dart: 1.7 real table surfaces fit uno Size(800.0, 420.0)/1.0
+00:09 +25: /workspace/tomiapp/test/games17_test.dart: 1.7 real table surfaces fit snakes Size(800.0, 420.0)/1.0
+00:10 +26: /workspace/tomiapp/test/games17_test.dart: 1.7 side-by-side progress and charisma detail fit Size(800.0, 420.0)/2.0
+00:10 +27: /workspace/tomiapp/test/games17_test.dart: 1.7 real table surfaces fit uno Size(800.0, 420.0)/2.0
+00:10 +28: /workspace/tomiapp/test/games17_test.dart: 1.7 real table surfaces fit snakes Size(800.0, 420.0)/2.0
+00:10 +29: All tests passed!

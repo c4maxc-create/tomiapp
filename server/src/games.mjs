@@ -46,7 +46,7 @@ export function createGames({database,readJson,respond,limit,usersByIds,emit,acc
     for(const member of members) {
       const player=state.players.find(p=>p.seat===Number(member.seat));
       if(!player||player.bot||player.humanMoves<policy.minimumHumanMoves||clock()-state.startedAt<policy.minimumSeconds*1000)continue;
-      await awardGameXp(db,member.user_id,row.kind,row.id,state.result.winnerSeat===player.seat?policy.winXp:policy.completeXp,clock());
+      await awardGameXp(db,member.user_id,row.kind,row.id,(state.result.winnerSeats??[state.result.winnerSeat]).includes(player.seat)?policy.winXp:policy.completeXp,clock());
     }
   }
   async function advance(db,row,members) {
@@ -90,7 +90,7 @@ export function createGames({database,readJson,respond,limit,usersByIds,emit,acc
     const row=(await database.query('SELECT w.coins,w.next_claim,g.xp,p.received FROM tomi_room_wallets w LEFT JOIN tomi_game_progress g ON g.user_id=w.user_id LEFT JOIN tomi_user_progress p ON p.user_id=w.user_id WHERE w.user_id=?',[c.id])).rows[0];
     const active=(await database.query("SELECT m.id,m.code,m.kind,m.mode,m.status,m.revision FROM tomi_game_matches m JOIN tomi_game_players p ON p.match_id=m.id WHERE p.user_id=? AND m.status IN('waiting','playing') ORDER BY m.updated_at DESC LIMIT 4",[c.id])).rows;
     if(active.length)startTimer();
-    return {coins:Number(row.coins),nextClaim:row.next_claim,progress:gameProgress(row.xp??0),charisma:charismaStatus(row.received??0),activeMatches:active,policy};
+    return {coins:Number(row.coins),nextClaim:row.next_claim,progress:gameProgress(row.xp??0),charisma:charismaStatus(row.received??0),activeMatches:active,availableGames:['uno','snakes','jackaroo','camel'],policy};
   }
   async function snapshot(id,c) {
     const row=await transact(id,async(db,row,members)=>{
@@ -108,13 +108,13 @@ export function createGames({database,readJson,respond,limit,usersByIds,emit,acc
   }
   async function create(c,d) {
     fields(d,['requestId','kind','mode']);
-    if(!uuid(d.requestId)||!['uno','snakes'].includes(d.kind)||!['practice','friends'].includes(d.mode))fail(400,'VALIDATION','اختَر اللعبة وطريقة اللعب.');
+    if(!uuid(d.requestId)||!['uno','snakes','jackaroo','camel'].includes(d.kind)||!['practice','friends'].includes(d.mode))fail(400,'VALIDATION','اختَر اللعبة وطريقة اللعب.');
     const fp=digest(JSON.stringify(['create',d.kind,d.mode]));
     return database.transaction(async db=>{
       await db.query('UPDATE tomi_users SET updated_at=updated_at WHERE id=?',[c.id]);
       const replay=await known(db,c,d,fp);if(replay)return replay;
       if(await oneActive(db,c.id))fail(409,'GAME_ACTIVE','عندك جولة مفتوحة؛ أكملها أو غادرها أولًا.');
-      const id=randomUUID(),seats=d.mode==='practice'?Array.from({length:d.kind==='uno'?4:2},(_,seat)=>({seat,bot:seat!==0})):[{seat:0,bot:false}];
+      const id=randomUUID(),seats=d.mode==='practice'?Array.from({length:['uno','jackaroo'].includes(d.kind)?4:d.kind==='camel'?3:2},(_,seat)=>({seat,bot:seat!==0})):[{seat:0,bot:false}];
       const state=d.mode==='practice'?newGame(d.kind,seats,{now:clock()}):{status:'waiting',players:seats,deadlineAt:clock()+600000};
       let inserted=false;
       for(let i=0;i<5&&!inserted;i++) {
@@ -138,7 +138,7 @@ export function createGames({database,readJson,respond,limit,usersByIds,emit,acc
       await db.query('UPDATE tomi_users SET updated_at=updated_at WHERE id=?',[c.id]);
       if(members.some(m=>m.user_id===c.id))return remember(db,c,d,fp,row.id);
       if(row.status!=='waiting'||row.mode!=='friends'||clock()>=Number(row.due_at))fail(409,'GAME_STARTED','بدأت الجولة أو انتهى وقت انتظارها.');
-      if(members.length>=4)fail(409,'GAME_FULL','الغرفة ممتلئة.');
+      if(members.length>=(row.kind==='camel'?3:4))fail(409,'GAME_FULL','الغرفة ممتلئة.');
       if(await oneActive(db,c.id))fail(409,'GAME_ACTIVE','غادر جولتك الحالية أولًا.');
       for(const m of members) {
         const blocked=(await db.query('SELECT 1 FROM tomi_user_blocks WHERE (blocker_id=? AND blocked_id=?) OR (blocker_id=? AND blocked_id=?)',[c.id,m.user_id,m.user_id,c.id])).rows[0];
@@ -151,10 +151,11 @@ export function createGames({database,readJson,respond,limit,usersByIds,emit,acc
     });
   }
   async function action(c,id,d) {
-    fields(d,['requestId','expectedRevision','type','cardId','color','uno']);
-    if(!uuid(d.requestId)||!Number.isSafeInteger(d.expectedRevision)||d.expectedRevision<0||!['start','leave','play','draw','pass','roll'].includes(d.type)||d.uno!==undefined&&typeof d.uno!=='boolean'||d.cardId!==undefined&&typeof d.cardId!=='string'||d.color!==undefined&&typeof d.color!=='string')fail(400,'VALIDATION','خطوة اللعبة غير صحيحة.');
+    fields(d,['requestId','expectedRevision','type','cardId','color','uno','choice']);
+    if(!uuid(d.requestId)||!Number.isSafeInteger(d.expectedRevision)||d.expectedRevision<0||!['start','leave','play','draw','pass','roll','choose'].includes(d.type)||d.uno!==undefined&&typeof d.uno!=='boolean'||d.cardId!==undefined&&typeof d.cardId!=='string'||d.color!==undefined&&typeof d.color!=='string')fail(400,'VALIDATION','خطوة اللعبة غير صحيحة.');
+    if(d.type==='choose'&&(typeof d.choice!=='string'||d.choice.length>100)||d.type!=='choose'&&d.choice!==undefined)fail(400,'VALIDATION','اختَر حركة صحيحة.');
     if(d.type!=='play'&&(d.cardId!==undefined||d.color!==undefined||d.uno!==undefined))fail(400,'VALIDATION','حقول الورقة متاحة عند لعبها فقط.');
-    const fp=digest(JSON.stringify(['action',id,d.expectedRevision,d.type,d.cardId??null,d.color??null,d.uno??null]));
+    const fp=digest(JSON.stringify(['action',id,d.expectedRevision,d.type,d.cardId??null,d.color??null,d.uno??null,...(d.type==='choose'?[d.choice]:[])]));
     return transact(id,async(db,row,members)=>{
       const old=await known(db,c,d,fp);if(old)return old;
       const me=members.find(m=>m.user_id===c.id);if(!me)fail(403,'GAME_MEMBERSHIP','لست ضمن هذه الجولة.');

@@ -1,0 +1,18 @@
+✔ board games keep four jackaroo seats, three co-op boards, unique cards and private hands (30.470311ms)
+✔ jackaroo entry uses A or K, cannot invent moves, and leaves input unchanged on rejection (11.188563ms)
+✔ jackaroo protected starts block passing, capture sends opponents home, and own landing is forbidden (5.80124ms)
+✔ jackaroo supports backwards four and split seven without overshooting home (65.669265ms)
+✔ jackaroo jack swaps unprotected stones and a finished player controls partner (25.186394ms)
+✔ jackaroo team victory requires all eight stones and private state is not in history (8.304819ms)
+✔ camel blocks covered tiles and three equal tiles clear before the seven-slot loss check (6.341264ms)
+✔ camel accepts cooperative out-of-turn picks but never another member tile or a full tray (9.214526ms)
+✔ camel undo and side storage conserve tiles and consume server-owned tools once (8.040518ms)
+✔ camel orders award bounded team tools, shuffle conserves types, and automatic play cannot earn human moves (94.06724ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 511.554691

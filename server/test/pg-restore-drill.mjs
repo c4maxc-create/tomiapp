@@ -6,7 +6,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {Client} from 'pg';
 import {openDatabase} from '../src/database.mjs';
-import {newGame} from '../src/game_engine.mjs';
+import {newGame,performGameAction,automaticAction} from '../src/game_engine.mjs';
 import {databaseTarget,createPostgresBackup,restorePostgresCheck} from '../tools/backup.mjs';
 
 const source=process.env.TEST_DATABASE_URL,target=databaseTarget(source);
@@ -67,6 +67,17 @@ try{
   await db.query('INSERT INTO tomi_game_players(match_id,user_id,seat) VALUES(?,?,0)',[gameId,user]);
   await db.query('INSERT INTO tomi_game_requests(user_id,request_id,fingerprint,match_id,result,created_at) VALUES(?,?,?,?,?,?)',[user,gameNonce,'restore-game-request',gameId,JSON.stringify({matchId:gameId}),liveTime]);
   await db.query('INSERT INTO tomi_game_awards(user_id,source_kind,source_id,day,xp,created_at) VALUES(?,?,?,?,?,?)',[user,'uno',gameId,liveDay,60,liveTime]);
+  const boardRounds=[];
+  for(const [i,kind] of ['jackaroo','camel'].entries()){
+    const id=randomUUID(),requestId=randomUUID(),initial=newGame(kind,[{seat:0},{seat:1,bot:true}],{now:liveTime});
+    const state=JSON.stringify(performGameAction(initial,0,automaticAction(initial),{now:liveTime+1}));
+    await db.query('INSERT INTO tomi_game_matches(id,code,kind,mode,host_id,status,revision,state,due_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',[id,'A18D000'+(i+1),kind,'practice',user,'playing',1,state,liveTime+30000,liveTime,liveTime]);
+    await db.query('INSERT INTO tomi_game_players(match_id,user_id,seat) VALUES(?,?,0)',[id,user]);
+    await db.query('INSERT INTO tomi_game_requests(user_id,request_id,fingerprint,match_id,result,created_at) VALUES(?,?,?,?,?,?)',[user,requestId,'restore-board-request',id,JSON.stringify({matchId:id}),liveTime]);
+    await db.query('INSERT INTO tomi_game_awards(user_id,source_kind,source_id,day,xp,created_at) VALUES(?,?,?,?,?,?)',[user,kind,id,liveDay,20,liveTime]);
+    boardRounds.push({id,kind,state,requestId});
+  }
+
   await db.query('INSERT INTO tomi_roulette_watchers(user_id,expires_at) VALUES(?,?)',[user,liveTime+15000]);
   const [low,high]=[user,reporter].sort(),sharedReceipt=JSON.stringify({status:'delivered',conversationId:sharedThread,messageId:sharedMessage});
   await db.query('INSERT INTO tomi_posts(id,user_id,request_id,body,created_at) VALUES(?,?,?,?,?)',[sharedPost,user,randomUUID(),'Restore shared post',stamp]);
@@ -135,8 +146,14 @@ try{
   assert.equal(JSON.parse((await upgraded.query('SELECT result FROM tomi_game_requests WHERE user_id=? AND request_id=?',[user,gameNonce])).rows[0].result).matchId,gameId);
   assert.equal(Number((await upgraded.query('SELECT xp FROM tomi_game_awards WHERE user_id=? AND source_id=?',[user,gameId])).rows[0].xp),60);
   assert.equal(Number((await upgraded.query('SELECT expires_at FROM tomi_roulette_watchers WHERE user_id=?',[user])).rows[0].expires_at),liveTime+15000);
+  for(const board of boardRounds){
+    const stored=(await upgraded.query('SELECT kind,state FROM tomi_game_matches WHERE id=?',[board.id])).rows[0];
+    assert.equal(stored.kind,board.kind);assert.equal(stored.state,board.state);
+    assert.equal(JSON.parse((await upgraded.query('SELECT result FROM tomi_game_requests WHERE user_id=? AND request_id=?',[user,board.requestId])).rows[0].result).matchId,board.id);
+    assert.equal(Number((await upgraded.query('SELECT xp FROM tomi_game_awards WHERE user_id=? AND source_id=?',[user,board.id])).rows[0].xp),20);
+  }
   await upgraded.close();upgraded=null;
-  console.log('PASS: PostgreSQL encrypted dump and authenticated local restore; row counts, credentials, erasure cleanup, moderation, identity, support/receipts/coins/charisma/cosmetics/room policy, special accounts/staff permissions, roulette configuration/access/contributions, live rounds/private post sharing and 1.7 private hands/membership/receipts/XP/watchers and initialization.');
+  console.log('PASS: PostgreSQL encrypted dump and authenticated local restore; row counts, credentials, erasure cleanup, moderation, identity, support/receipts/coins/charisma/cosmetics/room policy, special accounts/staff permissions, roulette configuration/access/contributions, live rounds/private post sharing and 1.7 private hands/membership/receipts/XP/watchers and jackaroo/camel private state, request receipts and XP; initialization.');
 }finally{
   if(db)await db.close();if(restored)await restored.end();if(upgraded)await upgraded.close();
   if(created&&admin)await admin.query('DROP DATABASE tomi_restore_check');

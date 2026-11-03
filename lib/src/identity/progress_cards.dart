@@ -74,6 +74,6 @@ Future<void> showGameProgress(BuildContext context, GameProgress progress) => _p
   const SizedBox(height: 14), LinearProgressIndicator(value: progress.progress, minHeight: 7, borderRadius: BorderRadius.circular(8)),
   const SizedBox(height: 10), Text(progress.next == null ? 'وصلت إلى آخر مستوى ✨' : 'باقي ${progress.remaining} XP للمستوى ${progress.level + 1}'),
   const SizedBox(height: 16),
-  const Text('أونو والسلم والأفعى: 60 XP للفائز و20 XP لإكمال الجولة، بعد 30 ثانية وثلاث حركات فعلية منك. الروليت: 10 XP بعد تسوية الجولة التي شاركت بها، دون ارتباط بحجم رهانك أو ربحك. أول20جولة مؤهلة في اليوم تمنح خبرة، ويتجدد الحد منتصف الليل بتوقيت بغداد. الخروج واللعب التلقائي وحدهما لا يمنحان خبرة.', style: TextStyle(height: 1.8, color: TomiColors.muted)),
+  const Text('أونو والسلم والأفعى وجاكارو والجمل: 60 XP للفائز أو عضو الفريق الفائز و20 XP لإكمال الجولة، بعد 30 ثانية وثلاث حركات فعلية منك. الروليت: 10 XP بعد تسوية الجولة التي شاركت بها، دون ارتباط بحجم رهانك أو ربحك. أول20جولة مؤهلة في اليوم تمنح خبرة، ويتجدد الحد منتصف الليل بتوقيت بغداد. الخروج واللعب التلقائي وحدهما لا يمنحان خبرة.', style: TextStyle(height: 1.8, color: TomiColors.muted)),
   const SizedBox(height: 12), const Text('الهدايا والشراء لا يرفعان مستوى اللعب. العملات والكارزما وخبرة اللعب أرصدة منفصلة.'),
 ]);

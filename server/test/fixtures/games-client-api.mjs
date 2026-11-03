@@ -1,7 +1,7 @@
 import {once} from 'node:events';
 import {openDatabase} from '../../src/database.mjs';
 import {createApp} from '../../src/app.mjs';
-const database=await openDatabase({sqliteFile:':memory:'}),server=await createApp({database,roomAutoSweep:false,callAutoSweep:false,pushAutoFlush:false,deletionAutoSweep:false,gamesAutoTick:false,liveRouletteAutoTick:false,rateLimitMultiplier:100});
+const database=await openDatabase({sqliteFile:':memory:'}),server=await createApp({database,roomAutoSweep:false,callAutoSweep:false,pushAutoFlush:false,deletionAutoSweep:false,gamesAutoTick:false,gamesClock:()=>1000000,liveRouletteAutoTick:false,rateLimitMultiplier:100});
 server.listen(0,'127.0.0.1');await once(server,'listening');const base='http://127.0.0.1:'+server.address().port;
 const users=[];
 for(const username of ['gamescontracta','gamescontractb']){

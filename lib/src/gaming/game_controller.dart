@@ -134,6 +134,13 @@ class GamesController extends ChangeNotifier with WidgetsBindingObserver {
   }
   Future<bool> create(String kind, String mode) => send('/v1/games/matches', {'kind':kind, 'mode':mode});
   Future<bool> join(String code) => send('/v1/games/join', {'code':code.trim().toUpperCase()});
+  Future<bool> choose(String choice, int revision) async {
+    if (!current || !canAct) return false;
+    if (match?['revision'] != revision) {
+      error = 'تغيّرت الطاولة؛ اختَر الحركة من الحالة الجديدة.'; notify(); return false;
+    }
+    return act('choose', {'choice':choice});
+  }
   Future<bool> act(String type, [Map<String, dynamic> extra = const {}]) async {
     if (match == null) return false;
     return send('/v1/games/matches/${match!['id']}/action', {'type':type, 'expectedRevision':match!['revision'], ...extra});
@@ -162,7 +169,7 @@ class GamesController extends ChangeNotifier with WidgetsBindingObserver {
     } on AccountFailure catch (f) {
       if (!current) return false;
       error = f.message;
-      if (const {'GAME_CHANGED','GAME_TURN','GAME_CARD','GAME_COLOR','GAME_ACTION','GAME_DRAW','GAME_ENDED','GAME_ACTIVE','GAME_FULL','GAME_STARTED','GAME_NOT_FOUND','GAME_MEMBERSHIP','GAME_HOST','GAME_PLAYERS','GAME_BLOCKED','VALIDATION','REQUEST_CHANGED'}.contains(f.code)) {
+      if (const {'GAME_CHANGED','GAME_CHOICE','GAME_TURN','GAME_CARD','GAME_COLOR','GAME_ACTION','GAME_DRAW','GAME_ENDED','GAME_ACTIVE','GAME_FULL','GAME_STARTED','GAME_NOT_FOUND','GAME_MEMBERSHIP','GAME_HOST','GAME_PLAYERS','GAME_BLOCKED','VALIDATION','REQUEST_CHANGED'}.contains(f.code)) {
         try { await clearSaved(id); if (current) pending = null; } catch (_) { /* Keep an uncertain durable intent for retry. */ }
       }
     } catch (_) { if (current) error = 'لم نتأكد من الرد؛ اضغط استعادة نفس المحاولة.'; }

@@ -7,6 +7,7 @@ import '../accounts/account_widgets.dart';
 import '../identity/progress_cards.dart';
 import '../widgets.dart';
 import 'game_models.dart';
+import 'board_games.dart';
 import 'game_controller.dart';
 import 'game_art.dart';
 import 'snakes_board.dart';
@@ -30,9 +31,9 @@ class _GameTablePageState extends State<GameTablePage> {
   Future<void> rules() => showModalBottomSheet<void>(context:context,isScrollControlled:true,showDragHandle:true,useSafeArea:true,
     builder:(context)=>SizedBox(height:MediaQuery.sizeOf(context).height*.76,child:ListView(padding:const EdgeInsets.all(22),children:[
       const Text('قواعد طاولة تومي',style:TextStyle(fontSize:24,fontWeight:FontWeight.w800)),const SizedBox(height:16),
-      Text(c.match?['kind']=='uno'
+      Text(boardRules[c.match?['kind']] ?? (c.match?['kind']=='uno'
         ? 'كل لاعب يبدأ بسبع أوراق. طابق لون الورقة أو رمزها، أو اختر ورقة تغيير اللون. اسحب ورقة واحدة؛ إذا كانت صالحة يمكنك لعبها أو تمرير الدور. بعد السحب لا يمكن لعب ورقة قديمة.\n\n⊘ يتجاوز اللاعب التالي. ⇄ يعكس الاتجاه، ويعيد دورك في مباراة لاعبين. +2 و+4 يسحبان للخصم ويتجاوزان دوره، ولا تتراكم أوراق السحب. +4 مسموحة فقط إذا ما عندك ورقة من اللون الحالي؛ الخادم يمنع الاستخدام المخالف بدل تحدّي التخمين.\n\nاختَر اللون عند لعب الورقة المتعددة. فعّل زر UNO قبل لعب الورقة التي تترك بيدك ورقة واحدة؛ في نسخة تومي تُطبق عقوبة ورقتين تلقائيًا عند نسيانه. أول لاعب يفرغ يده يفوز.'
-        : 'ارمِ النرد في دورك، ثم يتحرك البيدق حسب الرقم الذي اختاره الخادم. السلم يرفعك والأفعى تنزلك عند الوقوف على بدايتها. الرقم6 يمنح دورًا إضافيًا. الوصول للخانة100 يحتاج الرقم بالضبط؛ إذا تجاوزتها تبقى بمكانك. أول من يصل100 يفوز.',style:const TextStyle(height:1.9)),
+        : 'ارمِ النرد في دورك، ثم يتحرك البيدق حسب الرقم الذي اختاره الخادم. السلم يرفعك والأفعى تنزلك عند الوقوف على بدايتها. الرقم6 يمنح دورًا إضافيًا. الوصول للخانة100 يحتاج الرقم بالضبط؛ إذا تجاوزتها تبقى بمكانك. أول من يصل100 يفوز.'),style:const TextStyle(height:1.9)),
       const SizedBox(height:18),const Text('المهلة30ثانية للدور. الكمبيوتر يكمل خطوة المتأخر، ولا تُحسب الخطوة التلقائية مشاركة فعلية لخبرة اللعب. عند مغادرة غرفة الأصدقاء يكمل الكمبيوتر مكانك، ويمكنك الرجوع من القسم دون مغادرة الجولة باستخدام زر الرجوع العادي.',style:TextStyle(height:1.8,color:TomiColors.muted)),
       TextButton(onPressed:()=>showGameProgress(context,c.progress),child:const Text('كيف يرتفع مستوى اللعب؟')),
     ])));
@@ -53,12 +54,12 @@ class _GameTablePageState extends State<GameTablePage> {
     if(accepted&&mounted)setState((){selected=null;announce=false;});
   }
   Widget status(Map<String,dynamic> match)=>ValueListenableBuilder<int>(valueListenable:clock,builder:(context,_,child){
-    final finished=match['status']=='finished',myTurn=match['turn']==match['mySeat'];
+    final finished=match['status']=='finished',myTurn=match['kind']=='camel'||match['turn']==match['mySeat'];
     final remaining=(((match['deadlineAt'] as num?)?.toInt()??c.serverNow)-c.serverNow)/1000;
     return TomiCard(padding:const EdgeInsets.all(12),child:Wrap(spacing:12,runSpacing:8,crossAxisAlignment:WrapCrossAlignment.center,children:[
       Icon(finished?Icons.emoji_events_outlined:myTurn?Icons.touch_app_outlined:Icons.hourglass_top_rounded,color:TomiColors.accent),
-      Text(finished?'انتهت الجولة':match['status']=='waiting'?'بانتظار أصدقائك':match['status']=='cancelled'?'أُغلقت الجولة':myTurn?'دورك الآن':'دور اللاعب ${(match['turn'] as num?)?.toInt()==null?'':(match['turn'] as num).toInt()+1}',style:const TextStyle(fontWeight:FontWeight.w800)),
-      if(match['status']=='playing')Text('${remaining.ceil().clamp(0,30)} ث',style:const TextStyle(color:TomiColors.gold)),
+      Text(finished?'انتهت الجولة':match['status']=='waiting'?'بانتظار أصدقائك':match['status']=='cancelled'?'أُغلقت الجولة':myTurn?(match['kind']=='camel'?'فريقك يقدر يتحرك بأي وقت':'دورك الآن'):'دور اللاعب ${(match['turn'] as num?)?.toInt()==null?'':(match['turn'] as num).toInt()+1}',style:const TextStyle(fontWeight:FontWeight.w800)),
+      if(match['status']=='playing'&&match['kind']!='camel')Text('${remaining.ceil().clamp(0,30)} ث',style:const TextStyle(color:TomiColors.gold)),
       Text(match['mode']=='practice'?'ضد الكمبيوتر':'طاولة أصدقاء',style:const TextStyle(color:TomiColors.muted,fontSize:12)),
     ]));
   });
@@ -71,7 +72,7 @@ class _GameTablePageState extends State<GameTablePage> {
     const SizedBox(height:16),GamePlayers(match:match),const SizedBox(height:18),
     if(match['host']==true)FilledButton.icon(key:const Key('game-start'),onPressed:c.canAct&&(match['players'] as List).length>=2?()=>c.act('start'):null,icon:const Icon(Icons.play_arrow_rounded),label:const Text('ابدأ الجولة'))
     else const Text('صاحب الغرفة يبدأ الجولة عند اكتمالكم.',style:TextStyle(color:TomiColors.muted)),
-    const SizedBox(height:8),const Text('من2إلى4لاعبين • تنتهي الدعوة بعد10دقائق',style:TextStyle(fontSize:12,color:TomiColors.muted)),
+    const SizedBox(height:8),Text(match['kind']=='camel'?'لاعبان أو3 • تنتهي الدعوة بعد10دقائق':'من2إلى4لاعبين • تنتهي الدعوة بعد10دقائق',style:TextStyle(fontSize:12,color:TomiColors.muted)),
   ]));
   Widget result(Map<String,dynamic> match){
     final result=match['result'] as Map?,seat=result?['winnerSeat'];
@@ -136,9 +137,9 @@ class _GameTablePageState extends State<GameTablePage> {
         if(match['status']=='waiting')lobby(match)
         else if(match['status']=='cancelled')const FeaturePlaceholder(icon:Icons.flag_outlined,title:'أُغلقت الجولة',body:'انتهى وقتها أو غادر أصحابها. ارجع إلى الألعاب لبدء جولة جديدة.')
         else ...[
-          GamePlayers(match:match),const SizedBox(height:18),
-          if(match['status']=='finished')...[result(match),const SizedBox(height:20)],
-          if(match['kind']=='uno')uno(match)else snakes(match),
+          if(['jackaroo','camel'].contains(match['kind']))BoardPlayers(match:match)else GamePlayers(match:match),const SizedBox(height:18),
+          if(match['status']=='finished')...[['jackaroo','camel'].contains(match['kind'])?BoardGameResult(match:match):result(match),const SizedBox(height:20)],
+          if(match['kind']=='uno')uno(match)else if(match['kind']=='jackaroo')JackarooTable(controller:c,match:match)else if(match['kind']=='camel')CamelTable(controller:c,match:match)else snakes(match),
         ],
       ])));
   });
@@ -156,7 +157,7 @@ class GamePlayers extends StatelessWidget {
       child:Column(mainAxisSize:MainAxisSize.min,children:[
         if(p['user'] is Map)AccountAvatar(AccountUser.fromJson((p['user'] as Map).cast<String,dynamic>()),size:32)else const Icon(Icons.smart_toy_outlined,color:TomiColors.muted,size:30),
         const SizedBox(height:5),Text((p['user'] as Map?)?['displayName'] as String? ?? 'كمبيوتر ${(p['seat'] as num).toInt()+1}',maxLines:2,overflow:TextOverflow.ellipsis,textAlign:TextAlign.center,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w700)),
-        Text(match['status']=='waiting'?'جاهز':match['kind']=='uno'?'${p['cardCount']??0} ورقة':'خانة ${p['position']??0}',style:const TextStyle(color:TomiColors.gold,fontSize:11)),
+        Text(match['status']=='waiting'?'جاهز':['uno','jackaroo'].contains(match['kind'])?'${p['cardCount']??0} ورقة':match['kind']=='camel'?'${p['progress']??0}٪':'خانة ${p['position']??0}',style:const TextStyle(color:TomiColors.gold,fontSize:11)),
       ])),
     ]);
   });

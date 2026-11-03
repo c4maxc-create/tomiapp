@@ -1,0 +1,12 @@
+✔ board-game SQLite upgrade retains existing matches, membership and receipt across repeated migration (38.2637ms)
+✔ jackaroo HTTP plays one persisted choice on duplicate requests and restores private cards after restart (3544.465637ms)
+✔ camel friends share orders while rejecting forged tiles and a fourth member (4129.88975ms)
+✔ database reopening upgrades the old PostgreSQL kind constraint and preserves pre-upgrade UNO retry fingerprints (2038.435707ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10049.757137

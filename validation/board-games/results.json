@@ -1,0 +1,65 @@
+{
+  "date_baghdad": "2026-11-03",
+  "base_commit": "c01b3e5c0cf45125981a17f644e3ab3609bcce31",
+  "app_version": "1.7.0-beta.1+26",
+  "api_version": "1.7.0-beta.1",
+  "runtimes": {
+    "node": "24.19.0",
+    "flutter": "3.47.7",
+    "dart": "3.13.5",
+    "postgresql": "17.11"
+  },
+  "checks": {
+    "sqlite_full": {
+      "passed": 256,
+      "failed": 0,
+      "skipped": 0
+    },
+    "postgres_full": {
+      "passed": 256,
+      "failed": 0,
+      "skipped": 0,
+      "jit": "off",
+      "fsync": "on"
+    },
+    "engine_final": {
+      "passed": 10
+    },
+    "api_sqlite_final": {
+      "passed": 4
+    },
+    "api_postgres_final": {
+      "passed": 4
+    },
+    "flutter_full": {
+      "passed": 261,
+      "failed": 0,
+      "skipped": 9
+    },
+    "flutter_focused_final": {
+      "passed": 28,
+      "includes": "16 previous games tests and 12 new tests, including rejected-choice recovery"
+    },
+    "flutter_http_contracts": {
+      "passed": 9,
+      "includes": "existing games HTTP contract extended to jackaroo and camel"
+    },
+    "postgres_encrypted_restore": "passed, includes nonempty jackaroo/camel state and retry/XP records",
+    "flutter_analyze": "No issues found",
+    "flutter_captures": {
+      "passed": 2,
+      "evidence": "included in earlier 29-test layout capture run"
+    },
+    "games_http_final": {
+      "passed": 1
+    },
+    "bot_coop_completion": "passed: complete new boards without earning human participation"
+  },
+  "limitations": [
+    "No hosted deployment or APK/device test in this session.",
+    "Complete suites were followed by focused checks of final scheduler/UI and team-XP assertions.",
+    "Initial PostgreSQL run interrupted after a timeout in an existing calls case; unchanged case and full suite passed after local JIT was disabled.",
+    "No Unity integration for these games; these are Flutter/Node implementations."
+  ],
+  "evidence_format": "Text stdout/stderr with end-of-line whitespace normalized; assertion results unchanged."
+}

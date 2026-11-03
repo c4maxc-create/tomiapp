@@ -1,3 +1,4 @@
+import {newBoardGame,performBoardAction,automaticBoardAction,publicBoardState} from './board_games.mjs';
 import {randomInt} from 'node:crypto';
 import {ApiError} from './security.mjs';
 
@@ -54,6 +55,7 @@ export function canPlayCard(s, player, card) {
 }
 
 export function newGame(kind, players, {draw=randomInt, now=Date.now()}={}) {
+  if (['jackaroo','camel'].includes(kind)) return newBoardGame(kind,players,{draw,now});
   if (!['uno','snakes'].includes(kind) || players.length<2 || players.length>4 || new Set(players.map(p=>p.seat)).size!==players.length) throw Error('Invalid game setup');
   const s={kind,status:'playing',players:players.map(p=>({seat:p.seat,bot:!!p.bot,hand:[],position:0,moves:0,humanMoves:0})),turn:players[0].seat,direction:1,sequence:0,startedAt:now,updatedAt:now,deadlineAt:now+30000,drawnId:null,history:[],result:null};
   if (kind==='uno') {
@@ -72,6 +74,7 @@ function finish(s, player, now) {
 }
 
 export function automaticAction(s) {
+  if (['jackaroo','camel'].includes(s.kind)) return automaticBoardAction(s);
   if (s.kind==='snakes') return {type:'roll'};
   const player=s.players.find(p=>p.seat===s.turn);
   const card=player.hand.find(c=>canPlayCard(s,player,c));
@@ -81,6 +84,7 @@ export function automaticAction(s) {
 }
 
 export function performGameAction(original, seat, action, {draw=randomInt,now=Date.now(),automatic=false}={}) {
+  if (['jackaroo','camel'].includes(original.kind)) return performBoardAction(original,seat,action,{draw,now,automatic});
   const s=copy(original),player=s.players.find(p=>p.seat===seat);
   if (s.status!=='playing') fail('GAME_ENDED','انتهت هذه الجولة.');
   if (!player || s.turn!==seat) fail('GAME_TURN','انتظر دورك.');
@@ -137,6 +141,7 @@ export function performGameAction(original, seat, action, {draw=randomInt,now=Da
 }
 
 export function publicGameState(s, seat) {
+  if (['jackaroo','camel'].includes(s.kind)) return publicBoardState(s,seat);
   const me=s.players.find(p=>p.seat===seat);
   return {
     kind:s.kind,status:s.status,turn:s.turn,direction:s.direction,sequence:s.sequence,

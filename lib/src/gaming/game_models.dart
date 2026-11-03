@@ -11,7 +11,7 @@ class GameProgress {
   factory GameProgress.fromJson(Map<String, dynamic> data) => GameProgress(xp: ((data['xp'] as num?)?.toInt() ?? 0).clamp(0, 240100).toInt());
 }
 
-String gameName(String kind) => kind == 'uno' ? 'أونو • أوراق تومي' : kind == 'snakes' ? 'السلم والأفعى' : 'الروليت';
+String gameName(String kind) => const {'uno':'أونو • أوراق تومي','snakes':'السلم والأفعى','jackaroo':'جاكارو • فريقك سندك','camel':'الجمل المجنون','roulette':'الروليت'}[kind] ?? 'لعبة تومي';
 
 class PlayingCard {
   const PlayingCard({required this.id, required this.value, this.color});

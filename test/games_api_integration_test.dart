@@ -26,8 +26,21 @@ void main(){
   for(var i=0;i<100&&(first.summary==null||second.summary==null);i++)await Future<void>.delayed(const Duration(milliseconds:20));
   expect(await first.create('snakes','friends'),true,reason:first.error);expect(await second.join(first.match!['code'] as String),true,reason:second.error);
   await first.load();expect(await first.act('start'),true,reason:first.error);expect(await first.act('roll'),true,reason:first.error);
-  await second.load();expect(second.match!['sequence'],1);expect(first.match!['lastMove']['dice'],inInclusiveRange(1,6));
+  for(var i=0;i<100&&second.match?['sequence']!=1;i++){await second.load();await Future<void>.delayed(const Duration(milliseconds:20));}
+  expect(second.match!['sequence'],1);expect(first.match!['lastMove']['dice'],inInclusiveRange(1,6));
   final roulette=await a.chatRequest('GET','/v1/games/live-roulette');expect(roulette['roundId'],isA<String>());expect(roulette['coins'],1000);
   await a.reloadMe();expect(a.user!.gameProgress.xp,0);expect(a.user!.identity.charisma,0);
+  expect(await first.act('leave'),true,reason:first.error);
+  expect(await first.create('jackaroo','practice'),true,reason:first.error);
+  expect(first.match!['players'].length,4);expect(first.match!['hand'].length,4);
+  expect(await first.act('choose',{'choice':first.match!['choices'][0]['id']}),true,reason:first.error);
+  expect(first.match!['sequence'],1);expect(await first.act('leave'),true,reason:first.error);
+  expect(await first.create('camel','practice'),true,reason:first.error);
+  expect(first.match!['tiles'].length,54);expect(first.summary!['availableGames'],containsAll(['jackaroo','camel']));
+  final tile=(first.match!['choices'] as List).firstWhere((x)=>x['type']=='tile');
+  expect(await first.act('choose',{'choice':tile['id']}),true,reason:first.error);
+  expect(first.match!['tiles'].length,53);expect(first.match!['tray'].length,1);
+  expect(first.summary!['coins'],1000);
+
  },skip:Platform.environment['TOMI_GAMES_INTEGRATION']!='1');
 }
