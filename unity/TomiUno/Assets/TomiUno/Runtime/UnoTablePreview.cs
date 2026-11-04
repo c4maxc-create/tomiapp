@@ -12,8 +12,15 @@ namespace Tomi.Uno
         [SerializeField] bool designSandbox = true;
         [SerializeField] bool reducedMotion;
         public event Action<ActionIntent> ActionRequested;
+        public bool SuiteMode { get; set; }
+        public void SetReducedMotion(bool enabled)
+        {
+            reducedMotion=enabled;
+            if(message!=null)message.text="Reduced motion: "+enabled;
+        }
         readonly SnapshotGate gate = new SnapshotGate();
         readonly List<RectTransform> hand = new List<RectTransform>();
+        readonly List<Material> sceneMaterials = new List<Material>();
         readonly List<CardState> demoCards = new List<CardState>();
         RectTransform root, flightLayer, discardCard;
         Text message, turnLabel;
@@ -31,8 +38,8 @@ namespace Tomi.Uno
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Launch()
         {
-            if (FindFirstObjectByType<UnoTablePreview>() == null)
-                new GameObject("TOMI UNO preview").AddComponent<UnoTablePreview>();
+            if (FindFirstObjectByType<UnoTablePreview>() == null && FindFirstObjectByType<AllGamesPreview>() == null)
+                new GameObject("TOMI games preview").AddComponent<AllGamesPreview>();
         }
         void Start()
         {
@@ -46,6 +53,7 @@ namespace Tomi.Uno
         void BuildTable()
         {
             var cameraObject = new GameObject("Table camera");
+            cameraObject.transform.SetParent(transform,false);
             var camera = cameraObject.AddComponent<Camera>();
             camera.transform.position = new Vector3(0, 10, -8);
             camera.transform.LookAt(Vector3.zero);
@@ -68,6 +76,7 @@ namespace Tomi.Uno
                 Mesh("Tree canopy "+i,PrimitiveType.Sphere,at+Vector3.up*.7f,new Vector3(.9f,1.2f,.9f),new Color(.12f,.48f,.17f));
             }
             var light = new GameObject("Soft key light").AddComponent<Light>();
+            light.transform.SetParent(transform,false);
             light.type = LightType.Directional; light.intensity = 1.25f;
             light.transform.rotation = Quaternion.Euler(55,-25,0);
             RenderSettings.ambientLight = new Color(.45f,.5f,.6f);
@@ -77,7 +86,9 @@ namespace Tomi.Uno
             var obj = GameObject.CreatePrimitive(shape); obj.name = label;
             obj.transform.SetParent(transform); obj.transform.position = at; obj.transform.localScale = size;
             Destroy(obj.GetComponent<Collider>());
-            var material = new Material(Shader.Find("Standard")); material.color = color;
+            var template=Resources.Load<Material>("TomiPreviewSurface");
+            var material=template!=null?new Material(template):new Material(Shader.Find("Standard"));
+            sceneMaterials.Add(material);material.color = color;
             material.SetFloat("_Glossiness", .3f); obj.GetComponent<Renderer>().material = material;
         }
         void BuildHud()
@@ -90,8 +101,8 @@ namespace Tomi.Uno
             root = canvas.GetComponent<RectTransform>();
             if (FindFirstObjectByType<EventSystem>() == null)
                 new GameObject("Pointer input", typeof(EventSystem), typeof(StandaloneInputModule));
-            Label(root,"TOMI  /  PLAY",new Vector2(-680,445),32,Ink);
-            Label(root,designSandbox?"UNO • MOTION DESIGN SANDBOX":"UNO • HOST ADAPTER / NOT CONNECTED",new Vector2(490,445),20,Ink);
+            if(!SuiteMode)Label(root,"TOMI  /  PLAY",new Vector2(-680,445),32,Ink);
+            if(!SuiteMode)Label(root,designSandbox?"UNO • MOTION DESIGN SANDBOX":"UNO • HOST ADAPTER / NOT CONNECTED",new Vector2(490,445),20,Ink);
             Label(root,"CARD CLUB",new Vector2(0,185),16,new Color(.65f,.8f,.73f));
             turnLabel = Label(root,"YOUR TABLE. YOUR MOMENT.",new Vector2(0,225),24,Color.white);
             Seat("KATIE",new Vector2(0,350),"07",Gold);
@@ -108,7 +119,7 @@ namespace Tomi.Uno
             Button(root,"DRAW",new Vector2(-620,-340),new Vector2(200,70),Color.white,Draw);
             Button(root,"UNO!",new Vector2(620,-430),new Vector2(245,70),Gold,()=>{announce=!announce;message.text=announce?"UNO announced for your next play":"UNO announcement off";});
             Button(root,"DEAL AGAIN",new Vector2(-700,380),new Vector2(220,54),Gold,()=>{if(designSandbox&&!busy)StartCoroutine(Deal());});
-            Button(root,"REDUCE MOTION",new Vector2(680,380),new Vector2(250,54),Color.white,()=>{reducedMotion=!reducedMotion;message.text="Reduced motion: "+reducedMotion;});
+            if(!SuiteMode)Button(root,"REDUCE MOTION",new Vector2(680,380),new Vector2(250,54),Color.white,()=>{reducedMotion=!reducedMotion;message.text="Reduced motion: "+reducedMotion;});
             if (designSandbox)
             {
                 Button(root,"REVERSE",new Vector2(-360,-190),new Vector2(200,52),Gold,()=>Effect("REVERSE",Gold));
@@ -308,6 +319,12 @@ namespace Tomi.Uno
         static Color CardColor(string color)
         {
             switch(color){case "red":return new Color(.89f,.19f,.29f);case "blue":return new Color(.15f,.4f,.96f);case "yellow":return new Color(.94f,.65f,.12f);case "green":return new Color(.04f,.6f,.43f);default:return new Color(.19f,.14f,.36f);}
+        }
+        void OnDestroy()
+        {
+            foreach(var material in sceneMaterials)if(material!=null)Destroy(material);
+            if(rounded!=null){Destroy(rounded.texture);Destroy(rounded);}
+            gate.Clear();pending=null;ActionRequested=null;
         }
         static Sprite RoundedSprite()
         {

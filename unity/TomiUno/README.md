@@ -1,3 +1,5 @@
+> Five-game Unity/C# preview suite: see [ALL-GAMES-PREVIEW-AR.md](ALL-GAMES-PREVIEW-AR.md). Use TOMI → Open all-games preview, then Play. WebGL export is provided through TOMI → Build all-games WebGL preview. Unity Editor compilation, Play Mode and export have NOT been executed here; no runnable WebGL build or APK is claimed.
+
 > Native Unity design update, 3 November 2026: the reference composition now uses a cyan sky, green floating island, rim stones/trees, native vector card orbits/action glyphs and real front/back reveal during deal/draw. These changes are C# in this project. They have NOT been compiled or rendered in Unity Editor here, and have NOT been embedded in the Flutter APK. No browser preview was used as proof of this update. Open the scene in Unity to assess the actual appearance, clipping, performance and animation.
 
 # TOMI UNO — first motion prototype
