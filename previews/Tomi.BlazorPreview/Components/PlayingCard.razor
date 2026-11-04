@@ -1,0 +1,9 @@
+<div class="playing-card @(FaceDown?"back":Card.Color??"wild")" aria-label="@(FaceDown?"ظهر ورقة":$"ورقة {Card.Symbol}")">
+    <span class="corner">@(FaceDown?"T":Card.Symbol)</span>
+    <span class="card-face">@(FaceDown?"T":Card.Symbol)@if(FaceDown){<small>PLAY</small>}</span>
+    <span class="corner bottom">@(FaceDown?"T":Card.Symbol)</span>
+</div>
+@code {
+    [Parameter,EditorRequired]public Card Card {get;set;}=new("",null,"");
+    [Parameter]public bool FaceDown {get;set;}
+}

@@ -1,0 +1,47 @@
+name: TOMI CSharp browser preview
+on:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Publish this demo to the repository Pages site (replaces its current Pages content)'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: tomi-blazor-preview
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      - name: Verify CSharp preview models
+        run: dotnet run --project previews/Tomi.PreviewChecks --configuration Release
+      - name: Publish Blazor WebAssembly
+        run: dotnet publish previews/Tomi.BlazorPreview -c Release -o out/blazor
+      - name: Keep framework files available on static hosting
+        run: touch out/blazor/wwwroot/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out/blazor/wwwroot
+  deploy:
+    if: inputs.deploy
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - name: Deploy browser preview
+        id: deployment
+        uses: actions/deploy-pages@v4

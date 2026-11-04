@@ -1,0 +1,8 @@
+PASS UNO rejects unowned and invalid wild plays, and preserves unique card identities
+PASS Snakes serpentine geometry, jumps and exact finishing roll
+PASS Jackaroo wrap, backwards movement and local swapping
+PASS Camel covered/foreign/repeated tiles are rejected and undo conserves pieces
+PASS Camel side storage, shuffle conservation and capacity persist
+PASS Camel triples resolve before capacity loss and terminal games reject more actions
+PASS Roulette CSS angle selects exactly the displayed segment on repeated spins
+RESULT: 7 passed, 0 failed

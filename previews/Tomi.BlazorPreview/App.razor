@@ -1,0 +1,14 @@
+<PageTitle>TOMI PLAY — معاينة C#</PageTitle>
+<div class="shell @(Reduced?"reduce-motion":"")">
+<header><a class="brand" href="./">TOMI <span>PLAY</span></a><span class="tag">C# · Blazor WebAssembly</span><button class="motion" @onclick="()=>Reduced=!Reduced" aria-pressed="@Reduced">@(Reduced?"الحركة مخففة ◌":"تقليل الحركة ◌")</button></header>
+<main><section class="intro"><div class="eyebrow">YOUR NEXT FAVORITE TABLE</div><h1>خمس ألعاب. على مزاجك<span>.</span></h1><p>اختار طاولتك وجرّب الحركة بنفسك.</p></section>
+<nav class="games" aria-label="اختيار اللعبة">@foreach(var game in Games){<button data-game="@game.Id" class="@(Active==game.Id?"active":"")" @onclick="()=>Active=game.Id" aria-pressed="@(Active==game.Id)"><span>@game.Icon</span><b>@game.Name</b><small>@game.Caption</small></button>}</nav>
+<section class="preview" @key="Active">
+    @switch(Active){case "uno":<UnoPreview ReducedMotion="Reduced"/>break;case "snakes":<SnakesPreview ReducedMotion="Reduced"/>break;case "jackaroo":<JackPreview ReducedMotion="Reduced"/>break;case "camel":<CamelPreview ReducedMotion="Reduced"/>break;default:<WheelPreview ReducedMotion="Reduced"/>break;}
+</section>
+<footer><span>معاينة محلية تفاعلية • ما تغيّر حسابك أو رصيدك</span><span>هذه معاينة Blazor، منفصلة عن نسخة Unity</span></footer></main>
+</div>
+@code {
+    bool Reduced;string Active="uno";
+    static readonly (string Id,string Icon,string Name,string Caption)[] Games=[("uno","♠","أونو","ورق وحركات"),("snakes","⚄","السلم والأفعى","خطوة.. ومفاجأة"),("jackaroo","◉","جاكارو","حجر وورقة"),("camel","🐪","الجمل المجنون","طابق ثلاثة"),("wheel","✦","الروليت","لفّة للمعاينة")];
+}

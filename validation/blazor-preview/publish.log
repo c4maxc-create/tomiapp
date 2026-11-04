@@ -1,0 +1,6 @@
+  Tomi.BlazorPreview -> /workspace/tomiapp/previews/Tomi.BlazorPreview/bin/Release/net8.0/Tomi.BlazorPreview.dll
+  Tomi.BlazorPreview (Blazor output) -> /workspace/tomiapp/previews/Tomi.BlazorPreview/bin/Release/net8.0/wwwroot
+  Optimizing assemblies for size may change the behavior of the app. Be sure to test after publishing. See: https://aka.ms/dotnet-illink
+  Optimizing assemblies for size. This process might take a while.
+  Publishing without optimizations. Although it's optional for Blazor, we strongly recommend using `wasm-tools` workload! You can install it by running `dotnet workload install wasm-tools` from the command line.
+  Tomi.BlazorPreview -> /workspace/shared/blazor-publish/

@@ -1,0 +1,36 @@
+# معاينة TOMI بالمتصفح — C# / Blazor WebAssembly
+
+هذا مشروع Blazor مستقل اختاره المستخدم صراحة لمعاينة المتصفح. الحالة ومعالجات التفاعل مكتوبة بـ C#، وتعمل عبر WebAssembly. JavaScript المستخدم هو مشغّل Blazor الرسمي. المشروع منفصل عن Unity وعن APK الحالي.
+
+يشمل الأونو، السلم والأفعى، جاكارو، الجمل والروليت. هذه معاينات محلية للتصميم والحركة؛ الأونو وجاكارو لا تطبّقان قواعد اللعب الجماعي الكاملة. لا اتصال بحسابات TOMI أو الأرصدة أو خدمات الإنتاج.
+
+## نشر رابط للمتصفح
+
+ملفات WebAssembly تحتاج استضافة HTTP/HTTPS، ولا تعمل بفتح index.html من القرص.
+
+1. افتح المستودع ثم Settings → Pages، واختر Source: GitHub Actions.
+2. افتح Actions → TOMI CSharp browser preview → Run workflow على main.
+3. فعّل deploy بعد مراجعة أنه يستبدل محتوى موقع Pages الحالي، إن وجد.
+4. بعد نجاح النشر، خذ الرابط الفعلي من نتيجة التشغيل أو بيئة github-pages.
+
+المستودع خاص؛ توفر Pages يعتمد على خطة الحساب. لا تجعل مشروع التطبيق عامًا لتجاوز هذا القيد. يمكن استضافة ملفات wwwroot الناتجة وحدها في استضافة منفصلة يختارها المستخدم.
+
+الـ workflow يدوي ولا ينشر عند push. خيار deploy غير مفعّل افتراضيًا.
+
+## التطوير والتحقق
+
+يتطلب .NET SDK 8. من جذر المستودع:
+
+```sh
+dotnet run --project previews/Tomi.PreviewChecks
+dotnet publish previews/Tomi.BlazorPreview -c Release -o out/blazor
+python3 -m http.server 8787 --bind 127.0.0.1 --directory out/blazor/wwwroot
+# في طرفية ثانية، مع Python Playwright و Chromium:
+python3 previews/check_browser.py
+```
+
+انشر مجلد out/blazor/wwwroot كاملًا، بما فيه _framework. لا يحتاج هذا البناء Unity أو AOT. ملاحظة wasm-tools في سجل النشر اقتراح تحسين اختياري.
+
+نجحت اختبارات C# السبعة، والبناء والنشر المحلي، وفحوص تفاعل الألعاب الخمس في Chromium عند عرض 1440 و390 و320 بكسل. راجع validation/blazor-preview للأدلة.
+
+لم يُتحقق من نشر رابط عام. GitHub API محجوبة بسياسة الشبكة عند api.github.com (403)، بينما Git يعمل. حُفظ السماح بالنطاق في مسودة إعدادات البيئة دون نشرها، مع الحفاظ على الإعدادات السابقة. المسودة وحدها لا تفعّل الوصول.

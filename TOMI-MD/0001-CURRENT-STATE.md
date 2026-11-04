@@ -1,3 +1,5 @@
+> الأحدث: المستخدم وافق صراحة على Blazor لمعاينة المتصفح؛المشروعC#/WebAssemblyالمنفصلفيpreviews. راجع0016-BLAZOR-BROWSER-PREVIEW.md. لا تخلطها معUnityأوAPK،ولا تدّع رابطًا منشورًا قبل نجاحPages.
+
 > الأحدث4نوفمبر2026:مصدرقائمةومعايناتالألعابالخمسداخلUnity/C#فيالجلسة0015ودليلunity/TomiUno/ALL-GAMES-PREVIEW-AR.md. تشغيلهاوتصديرهايتطلبUnityEditorغيرالمتوفرهنا؛لاWebGLأوAPKمرندرومثبت.
 
 > تصميم Unity الأونو: مراجعة جديدة في0014-UNITY-UNO-DESIGN-REVISION.md. التغيير داخلUnity/C#فقط؛لميُشغلEditorولميدمجداخلAPK. حالةالألعابالحاليةFlutterمذكورةأدناه،ولاتُخلطبتصميمUnity.

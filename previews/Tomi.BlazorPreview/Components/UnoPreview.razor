@@ -1,0 +1,34 @@
+@inherits PreviewComponent
+<div class="game-heading"><div><small>THE CARD CLUB</small><h2>أونو <span>• أوراق تومي</span></h2></div><button class="secondary" data-action="uno-deal" disabled="@Busy" @onclick="Deal">↻ وزّع من جديد</button></div>
+<div class="uno-arena">
+<div class="cloud c1"></div><div class="cloud c2"></div>
+<div class="seat north"><div class="avatar peach">L</div><b>ليان</b><small>7 أوراق</small><div class="mini-backs">▰▰▰</div></div>
+<div class="seat west"><div class="avatar blue">O</div><b>عمر</b><small>7 أوراق</small><div class="mini-backs">▰▰▰</div></div>
+<div class="seat east"><div class="avatar purple">N</div><b>نور</b><small>7 أوراق</small><div class="mini-backs">▰▰▰</div></div>
+<div class="island"><div class="table-ring"><div class="table-felt"><span class="table-brand">TOMI<br/><small>CARD CLUB</small></span><span class="direction">↻</span><div class="piles"><button class="deck-button" data-action="uno-deck" disabled="@Busy" @onclick="Draw"><PlayingCard Card="Top" FaceDown="true"/></button><div class="discard"><PlayingCard Card="DisplayTop"/></div></div><span class="table-note">اختار ورقتك.. وخلّها حلوة</span></div></div></div>
+@if(Flying is not null){<div class="card-flight @(DrawFlight?"draw-flight":"play-flight")" @key="FlightSerial"><PlayingCard Card="Flying" FaceDown="DrawFlight"/></div>}
+@if(Effect is not null){<div class="special-effect" @key="EffectSerial">@Effect</div>}
+<div class="you"><i></i> أنت <small>طاولة المعاينة</small><span data-testid="uno-count">@Model.Hand.Count أوراق</span></div>
+<div class="hand">@for(int i=0;i<Math.Min(Dealt,Model.Hand.Count);i++){var card=Model.Hand[i];var index=i;<button class="hand-card @(Selected==card.Id?"selected":"") @(HiddenCard==card.Id?"hidden-card":"")" data-card="@card.Id" style="@HandStyle(index)" disabled="@Busy" aria-pressed="@(Selected==card.Id)" @onclick="()=>Selected=card.Id" @key="card.Id"><PlayingCard Card="card"/></button>}</div>
+<div class="uno-controls"><button class="secondary" data-action="uno-draw" disabled="@Busy" @onclick="Draw">＋ اسحب ورقة</button><button class="primary" data-action="uno-play" disabled="@(Busy||Selected is null)" @onclick="()=>Play()">العب الورقة <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 12 12 4M4 4h8v8" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="uno-button @(Announced?"announced":"")" disabled="@Busy" aria-pressed="@Announced" @onclick="()=>Announced=!Announced">UNO!</button></div>
+@if(ChooseColor){<div class="modal-shade" role="dialog" aria-modal="true" aria-label="اختيار اللون"><div class="color-dialog"><small>MAKE YOUR MOVE</small><h3>اختار لونك</h3><div class="color-options">@foreach(var c in Colors){var color=c;<button data-color="@color" class="@color" aria-label="@ColorName(color)" @onclick="()=>Play(color)"></button>}</div><button class="secondary" @onclick="()=>ChooseColor=false">رجوع للأوراق</button></div></div>}
+</div>
+<div class="status-line" role="status">@Status</div><p class="disclaimer">معاينة حركة: تگدر تلعب أي ورقة لتجربة المؤثرات. ما تمثل قواعد مباراة أونو متصلة.</p>
+@code {
+    readonly UnoModel Model=new();Card Top=new("top","red","7"),DisplayTop=new("top","red","7");
+    Card? Flying;string? Selected,HiddenCard,Effect;bool DrawFlight,ChooseColor,Announced;int Dealt=7,FlightSerial,EffectSerial;
+    string Status="اضغط ورقة من يدك، وبعدين العبها.";
+    static readonly string[] Colors=["red","blue","green","yellow"];
+    protected override void OnInitialized()=>Model.Reset();
+    string ColorName(string c)=>c switch{"red"=>"أحمر","blue"=>"أزرق","green"=>"أخضر",_=>"أصفر"};
+    string HandStyle(int i){double offset=i-(Model.Hand.Count-1)/2d,gap=Model.Hand.Count>8?22:32;return FormattableString.Invariant($"--x:{offset*gap:0.##}px;--a:{offset*4.5:0.##}deg;--arc:{Math.Abs(offset)*3:0.##}px;z-index:{(Model.Hand[i].Id==Selected?30:i+1)}");}
+    Task Deal()=>Animate(async()=>{Model.Reset();Selected=null;Announced=false;DisplayTop=Model.Top;Dealt=0;for(int i=0;i<7;i++){Dealt=i+1;StateHasChanged();await Pause(110);}Status="وزعنا الأوراق.. اختار حركتك.";});
+    Task Draw()=>Animate(async()=>{var card=Model.Draw();if(card is null){Status="وصلت حد المعاينة12ورقة. وزع من جديد.";return;}HiddenCard=card.Id;Flying=card;DrawFlight=true;FlightSerial++;Dealt=Model.Hand.Count;StateHasChanged();await Pause(520);HiddenCard=null;Flying=null;Status="وصلت ورقتك. جرّب حركتها.";});
+    Task Play(string? color=null)
+    {
+        var card=Model.Hand.Find(c=>c.Id==Selected);if(card is null)return Task.CompletedTask;
+        if(card.Color is null&&color is null){ChooseColor=true;return Task.CompletedTask;}
+        ChooseColor=false;
+        return Animate(async()=>{var played=Model.Play(card.Id,color);if(played is null)return;Selected=null;Flying=played;DrawFlight=false;FlightSerial++;StateHasChanged();await Pause(520);DisplayTop=Model.Top;Flying=null;Dealt=Model.Hand.Count;Effect=played.Value switch{"skip"=>"⊘ تخطي","reverse"=>"⇄ عكس الاتجاه","draw2"=>"+2","wild4"=>"+4","wild"=>"لون جديد",_=>null};EffectSerial++;Status="حركة عرض فقط • رصيدك وأدوار السيرفر ما تتغيّر.";});
+    }
+}
