@@ -39,7 +39,8 @@ class _CSharpGamesPageState extends State<CSharpGamesPage>
       dirty = false,
       resumed = true,
       processing = false,
-      wheelActive = false;
+      wheelActive = false,
+      started = false;
   String? failure, closedMatchId;
   bool get foreground => widget.visible && resumed && games.current;
   @override
@@ -47,10 +48,12 @@ class _CSharpGamesPageState extends State<CSharpGamesPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     games.addListener(changed);
-    unawaited(start());
+    if (widget.visible) unawaited(start());
   }
 
   Future<void> start() async {
+    if (started || disposed || !widget.visible) return;
+    started = true;
     try {
       final server = await CSharpAssetServer.start();
       if (disposed) {
@@ -262,7 +265,10 @@ class _CSharpGamesPageState extends State<CSharpGamesPage>
     super.didUpdateWidget(old);
     games.setVisible(widget.visible);
     roulette?.lifecycle(foreground && wheelActive);
-    if (widget.visible) changed();
+    if (widget.visible) {
+      unawaited(start());
+      changed();
+    }
   }
 
   @override
@@ -288,6 +294,9 @@ class _CSharpGamesPageState extends State<CSharpGamesPage>
 
   @override
   Widget build(BuildContext context) {
+    // IndexedStack builds hidden tabs too. Do not animate or initialize a
+    // WebView until the player actually opens games.
+    if (!widget.visible && web == null) return const SizedBox.shrink();
     if (failure != null)
       return Center(
         child: Padding(

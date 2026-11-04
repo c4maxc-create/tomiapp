@@ -1,0 +1,3 @@
+00:00 +0: loading /workspace/tomiapp/test/csharp_games_visibility_test.dart
+00:00 +0: hidden CSharp games do not initialize WebView or keep other tabs animating
+00:00 +1: All tests passed!

@@ -1,0 +1,14 @@
+00:00 +0: loading /workspace/tomiapp/test/accounts_widget_test.dart
+00:00 +0: /workspace/tomiapp/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:02 +1: /workspace/tomiapp/test/social_test.dart: comment errors and keyboard remain scrollable on Size(320.0, 640.0)
+00:02 +2: /workspace/tomiapp/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:02 +3: /workspace/tomiapp/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:04 +4: /workspace/tomiapp/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:05 +5: /workspace/tomiapp/test/accounts_widget_test.dart: profile edit waits for server success and keeps text when username is taken
+00:06 +6: /workspace/tomiapp/test/social_test.dart: real feed, likes and comments fit enlarged text on Size(320.0, 640.0)
+00:06 +7: /workspace/tomiapp/test/accounts_widget_test.dart: late search responses cannot replace a newer query result
+00:06 +8: /workspace/tomiapp/test/social_test.dart: real feed, likes and comments fit enlarged text on Size(800.0, 420.0)
+00:07 +9: /workspace/tomiapp/test/social_test.dart: real feed, likes and comments fit enlarged text on Size(800.0, 420.0)
+00:07 +10: /workspace/tomiapp/test/social_test.dart: R2 receives exact bytes and checksum without the account token
+00:07 +11: /workspace/tomiapp/test/social_test.dart: late feed responses cannot replace a newly selected scope
+00:07 +12: All tests passed!
