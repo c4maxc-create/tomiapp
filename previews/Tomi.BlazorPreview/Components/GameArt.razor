@@ -1,0 +1,23 @@
+<svg class="game-art" viewBox="0 0 160 120" fill="none" aria-hidden="true">
+<ellipse cx="80" cy="105" rx="58" ry="8" fill="#000" opacity=".18"/>
+@switch(Kind){
+case "uno":
+<g transform="rotate(-18 60 60)"><rect x="28" y="17" width="54" height="82" rx="9" fill="#e9d7af"/><rect x="31" y="14" width="54" height="82" rx="9" fill="#ffecce"/><rect x="35" y="18" width="46" height="74" rx="6" fill="#e44767"/><ellipse cx="58" cy="55" rx="17" ry="28" transform="rotate(25 58 55)" stroke="white" stroke-width="2"/><text x="58" y="67" fill="white" text-anchor="middle" font-size="36" font-weight="900">7</text></g>
+<g transform="rotate(15 103 60)"><rect x="75" y="20" width="54" height="82" rx="9" fill="#bea77d"/><rect x="75" y="16" width="54" height="82" rx="9" fill="#fff3d9"/><rect x="79" y="20" width="46" height="74" rx="6" fill="#477fe0"/><ellipse cx="102" cy="57" rx="17" ry="28" transform="rotate(25 102 57)" stroke="white" stroke-width="2"/><text x="102" y="69" fill="white" text-anchor="middle" font-size="36" font-weight="900">8</text></g>break;
+case "snakes":
+<rect x="29" y="20" width="102" height="82" rx="13" fill="#8f633d"/><rect x="29" y="15" width="102" height="82" rx="13" fill="#ead3a4"/>
+@for(int y=0;y<4;y++){for(int x=0;x<5;x++){<rect x="@(36+x*18)" y="@(22+y*17)" width="17" height="16" rx="2" fill="@((x+y)%2==0?"#45847a":"#8ab58d")"/>}}
+<path d="M48 79 96 32M57 88 105 41M55 74 64 83M66 63 75 72M77 52 86 61M88 41 97 50" stroke="#ffe7a0" stroke-width="4" stroke-linecap="round"/><path d="M113 41C77 34 126 83 94 83" stroke="#e95e76" stroke-width="8" stroke-linecap="round"/><circle cx="114" cy="39" r="6" fill="#f78b9d"/><circle cx="116" cy="38" r="1.5" fill="#302b42"/>break;
+case "jackaroo":
+<circle cx="80" cy="61" r="47" fill="#87603a"/><circle cx="80" cy="56" r="47" fill="#e2bd7d"/><circle cx="80" cy="56" r="39" stroke="#b18449" stroke-width="2"/>
+@for(int i=0;i<24;i++){double a=i*Math.PI/12;<circle cx="@(80+33*Math.Cos(a))" cy="@(56+33*Math.Sin(a))" r="2.3" fill="#8d663d"/>}
+<circle cx="80" cy="23" r="7" fill="#f06e81" stroke="#ffe5c0" stroke-width="2"/><circle cx="113" cy="56" r="7" fill="#5eabe6" stroke="#ffe5c0" stroke-width="2"/><circle cx="80" cy="89" r="7" fill="#edc257" stroke="#ffe5c0" stroke-width="2"/><circle cx="47" cy="56" r="7" fill="#61c398" stroke="#ffe5c0" stroke-width="2"/><path d="m80 39 5 11 12 6-12 5-5 12-5-12-12-5 12-6Z" fill="#ac8147"/>break;
+case "camel":
+<rect x="27" y="39" width="47" height="52" rx="9" fill="#b9a16b"/><rect x="27" y="33" width="47" height="52" rx="9" fill="#fff0ce"/><rect x="85" y="39" width="47" height="52" rx="9" fill="#b9a16b"/><rect x="85" y="33" width="47" height="52" rx="9" fill="#fff0ce"/><rect x="56" y="16" width="48" height="56" rx="9" fill="#d7ba7a"/><rect x="56" y="10" width="48" height="56" rx="9" fill="#fff7df"/><path d="M66 47h29V35l-6-5-4 6-6-7-6 9h-7Zm4 0v8m18-8v8m7-20V23h7" stroke="#c18c42" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="m40 61 10-15 8 5-11 14Z" fill="#ed8b55"/><path d="m101 59 8-12 9 5-11 12Z" fill="#67ac7d"/>break;
+default:
+<circle cx="80" cy="61" r="47" fill="#977344"/><circle cx="80" cy="56" r="47" fill="#f3d798"/>
+@for(int i=0;i<8;i++){double a=(i*45-90)*Math.PI/180,b=((i+1)*45-90)*Math.PI/180;string[] colors=["#e6657d","#eac365","#63b991","#65aaca","#aa8acc","#df9670","#9db968","#c67b9d"];<path d="@FormattableString.Invariant($"M80 56 L{80+40*Math.Cos(a)} {56+40*Math.Sin(a)} A40 40 0 0 1 {80+40*Math.Cos(b)} {56+40*Math.Sin(b)} Z")" fill="@colors[i]"/>}
+<circle cx="80" cy="56" r="12" fill="#244847" stroke="#ffe9ad" stroke-width="3"/><path d="m70 6 10 20L90 6Z" fill="#fff1c0"/>break;
+}
+</svg>
+@code{[Parameter]public string Kind{get;set;}="uno";}

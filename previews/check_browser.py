@@ -18,6 +18,14 @@ with sync_playwright() as p:
   page.on('response',lambda r:wasm.append(r.url) if '.wasm' in r.url and r.ok else None)
   page.goto(os.environ.get('TOMI_PREVIEW_URL','http://127.0.0.1:8787/'),wait_until='networkidle')
   expect(page.locator('.hand-card')).to_have_count(7,timeout=30000)
+  expect(page.locator('.games .game-art')).to_have_count(5)
+  assert len(set(page.locator('.games .game-art').evaluate_all('es=>es.map(e=>e.innerHTML)')))==5,'Game artwork must be distinct'
+  assert page.locator('.games').evaluate('e=>e.scrollWidth<=e.clientWidth+1'),'Game navigation clipped'
+  page.locator('[data-action=focus-toggle]').click()
+  expect(page.locator('.games')).to_be_hidden()
+  expect(page.locator('.uno-arena')).to_be_visible()
+  page.locator('[data-action=focus-toggle]').click()
+  expect(page.locator('.games')).to_be_visible()
   assert wasm,'No WebAssembly runtime/assemblies loaded'
   page.locator('[data-action=help-toggle]').click()
   expect(page.get_by_role('region',name='دليل التحكم')).to_be_visible()
@@ -48,9 +56,11 @@ with sync_playwright() as p:
   assert before==page.locator('[data-pawn="1"]').get_attribute('style')
   expect(page.locator('[data-action=jack-undo]')).to_be_disabled()
   page.locator('[data-game=camel]').click();expect(page.locator('[data-tile]')).to_have_count(54)
+  expect(page.locator('[data-tile] .tile-art')).to_have_count(54)
   assert page.locator('[data-tile][disabled]').count()>0
   page.locator('[data-tile]:not([disabled])').first.click();expect(page.locator('[data-tile]')).to_have_count(53)
   page.locator('[data-action=camel-undo]').click();expect(page.locator('[data-tile]')).to_have_count(54)
+  expect(page.locator('[data-tile] .tile-art')).to_have_count(54)
   page.locator('[data-tile]:not([disabled])').first.click();page.locator('[data-action=camel-store]').click()
   expect(page.locator('[data-side-tile]')).to_have_count(1)
   page.locator('[data-side-tile]').click();expect(page.locator('[data-side-tile]')).to_have_count(0)
