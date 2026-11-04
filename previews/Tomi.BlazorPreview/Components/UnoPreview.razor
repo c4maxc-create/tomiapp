@@ -1,6 +1,7 @@
 @inherits PreviewComponent
 <div class="game-heading"><div><small>THE CARD CLUB</small><h2>أونو <span>• أوراق تومي</span></h2></div><button class="secondary" data-action="uno-deal" disabled="@Busy" @onclick="Deal">↻ وزّع من جديد</button></div>
-<div class="uno-arena">
+<div class="uno-arena" tabindex="0" aria-label="طاولة أونو، استخدم الأسهم لاختيار ورقة وEnter للعب" @onkeydown="HandleKey">
+<div class="table-hud"><span><i></i> دورك للتجربة</span><b>طاولة 01</b><span>4 مقاعد</span></div>
 <div class="cloud c1"></div><div class="cloud c2"></div>
 <div class="seat north"><div class="avatar peach">L</div><b>ليان</b><small>7 أوراق</small><div class="mini-backs">▰▰▰</div></div>
 <div class="seat west"><div class="avatar blue">O</div><b>عمر</b><small>7 أوراق</small><div class="mini-backs">▰▰▰</div></div>
@@ -9,12 +10,25 @@
 @if(Flying is not null){<div class="card-flight @(DrawFlight?"draw-flight":"play-flight")" @key="FlightSerial"><PlayingCard Card="Flying" FaceDown="DrawFlight"/></div>}
 @if(Effect is not null){<div class="special-effect" @key="EffectSerial">@Effect</div>}
 <div class="you"><i></i> أنت <small>طاولة المعاينة</small><span data-testid="uno-count">@Model.Hand.Count أوراق</span></div>
-<div class="hand">@for(int i=0;i<Math.Min(Dealt,Model.Hand.Count);i++){var card=Model.Hand[i];var index=i;<button class="hand-card @(Selected==card.Id?"selected":"") @(HiddenCard==card.Id?"hidden-card":"")" data-card="@card.Id" style="@HandStyle(index)" disabled="@Busy" aria-pressed="@(Selected==card.Id)" @onclick="()=>Selected=card.Id" @key="card.Id"><PlayingCard Card="card"/></button>}</div>
+<div class="hand">@for(int i=0;i<Math.Min(Dealt,Model.Hand.Count);i++){var card=Model.Hand[i];var index=i;<button class="hand-card @(Selected==card.Id?"selected":"") @(HiddenCard==card.Id?"hidden-card":"")" data-card="@card.Id" style="@HandStyle(index)" disabled="@Busy" aria-label="@($"ورقة {ColorName(card.Color??Model.ActiveColor)} {card.Symbol}")" aria-pressed="@(Selected==card.Id)" @onclick="()=>Selected=card.Id" @key="card.Id"><PlayingCard Card="card"/></button>}</div>
+<div class="selection-readout" aria-live="polite">@(SelectedCard is null?"اختار ورقة من يدك":"جاهزة للعب • "+ColorName(SelectedCard.Color??Model.ActiveColor)+" "+SelectedCard.Symbol)</div>
 <div class="uno-controls"><button class="secondary" data-action="uno-draw" disabled="@Busy" @onclick="Draw">＋ اسحب ورقة</button><button class="primary" data-action="uno-play" disabled="@(Busy||Selected is null)" @onclick="()=>Play()">العب الورقة <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 12 12 4M4 4h8v8" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="uno-button @(Announced?"announced":"")" disabled="@Busy" aria-pressed="@Announced" @onclick="()=>Announced=!Announced">UNO!</button></div>
 @if(ChooseColor){<div class="modal-shade" role="dialog" aria-modal="true" aria-label="اختيار اللون"><div class="color-dialog"><small>MAKE YOUR MOVE</small><h3>اختار لونك</h3><div class="color-options">@foreach(var c in Colors){var color=c;<button data-color="@color" class="@color" aria-label="@ColorName(color)" @onclick="()=>Play(color)"></button>}</div><button class="secondary" @onclick="()=>ChooseColor=false">رجوع للأوراق</button></div></div>}
 </div>
 <div class="status-line" role="status">@Status</div><p class="disclaimer">معاينة حركة: تگدر تلعب أي ورقة لتجربة المؤثرات. ما تمثل قواعد مباراة أونو متصلة.</p>
 @code {
+    Card? SelectedCard=>Model.Hand.Find(c=>c.Id==Selected);
+    async Task HandleKey(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if(Busy||ChooseColor)return;
+        if(e.Key is "ArrowLeft" or "ArrowRight"){
+            if(Model.Hand.Count==0)return;
+            int at=Model.Hand.FindIndex(c=>c.Id==Selected);
+            Selected=Model.Hand[(at+(e.Key=="ArrowLeft"?1:-1)+Model.Hand.Count)%Model.Hand.Count].Id;
+        }else if(e.Key=="Enter")await Play();
+        else if(e.Key is "d" or "D")await Draw();
+        else if(e.Key=="Escape")Selected=null;
+    }
     readonly UnoModel Model=new();Card Top=new("top","red","7"),DisplayTop=new("top","red","7");
     Card? Flying;string? Selected,HiddenCard,Effect;bool DrawFlight,ChooseColor,Announced;int Dealt=7,FlightSerial,EffectSerial;
     string Status="اضغط ورقة من يدك، وبعدين العبها.";

@@ -19,6 +19,13 @@ with sync_playwright() as p:
   page.goto(os.environ.get('TOMI_PREVIEW_URL','http://127.0.0.1:8787/'),wait_until='networkidle')
   expect(page.locator('.hand-card')).to_have_count(7,timeout=30000)
   assert wasm,'No WebAssembly runtime/assemblies loaded'
+  page.locator('[data-action=help-toggle]').click()
+  expect(page.get_by_role('region',name='دليل التحكم')).to_be_visible()
+  page.get_by_label('سرعة الحركة',exact=True).select_option('1.6')
+  page.locator('[data-action=help-toggle]').click()
+  page.locator('.uno-arena').focus();page.keyboard.press('ArrowLeft')
+  expect(page.locator('.hand-card.selected')).to_have_count(1)
+  page.keyboard.press('Escape');expect(page.locator('.hand-card.selected')).to_have_count(0)
   assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),f'Overflow at {width}'
   card_click(page.locator('.hand-card').first)
   page.locator('[data-action=uno-play]').click();expect(page.locator('.hand-card')).to_have_count(6)
@@ -37,6 +44,9 @@ with sync_playwright() as p:
   before=page.locator('[data-pawn="1"]').get_attribute('style')
   page.locator('[data-jack-action=back]').click();expect(page.locator('[data-jack-action=back]')).to_be_enabled(timeout=5000)
   assert before!=page.locator('[data-pawn="1"]').get_attribute('style')
+  page.locator('[data-action=jack-undo]').click()
+  assert before==page.locator('[data-pawn="1"]').get_attribute('style')
+  expect(page.locator('[data-action=jack-undo]')).to_be_disabled()
   page.locator('[data-game=camel]').click();expect(page.locator('[data-tile]')).to_have_count(54)
   assert page.locator('[data-tile][disabled]').count()>0
   page.locator('[data-tile]:not([disabled])').first.click();expect(page.locator('[data-tile]')).to_have_count(53)
