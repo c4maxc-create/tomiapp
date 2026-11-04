@@ -1,0 +1,3 @@
+# Generated WebAssembly assets are rebuilt by the Android workflow.
+/assets/tomi_games/
+/previews/__pycache__/

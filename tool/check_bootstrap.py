@@ -64,6 +64,11 @@ Path("README.md").write_text("template readme")
         assert app.get(ns + "icon") == "@drawable/tomi_launcher"
         assert app.get(ns + "allowBackup") == "false"
         assert app.get(ns + "usesCleartextTraffic") == "false"
+        assert app.get(ns + "networkSecurityConfig") == "@xml/tomi_network_security"
+        network=ET.parse(project/'android/app/src/main/res/xml/tomi_network_security.xml').getroot()
+        assert network.find('base-config').get('cleartextTrafficPermitted') == 'false'
+        assert [d.text for d in network.findall('domain-config/domain')] == ['127.0.0.1']
+        assert network.find('domain-config/domain').get('includeSubdomains') == 'false'
         assert any(item.get(ns + "name") == "android.permission.INTERNET"
                    for item in manifest.getroot().findall("uses-permission"))
         for permission in ['android.permission.RECORD_AUDIO','android.permission.POST_NOTIFICATIONS','android.permission.CAMERA','android.permission.MODIFY_AUDIO_SETTINGS','android.permission.ACCESS_NETWORK_STATE']:

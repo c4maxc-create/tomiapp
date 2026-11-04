@@ -1,0 +1,33 @@
+00:00 +0: loading /workspace/tomiapp/test/csharp_asset_server_test.dart
+00:00 +0: /workspace/tomiapp/test/csharp_asset_server_test.dart: CSharp assets use isolated loopback origin, exact manifest, WASM MIME and deny foreign access
+00:00 +1: /workspace/tomiapp/test/csharp_asset_server_test.dart: packaged CSharp UI boots under the actual native asset server CSP and talks to real API
+00:11 +1 ~1: /workspace/tomiapp/test/games_api_integration_test.dart: 1.7 Flutter controllers play a real HTTP friends table and open standalone roulette
+00:11 +2 ~1: /workspace/tomiapp/test/games_api_integration_test.dart: 1.7 Flutter controllers play a real HTTP friends table and open standalone roulette
+00:12 +3 ~1: /workspace/tomiapp/test/games_api_integration_test.dart: 1.7 Flutter controllers play a real HTTP friends table and open standalone roulette
+00:12 +4 ~1: /workspace/tomiapp/test/games_api_integration_test.dart: 1.7 Flutter controllers play a real HTTP friends table and open standalone roulette
+00:12 +5 ~1: /workspace/tomiapp/test/games_api_integration_test.dart: 1.7 Flutter controllers play a real HTTP friends table and open standalone roulette
+00:13 +6 ~1: /workspace/tomiapp/test/games_api_integration_test.dart: 1.7 Flutter controllers play a real HTTP friends table and open standalone roulette
+00:13 +7 ~1: /workspace/tomiapp/test/games17_test.dart: 1.7 real table surfaces fit uno Size(320.0, 640.0)/1.0
+00:13 +8 ~1: /workspace/tomiapp/test/games17_test.dart: 1.7 real table surfaces fit snakes Size(320.0, 640.0)/1.0
+00:13 +9 ~1: /workspace/tomiapp/test/games17_test.dart: 1.7 side-by-side progress and charisma detail fit Size(320.0, 640.0)/2.0
+00:14 +10 ~1: /workspace/tomiapp/test/games17_test.dart: 1.7 real table surfaces fit uno Size(320.0, 640.0)/2.0
+00:14 +11 ~1: /workspace/tomiapp/test/games17_test.dart: 1.7 real table surfaces fit snakes Size(320.0, 640.0)/2.0
+00:14 +12 ~1: /workspace/tomiapp/test/games17_test.dart: 1.7 side-by-side progress and charisma detail fit Size(800.0, 420.0)/1.0
+00:14 +13 ~1: /workspace/tomiapp/test/games17_test.dart: 1.7 real table surfaces fit uno Size(800.0, 420.0)/1.0
+00:14 +14 ~1: /workspace/tomiapp/test/board_games_test.dart: new names and jackaroo path distinguish bases, track and home
+00:14 +15 ~1: /workspace/tomiapp/test/games17_test.dart: 1.7 real table surfaces fit snakes Size(800.0, 420.0)/1.0
+00:14 +16 ~1: /workspace/tomiapp/test/board_games_test.dart: jackaroo table and rules fit Size(320.0, 640.0) at 1.0 text
+00:15 +17 ~1: /workspace/tomiapp/test/board_games_test.dart: jackaroo table and rules fit Size(320.0, 640.0) at 1.0 text
+00:15 +18 ~1: /workspace/tomiapp/test/board_games_test.dart: jackaroo table and rules fit Size(320.0, 640.0) at 1.0 text
+00:15 +19 ~1: /workspace/tomiapp/test/board_games_test.dart: jackaroo table and rules fit Size(320.0, 640.0) at 1.0 text
+00:16 +20 ~1: /workspace/tomiapp/test/board_games_test.dart: camel table and rules fit Size(320.0, 640.0) at 1.0 text
+00:16 +21 ~1: /workspace/tomiapp/test/board_games_test.dart: jackaroo table and rules fit Size(320.0, 640.0) at 2.0 text
+00:17 +22 ~1: /workspace/tomiapp/test/board_games_test.dart: camel table and rules fit Size(320.0, 640.0) at 2.0 text
+00:17 +23 ~1: /workspace/tomiapp/test/board_games_test.dart: jackaroo table and rules fit Size(800.0, 420.0) at 1.0 text
+00:17 +24 ~1: /workspace/tomiapp/test/board_games_test.dart: camel table and rules fit Size(800.0, 420.0) at 1.0 text
+00:17 +25 ~1: /workspace/tomiapp/test/board_games_test.dart: jackaroo table and rules fit Size(800.0, 420.0) at 2.0 text
+00:18 +26 ~1: /workspace/tomiapp/test/board_games_test.dart: camel table and rules fit Size(800.0, 420.0) at 2.0 text
+00:18 +27 ~1: /workspace/tomiapp/test/board_games_test.dart: jackaroo sends one server choice through the existing durable controller
+00:19 +28 ~1: /workspace/tomiapp/test/board_games_test.dart: a definitive GAME_CHOICE rejection clears the durable intent and allows a fresh choice
+00:19 +29 ~1: /workspace/tomiapp/test/board_games_test.dart: camel covered piece is disabled and an exposed tile sends its server identity
+00:20 +30 ~1: All tests passed!

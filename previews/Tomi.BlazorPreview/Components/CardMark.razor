@@ -1,0 +1,8 @@
+@if(Value is "skip" or "reverse" or "wild"){
+<svg class="card-symbol" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+@if(Value=="skip"){<circle cx="16" cy="16" r="11" stroke="currentColor" stroke-width="3"/><path d="m8 24 16-16" stroke="currentColor" stroke-width="3"/>}
+else if(Value=="reverse"){<path d="M6 11h20m0 0-7-7m7 7-7 7M26 23H6m0 0 7-7m-7 7 7 7" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>}
+else{<path d="m16 2 4 10 10 4-10 4-4 10-4-10-10-4 10-4Z" fill="currentColor"/>}
+</svg>
+}else{@Text}
+@code{[Parameter]public string Value{get;set;}="";string Text=>Value switch{"draw2"=>"+2","wild4"=>"+4",_=>Value};}

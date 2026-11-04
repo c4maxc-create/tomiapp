@@ -1,7 +1,7 @@
 <div class="playing-card @(FaceDown?"back":Card.Color??"wild")" aria-label="@(FaceDown?"ظهر ورقة":$"ورقة {Card.Symbol}")">
-    <span class="corner">@(FaceDown?"T":Card.Symbol)</span>
-    <span class="card-face">@(FaceDown?"T":Card.Symbol)@if(FaceDown){<small>PLAY</small>}</span>
-    <span class="corner bottom">@(FaceDown?"T":Card.Symbol)</span>
+    <span class="corner">@if(FaceDown){<text>T</text>}else{<CardMark Value="@Card.Value"/>}</span>
+    <span class="card-face">@if(FaceDown){<text>T</text>}else{<CardMark Value="@Card.Value"/>}@if(FaceDown){<small>PLAY</small>}</span>
+    <span class="corner bottom">@if(FaceDown){<text>T</text>}else{<CardMark Value="@Card.Value"/>}</span>
 </div>
 @code {
     [Parameter,EditorRequired]public Card Card {get;set;}=new("",null,"");

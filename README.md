@@ -1,3 +1,5 @@
+> Android C# game interface: see [CSHARP-GAMES-ANDROID-AR.md](CSHARP-GAMES-ANDROID-AR.md). Build bundled WebAssembly with `python3 tool/build_csharp_games.py` before Flutter tests/builds. The Android workflow includes this step.
+
 > إضافة جاكارو والجمل المجنون: لعبتان فعليتان بقسم TOMI PLAY،برقم بناء26. القواعد والتحديث في [GAMES-JACKAROO-CAMEL-AR.md](GAMES-JACKAROO-CAMEL-AR.md). يلزم تحديث الخادم قبل بناء التطبيق الجديد؛ النتائج الحالية في VALIDATION-BOARD-GAMES.md.
 
 # TOMI1.7.0-beta.1

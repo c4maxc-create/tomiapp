@@ -1,3 +1,5 @@
+@inject NavigationManager Navigation
+@if(new Uri(Navigation.Uri).Query.Contains("native=1",StringComparison.Ordinal)){<NativeApp/>}else{
 <PageTitle>TOMI PLAY — معاينة C#</PageTitle>
 <div class="shell @(Reduced?"reduce-motion":"") @(Focused?"table-focused":"")">
 <header><a class="brand" href="./" aria-label="TOMI PLAY الرئيسية"><span class="brand-mark">T</span>TOMI <span>PLAY</span></a><div class="header-divider"></div><span class="header-title">نادي الألعاب</span><button class="motion" @onclick="()=>Reduced=!Reduced" aria-pressed="@Reduced">@(Reduced?"الحركة مخففة":"تقليل الحركة")</button></header>
@@ -13,6 +15,8 @@
 </section>
 <footer><div class="footer-brand">TOMI <small>PLAY</small></div><span>معاينة محلية تفاعلية • ما تغيّر حسابك أو رصيدك</span><span>هذه معاينة Blazor، منفصلة عن نسخة Unity</span></footer></main>
 </div>
+
+}
 @code {
     void SelectGame(string id){Active=id;Help=false;}
     bool Reduced,Help,Focused;double Speed=1;string Active="uno";

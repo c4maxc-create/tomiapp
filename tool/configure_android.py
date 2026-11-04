@@ -23,6 +23,19 @@ def configure_android(root: Path = ROOT) -> None:
     application.set(f"{{{ANDROID_NS}}}icon", "@drawable/tomi_launcher")
     application.set(f"{{{ANDROID_NS}}}allowBackup", "false")
     application.set(f"{{{ANDROID_NS}}}usesCleartextTraffic", "false")
+    # Only the packaged C# UI uses HTTP, on a private loopback origin. All
+    # remote API requests retain the app's existing TLS-only native transport.
+    application.set(f"{{{ANDROID_NS}}}networkSecurityConfig", "@xml/tomi_network_security")
+    network = root / "android/app/src/main/res/xml/tomi_network_security.xml"
+    network.parent.mkdir(parents=True, exist_ok=True)
+    network.write_text('''<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+  <base-config cleartextTrafficPermitted="false" />
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="false">127.0.0.1</domain>
+  </domain-config>
+</network-security-config>
+''')
     if not any(item.get(f"{{{ANDROID_NS}}}name") == "android.permission.INTERNET"
                for item in tree.getroot().findall("uses-permission")):
         ET.SubElement(tree.getroot(), "uses-permission", {f"{{{ANDROID_NS}}}name": "android.permission.INTERNET"})

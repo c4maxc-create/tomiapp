@@ -149,6 +149,14 @@ jobs:
           TOMI_REQUIRE_PUSH: ${{ inputs.mode == 'accounts' && 'true' || 'false' }}
         run: python3 tool/configure_firebase.py
 
+      - name: Set up CSharp game UI compiler
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build and bundle CSharp game interface
+        run: python3 tool/build_csharp_games.py
+
       - name: Install Flutter dependencies
         run: flutter pub get
 

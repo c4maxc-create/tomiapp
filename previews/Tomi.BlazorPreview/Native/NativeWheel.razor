@@ -1,0 +1,30 @@
+<div class="game-heading"><div><small>LIVE ROUND · ONE SERVER RESULT</small><h2>الروليت <span>• جولة متصلة</span></h2></div><span class="safe-badge">رصيدك: @Round.Num("coins")</span></div>
+@if(!Round.Exists()){<div class="connection-panel"><h3>نحمّل الجولة…</h3></div>}else{
+<div class="board-layout wheel-layout"><div class="wheel-stage"><div class="wheel-pointer"></div><div class="wheel" style="@Style">@for(int i=0;i<8;i++){double a=(22.5+i*45)*Math.PI/180;<div class="wheel-item" style="@FormattableString.Invariant($"left:{50+Math.Sin(a)*34}%;top:{50-Math.Cos(a)*34}%")"><span>@Slots.ElementAtOrDefault(i).Text("icon",WheelModel.Icons[i])</span></div>}<div class="wheel-center">T<span>PLAY</span></div></div><div class="wheel-stand"></div></div><aside class="game-aside"><div class="mini-label">YOUR ROUND</div><h3>@PhaseLabel</h3><p>@Seconds ثانية @(Round.Yes("controlled")?"• جولة يحددها المالك":"")</p><p>الرهان يخصم من رصيدك الفعلي. النتيجة والمضاعفات من الخادم.</p><div class="chip-controls">@foreach(var amount in Round.Get("denominations").Items()){int value=amount.TryNumber();<button class="secondary @(Session.State.Num("denomination")==value?"selected":"")" disabled="@(Session.Waiting||Session.State.Yes("rouletteBusy")||Session.State.Yes("roulettePending"))" @onclick='()=>Session.Send("denomination",new{value})'>@value</button>}</div><button class="secondary" disabled="@(!CanBet||Round.Get("lastBets").Items().Length==0)" @onclick="()=>RepeatConfirm=true">تكرار آخر رهان</button><div class="wheel-result">@(Revealed?Round.Get("result").Text("icon"):"✦")</div><p>@(Revealed?Round.Get("result").Text("label"):"النتيجة تظهر بعد إغلاق الرهان")</p></aside></div>
+<div class="live-bet-grid">@foreach(var slot in Slots){int index=slot.Num("slot");<button class="secondary" data-live-slot="@index" disabled="@(!CanBet)" @onclick="()=>ConfirmSlot=index"><span>@slot.Text("icon")</span><b>@slot.Text("label") ×@slot.Num("multiplier")</b><small>@slot.Get("chancePercent")٪ • رهانك @OwnBet(index)</small></button>}</div>
+<details class="control-guide"><summary>قواعد الجولة والمضاعفات والنتائج السابقة</summary><p>اختار القطعة ثم الخانة وراجع التأكيد. الربح = القطع الفائزة × مضاعف الخانة. حد الجولة 80 قطعة. الرهان 30 ثانية، الدوران 7 ثوانٍ، ثم النتائج 5 ثوانٍ. السلطة تفوز بخانات فئتها حسب قواعد الخادم.</p><p>قيمة الرهان المختارة: @Session.State.Num("denomination") كوينز. النسب المعروضة للجولات العشوائية؛ الجولة المحددة تحمل علامة واضحة.</p>@foreach(var r in Round.Get("recentRounds").Items()){<p>@r.Get("result").Text("label") • @r.Text("day") • رهان @r.Num("totalBet") • ربح @r.Num("payout")</p>}</details>
+@if(Phase=="results"){<div class="control-guide"><h3>فائزو الجولة</h3>@foreach(var winner in Round.Get("winners").Items()){<p>@winner.Get("user").Text("displayName") • @winner.Num("payout") كوينز</p>}</div>}
+@if(Session.State.Yes("roulettePending")){<div class="control-guide"><b>رهان محفوظ بانتظار التأكيد</b><button class="primary" disabled="@(Session.Waiting||Session.State.Yes("rouletteBusy"))" @onclick='()=>Session.Send("rouletteRecover")'>استعادة نفس الرهان</button></div>}
+@if(Session.State.Text("rouletteError")!=""){<div class="status-line" role="alert">@Session.State.Text("rouletteError")</div>}
+@if(ConfirmSlot is not null||RepeatConfirm){<div class="bet-confirm" role="dialog" aria-modal="true" aria-label="تأكيد الرهان"><div class="color-dialog"><h3>تأكيد الرهان</h3><p>@(RepeatConfirm?"تكرار آخر رهان محفوظ":"الخانة: "+Slots.First(x=>x.Num("slot")==ConfirmSlot).Text("label"))</p><p>سيُخصم @ConfirmAmount كوينز من رصيدك. الربح غير مضمون.</p><button class="secondary" @onclick="Cancel">إلغاء</button><button class="primary" data-live="confirm-bet" disabled="@(!CanBet)" @onclick="Confirm">تأكيد الخصم</button></div></div>}
+}
+@code{
+    [Parameter,EditorRequired]public NativeSession Session{get;set;}=default!;
+    [Parameter]public bool Reduced{get;set;}
+    System.Text.Json.JsonElement Round=>Session.Roulette;
+    System.Text.Json.JsonElement[] Slots=>Round.Get("slots").Items();
+    int? ConfirmSlot;bool RepeatConfirm;string ConfirmRound="";
+    long Now=>Session.State.Get("rouletteNow").ValueKind==System.Text.Json.JsonValueKind.Number?Session.State.Get("rouletteNow").GetInt64():0;
+    long Time(string key)=>Round.Get(key).ValueKind==System.Text.Json.JsonValueKind.Number?Round.Get(key).GetInt64():0;
+    bool Revealed=>Round.Get("result").Exists()&&Now>=Time("bettingEndsAt");
+    string Phase=>Now<Time("bettingEndsAt")?"betting":!Revealed?"waiting":Now<Time("spinEndsAt")?"spinning":Now<Time("resultsEndsAt")?"results":"waiting";
+    string PhaseLabel=>Phase switch{"betting"=>"اختار رهانك","spinning"=>"تدور العجلة","results"=>"نتيجة الجولة",_=>"بانتظار الجولة"};
+    int Seconds=>(int)Math.Max(0,Math.Ceiling(((Phase=="betting"?Time("bettingEndsAt"):Phase=="spinning"?Time("spinEndsAt"):Phase=="results"?Time("resultsEndsAt"):Now)-Now)/1000d));
+    bool CanBet=>Session.Connected&&!Session.Waiting&&Session.State.Yes("canBet")&&Phase=="betting";
+    int ConfirmAmount=>RepeatConfirm?Round.Get("lastBets").Items().Sum(x=>x.Num("denomination")):Session.State.Num("denomination");
+    int OwnBet(int slot)=>Round.Get("ownBets").Items().Where(x=>x.Num("slot")==slot).Sum(x=>x.Num("denomination"));
+    string Style{get{double angle=0;if(Revealed){double target=(360-(22.5+45*Round.Get("result").Num("displaySlot")))%360,progress=Phase=="results"||Reduced?1:Math.Clamp((Now-Time("bettingEndsAt"))/Math.Max(1d,Time("spinEndsAt")-Time("bettingEndsAt")),0,1);angle=(1800+target)*(1-Math.Pow(1-progress,3));}return FormattableString.Invariant($"transform:rotate({angle}deg);transition-duration:{(Reduced?0:.25)}s;transition-timing-function:linear");}}
+    protected override void OnParametersSet(){if(ConfirmRound!=Round.Text("roundId")||!CanBet)Cancel();ConfirmRound=Round.Text("roundId");}
+    void Cancel(){ConfirmSlot=null;RepeatConfirm=false;}
+    async Task Confirm(){var slot=ConfirmSlot;bool repeat=RepeatConfirm;Cancel();if(repeat)await Session.Send("repeatBet");else if(slot is not null)await Session.Send("bet",new{slot});}
+}

@@ -4,6 +4,7 @@ import 'model.dart';
 import 'widgets.dart';
 import 'accounts/account_controller.dart';
 import 'gaming/game_hub.dart';
+import 'gaming/csharp_games_page.dart';
 
 class GamesScreen extends StatelessWidget {
   const GamesScreen({super.key, required this.store, this.accounts, this.visible=true});
@@ -12,7 +13,7 @@ class GamesScreen extends StatelessWidget {
   final bool visible;
 
   @override
-  Widget build(BuildContext context) => accounts == null ? preview(context) : GameHub(key:ValueKey(accounts!.user?.id),accounts:accounts!,visible:visible);
+  Widget build(BuildContext context) => accounts == null ? preview(context) : supportsCSharpGames ? CSharpGamesPage(key:ValueKey(accounts!.user?.id),accounts:accounts!,visible:visible) : GameHub(key:ValueKey(accounts!.user?.id),accounts:accounts!,visible:visible);
   Widget preview(BuildContext context) => ListView(key: const PageStorageKey('games-scroll'),
     padding: const EdgeInsets.all(18), children: [
       const SectionHeading('الألعاب', subtitle: 'تحدّي صغير، ووناسة أكبر'),

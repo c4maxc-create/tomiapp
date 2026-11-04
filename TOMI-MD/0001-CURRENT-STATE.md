@@ -1,3 +1,5 @@
+> أحدث ربط: واجهة الألعاب C#/Blazor داخل Android، بناء27. راجع 0018-CSHARP-ANDROID-GAMES.md وCSHARP-GAMES-ANDROID-AR.md. الحركات والنتائج من الخادم الحالي؛ لم يُبنَ APK أو يُجرّب على هاتف في هذه الجلسة.
+
 > تحديث واجهة Blazor: راجع 0017-BLAZOR-INTERFACE-REDESIGN.md. أضيفت رسومات SVG وتنقل المجموعة ووضع التركيز؛ اختُبرت الألعاب الخمس على ثلاثة أحجام شاشة. الحزمة المحدّثة في previews/downloads، ولا يوجد رابط استضافة عامة متحقق منه.
 
 > الأحدث: المستخدم وافق صراحة على Blazor لمعاينة المتصفح؛المشروعC#/WebAssemblyالمنفصلفيpreviews. راجع0016-BLAZOR-BROWSER-PREVIEW.md. لا تخلطها معUnityأوAPK،ولا تدّع رابطًا منشورًا قبل نجاحPages.
