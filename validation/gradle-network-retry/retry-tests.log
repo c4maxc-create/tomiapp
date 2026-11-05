@@ -1,0 +1,9 @@
+Transient artifact download failure. Retrying build 2/3 in 30s; downloaded artifacts are retained.
+.Transient artifact download failure. Retrying build 2/3 in 30s; downloaded artifacts are retained.
+Transient artifact download failure. Retrying build 3/3 in 60s; downloaded artifacts are retained.
+.compile error
+....
+----------------------------------------------------------------------
+Ran 6 tests in 0.019s
+
+OK

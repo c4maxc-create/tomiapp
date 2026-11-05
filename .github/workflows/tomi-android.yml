@@ -97,7 +97,9 @@ jobs:
         run: git rev-parse HEAD
 
       - name: Verify Android CI disk safeguards
-        run: python3 tool/check_android_ci.py
+        run: |
+          python3 tool/check_android_ci.py
+          python3 tool/check_android_build_retry.py
 
       - name: Free unused hosted-runner toolchains
         env:
@@ -137,6 +139,16 @@ jobs:
 
       - name: Generate Android scaffold
         run: bash tool/bootstrap_android.sh
+
+      - name: Cache Gradle dependency downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: ${{ runner.os }}-tomi-gradle-downloads-v1-${{ hashFiles('pubspec.lock', 'tool/configure_android.py', '.github/workflows/tomi-android.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-tomi-gradle-downloads-v1-
 
       - name: Keep Flutter NDK and reserve Android build space
         env:
@@ -208,7 +220,7 @@ jobs:
         if: inputs.distribution != 'signed_beta'
         run: |
           python3 tool/prepare_android_ci.py check --minimum-gib 20
-          flutter build apk --debug --no-pub \
+          python3 tool/retry_android_build.py -- flutter build apk --debug --no-pub \
             --dart-define="TOMI_API_URL=$TOMI_API_URL" \
             --dart-define="TOMI_PREVIEW_MODE=$TOMI_PREVIEW_MODE" \
             --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED"
@@ -224,12 +236,12 @@ jobs:
           TOMI_ANDROID_KEY_PASSWORD: ${{ secrets.TOMI_ANDROID_KEY_PASSWORD }}
         run: |
           python3 tool/prepare_android_ci.py check --minimum-gib 20
-          flutter build apk --release --no-pub \
+          python3 tool/retry_android_build.py -- flutter build apk --release --no-pub \
             --dart-define="TOMI_API_URL=$TOMI_API_URL" \
             --dart-define="TOMI_PREVIEW_MODE=false" \
             --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED"
           python3 tool/prepare_android_ci.py check --minimum-gib 10
-          flutter build appbundle --release --no-pub \
+          python3 tool/retry_android_build.py -- flutter build appbundle --release --no-pub \
             --dart-define="TOMI_API_URL=$TOMI_API_URL" \
             --dart-define="TOMI_PREVIEW_MODE=false" \
             --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED"
