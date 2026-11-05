@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {randomUUID,createHmac} from 'node:crypto';
+import {randomUUID,createHmac,randomBytes} from 'node:crypto';
 import {mkdtemp,rm,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -29,7 +29,7 @@ test('calls enforce participant access, stable start and single active call per 
  assert.equal((await api.request('GET',`/v1/calls/${call.id}`,undefined,z.token)).status,404);
  assert.equal((await action(api,a,call,'accept')).status,403);
  assert.equal((await start(api,a,c,{requestId,kind:'video'})).status,409);
- assert.equal((await start(api,b,c)).status,409);
+ const crossing=await start(api,b,c);assert.equal(crossing.status,201);assert.equal(crossing.data.call.id,call.id);assert.equal(crossing.data.call.state,'connecting');
  const other=await thread(api,z,b),busy=await start(api,z,other);assert.equal(busy.data.call.reason,'busy');assert.equal(busy.data.call.state,'ended');
  assert.equal(Number((await api.db.query('SELECT COUNT(*) n FROM tomi_active_calls')).rows[0].n),2);
 });
@@ -198,4 +198,19 @@ test('0.9 a cancelled unsent call sends no stale ring and logout detaches cancel
 test('0.9 migration appends to the exact verified 0.8 database schema',async()=>{
  const old=(await readFile(new URL('fixtures/schema-0.8.sql',import.meta.url),'utf8')).trim();
  const current=await readFile(new URL('../schema.sql',import.meta.url),'utf8');assert.ok(current.startsWith(old));
+});
+
+test('crossed calls merge one table, retry after restart, and bind the receiving device',async t=>{
+ const api=await fixture(t),a=await api.register('cross_a'),b=await api.register('cross_b'),c=await thread(api,a,b),nonce=randomUUID();
+ const outcomes=await Promise.all([start(api,a,c),start(api,b,c,{requestId:nonce})]);
+ assert.ok(outcomes.every(r=>r.status===201));assert.equal(outcomes[0].data.call.id,outcomes[1].data.call.id);
+ const call=outcomes.find(r=>r.data.call.state==='connecting').data.call;
+ assert.equal(Number((await api.db.query('SELECT COUNT(*) n FROM tomi_calls')).rows[0].n),1);
+ assert.equal(Number((await api.db.query('SELECT COUNT(*) n FROM tomi_active_calls')).rows[0].n),2);
+ const bCall=outcomes[1].data.call;
+ await api.restart();const replay=await start(api,b,c,{requestId:nonce});assert.equal(replay.data.call.id,bCall.id);assert.equal(replay.status,200);
+ assert.equal((await start(api,b,c,{requestId:nonce,kind:'video'})).status,409);
+ const other=await api.login(b);assert.equal((await start(api,other,c,{requestId:nonce})).status,409);
+ const aliasOwner=(await api.db.query('SELECT user_id FROM tomi_call_cross_requests')).rows[0].user_id,erased=[a,b].find(u=>u.user.id===aliasOwner);
+ const deletion=await api.request('POST','/v1/account/deletion',{requestId:randomUUID(),receiptToken:randomBytes(32).toString('base64url'),password:'a long TOMI call testing password',confirmation:'حذف حسابي'},erased.token);assert.equal(deletion.status,202,JSON.stringify(deletion));assert.equal(Number((await api.db.query('SELECT COUNT(*) n FROM tomi_call_cross_requests WHERE user_id=?',[aliasOwner])).rows[0].n),0);
 });

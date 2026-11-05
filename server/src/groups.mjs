@@ -92,7 +92,7 @@ export function createGroups({database,storage,avatarStorage,media,readJson,resp
   }
   return false;
  }
- async function typing(viewer,gid,active){const found=(await database.query('SELECT id FROM tomi_groups WHERE id=?',[gid])).rows.length;if(!found)return false;await group(viewer,gid);emit((await recipients(gid)).filter(x=>x!==viewer),{type:'chat.typing',conversationId:gid,group:true,active,expiresAt:Date.now()+5000});return true;}
+ async function typing(viewer,gid,active,activity='typing'){const found=(await database.query('SELECT id FROM tomi_groups WHERE id=?',[gid])).rows.length;if(!found)return false;await group(viewer,gid);emit((await recipients(gid)).filter(x=>x!==viewer),{type:'chat.typing',conversationId:gid,group:true,active,activity,userId:viewer,expiresAt:Date.now()+5000});return true;}
  async function removed(viewer){return(await database.query('SELECT group_id FROM tomi_group_members WHERE user_id=? AND left_at IS NOT NULL ORDER BY left_at DESC LIMIT 2000',[viewer])).rows.map(r=>r.group_id);}
  return{handle,list,unread,typing,removed};
 }

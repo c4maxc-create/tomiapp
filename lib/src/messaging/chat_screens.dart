@@ -109,7 +109,7 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
       pending(c)?.createdAt ?? DateTime.tryParse(c.updatedAt) ?? DateTime(2000);
   String preview(DirectConversation c) {
     final t = chats.threads[c.id], p = pending(c);
-    if (t?.peerTyping == true) return 'يكتب الآن…';
+    if (t?.peerTyping == true) return t!.activityLabel;
     if (p != null)
       return p.text.isNotEmpty
           ? p.text
@@ -717,6 +717,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
   final focus = FocusNode();
   int pane = 0;
   bool picking = false, mutating = false, capturing = false;
+  final cancelVoice = ValueNotifier<bool>(false);
+  double? voiceDownX;
   int renderedSequence = 0;
   @override
   void initState() {
@@ -992,6 +994,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
         video != null ||
         document != null)
       return;
+    cancelVoice.value = false;
     setState(() => capturing = true);
     await playback.stop();
     if (!mounted) return;
@@ -1001,7 +1004,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
       showDragHandle: true,
       isDismissible: false,
       enableDrag: false,
-      builder: (_) => const ChatSurface(child: VoiceRecorderSheet()),
+      builder: (_) => ChatSurface(
+        child: VoiceRecorderSheet(
+          autoStart: true,
+          cancel: cancelVoice,
+          onRecording: thread.recordingPresence,
+        ),
+      ),
     );
     if (!mounted) return;
     setState(() => capturing = false);
@@ -1038,6 +1047,43 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
     } on AccountFailure catch (f) {
       showNote(context, f.message);
     }
+  }
+
+  Future<void> chooseWallpaper() async {
+    final chosen = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(
+                title: Text('خلفية هذه المحادثة'),
+                subtitle: Text('محفوظة على جهازك لهذا الحساب فقط'),
+              ),
+              for (final e in [
+                'الافتراضية',
+                'ليل بنفسجي',
+                'محيط',
+                'غابة',
+                'وردي',
+                'فحمي',
+              ].asMap().entries)
+                ListTile(
+                  title: Text(e.value),
+                  selected: thread.wallpaper == e.key,
+                  trailing: thread.wallpaper == e.key
+                      ? const Icon(Icons.check_circle)
+                      : null,
+                  onTap: () => Navigator.pop(context, e.key),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (chosen != null && mounted) await thread.setWallpaper(chosen);
   }
 
   Future<void> toggleBlock() async {
@@ -2234,6 +2280,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
   @override
   void dispose() {
     playback.dispose();
+    cancelVoice.dispose();
     thread.visible = false;
     thread.stopTyping();
     chatRouteObserver.unsubscribe(this);
@@ -2301,7 +2348,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
               video != null ||
               document != null;
       final status = thread.peerTyping
-          ? 'يكتب الآن…'
+          ? thread.activityLabel
           : widget.chats.realtimeEnabled && !widget.chats.connected
           ? 'جارٍ الاتصال…'
           : c.isGroup
@@ -2500,32 +2547,51 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                 ),
               ),
               const SizedBox(width: 7),
-              SizedBox(
-                width: 48,
-                height: 48,
-                child: IconButton.filled(
-                  key: hasDraft
-                      ? const Key('private-chat-send')
-                      : const Key('private-chat-voice'),
-                  tooltip: hasDraft ? 'إرسال الرسالة' : 'تسجيل رسالة صوتية',
-                  onPressed: picking || capturing || thread.restoring
-                      ? null
-                      : hasDraft
-                      ? send
-                      : c.audioUploadEnabled
-                      ? recordVoice
-                      : null,
-                  style: IconButton.styleFrom(
-                    backgroundColor: p.accent,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: p.accent.withValues(alpha: .35),
-                  ),
-                  icon: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 120),
-                    child: Icon(
-                      hasDraft ? Icons.send_rounded : Icons.mic_rounded,
-                      key: ValueKey(hasDraft),
-                      size: 23,
+              Listener(
+                onPointerDown: (e) {
+                  if (!hasDraft &&
+                      c.audioUploadEnabled &&
+                      !picking &&
+                      !capturing &&
+                      !thread.restoring) {
+                    voiceDownX = e.position.dx;
+                    unawaited(recordVoice());
+                  }
+                },
+                onPointerMove: (e) {
+                  if (capturing &&
+                      voiceDownX != null &&
+                      e.position.dx < voiceDownX! - 64)
+                    cancelVoice.value = true;
+                },
+                onPointerUp: (_) => voiceDownX = null,
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: IconButton.filled(
+                    key: hasDraft
+                        ? const Key('private-chat-send')
+                        : const Key('private-chat-voice'),
+                    tooltip: hasDraft ? 'إرسال الرسالة' : 'تسجيل رسالة صوتية',
+                    onPressed: picking || capturing || thread.restoring
+                        ? null
+                        : hasDraft
+                        ? send
+                        : c.audioUploadEnabled
+                        ? recordVoice
+                        : null,
+                    style: IconButton.styleFrom(
+                      backgroundColor: p.accent,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: p.accent.withValues(alpha: .35),
+                    ),
+                    icon: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 120),
+                      child: Icon(
+                        hasDraft ? Icons.send_rounded : Icons.mic_rounded,
+                        key: ValueKey(hasDraft),
+                        size: 23,
+                      ),
                     ),
                   ),
                 ),
@@ -2634,6 +2700,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                       unawaited(search());
                     else if (value == 'info')
                       unawaited(info());
+                    else if (value == 'wallpaper')
+                      unawaited(chooseWallpaper());
                     else if (value == 'pinned')
                       unawaited(showMessage(thread.pinnedMessageId!));
                     else
@@ -2656,6 +2724,10 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                         value: 'pinned',
                         child: Text('الرسالة المثبّتة'),
                       ),
+                    PopupMenuItem(
+                      value: 'wallpaper',
+                      child: const Text('خلفية المحادثة'),
+                    ),
                     if (!c.isGroup)
                       PopupMenuItem(
                         value: 'block',
@@ -2673,9 +2745,19 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                 children: [
                   Positioned.fill(
                     child: IgnorePointer(
-                      child: CustomPaint(
-                        painter: ChatWallpaper(
-                          p.text.withValues(alpha: p.dark ? .025 : .035),
+                      child: ColoredBox(
+                        color: [
+                          p.background,
+                          const Color(0xff21172f),
+                          const Color(0xff102b3b),
+                          const Color(0xff142d25),
+                          const Color(0xff35202f),
+                          const Color(0xff17191d),
+                        ][thread.wallpaper],
+                        child: CustomPaint(
+                          painter: ChatWallpaper(
+                            p.text.withValues(alpha: p.dark ? .025 : .035),
+                          ),
                         ),
                       ),
                     ),

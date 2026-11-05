@@ -358,6 +358,8 @@ void main() {
       expect(find.byKey(const ValueKey('admin-tab-users')), findsNothing);
       expect(find.byKey(const ValueKey('admin-tab-metrics')), findsNothing);
       expect(find.byKey(const Key('admin-create-account')), findsNothing);
+      await t.tap(find.byKey(const ValueKey('admin-tab-reports')));
+      await t.pumpAndSettle();
       await t.tap(find.text('فتح البلاغ والمراجعة'));
       await t.pumpAndSettle();
       expect(find.text('إخفاء المنشور'), findsNothing);
@@ -378,6 +380,8 @@ void main() {
       await t.pumpAndSettle();
       expect(find.byKey(const ValueKey('admin-tab-posts')), findsOneWidget);
       expect(find.byKey(const ValueKey('admin-tab-reports')), findsNothing);
+      await t.tap(find.byKey(const ValueKey('admin-tab-posts')));
+      await t.pumpAndSettle();
       expect(find.text('إخفاء المنشور'), findsOneWidget);
       await t.pumpWidget(const SizedBox());
     },

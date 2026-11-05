@@ -45,9 +45,10 @@ export function createSocial({database,storage,readJson,respond,limit,userById,c
   const receipt=/^\/v1\/posts\/requests\/([a-f0-9-]{36})$/.exec(path);
   if(method==='GET'&&receipt&&uuid.test(receipt[1])){const r=(await database.query('SELECT p.id FROM tomi_post_receipts r LEFT JOIN tomi_posts p ON p.id=r.post_id WHERE r.user_id=? AND r.request_id=?',[viewer,receipt[1]])).rows[0];if(!r)throw new ApiError(404,'REQUEST_NOT_FOUND','لم يُسجّل المنشور بعد.');if(!r.id)throw new ApiError(410,'REQUEST_REMOVED','سبق نشر هذا الطلب وحُذف.');respond(response,200,{post:await getPost(r.id,viewer)});return true;}
   if(method==='GET'&&path==='/v1/posts'){
-   const scope=url.searchParams.get('scope')||'all',userId=url.searchParams.get('userId');if(!['all','following','mine','saved'].includes(scope)||(userId&&!uuid.test(userId)))throw new ApiError(400,'VALIDATION','قائمة المنشورات غير صحيحة.');
+   const scope=url.searchParams.get('scope')||'all',userId=url.searchParams.get('userId');if(!['all','explore','following','mine','saved'].includes(scope)||(userId&&!uuid.test(userId)))throw new ApiError(400,'VALIDATION','قائمة المنشورات غير صحيحة.');
    const{size,cursor}=page(url),values=[viewer,viewer],conditions=[visiblePost];
    if(userId||scope==='mine'){conditions.push('p.user_id=?');values.push(userId||viewer);}else if(scope==='following'){conditions.push('(p.user_id=? OR EXISTS(SELECT 1 FROM tomi_follows f WHERE f.follower_id=? AND f.following_id=p.user_id))');values.push(viewer,viewer);}
+   if(scope==='explore'){conditions.push('p.user_id<>? AND NOT EXISTS(SELECT 1 FROM tomi_follows f WHERE f.follower_id=? AND f.following_id=p.user_id)');values.push(viewer,viewer);}
    if(scope==='saved'){conditions.push('EXISTS(SELECT 1 FROM tomi_post_saves z WHERE z.post_id=p.id AND z.user_id=?)');values.push(viewer);}
    if(cursor){conditions.push('(p.created_at<? OR (p.created_at=? AND p.id<?))');values.push(cursor.time,cursor.time,cursor.id);}values.push(size+1);
    const{rows}=await database.query(posts+(conditions.length?'WHERE '+conditions.join(' AND '):'')+' ORDER BY p.created_at DESC,p.id DESC LIMIT ?',values),items=rows.slice(0,size);

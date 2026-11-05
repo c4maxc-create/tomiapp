@@ -201,6 +201,19 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
+  void activity(String id, bool active, String kind) {
+    if (!disposed &&
+        foreground &&
+        connected &&
+        connection is ChatActivityConnection) {
+      try {
+        (connection as ChatActivityConnection).activity(id, active, kind);
+      } catch (_) {
+        lost(socketRevision);
+      }
+    }
+  }
+
   void typing(String id, bool active) {
     if (!disposed && foreground && connected) {
       try {
@@ -518,6 +531,7 @@ class ChatThreadController extends ChangeNotifier {
           await loadMedia(draftAttachment!);
         }
       }
+      wallpaper = ((d['wallpaper'] as num?)?.toInt() ?? 0).clamp(0, 5);
       final matching = d['sessionFence'] == chats.accounts.draftSessionFence;
       for (final row in d['pending'] as List? ?? []) {
         final p = PendingChatMessage.restore(
@@ -551,6 +565,7 @@ class ChatThreadController extends ChangeNotifier {
     final data = {
       'conversation': conversation.data,
       'draft': draft,
+      'wallpaper': wallpaper,
       'replyToId': replyToId,
       'attachment': draftAttachment?.toJson(),
       'sessionFence': chats.accounts.draftSessionFence,
@@ -705,6 +720,60 @@ class ChatThreadController extends ChangeNotifier {
       peerTyping = false,
       reading = false,
       syncAgain = false;
+  int wallpaper = 0;
+  Future<void> setWallpaper(int value) async {
+    await restored;
+    if (!current || value < 0 || value > 5) return;
+    wallpaper = value;
+    notify();
+    await persist();
+  }
+
+  String peerActivity = 'typing';
+  String get activityLabel => switch (peerActivity) {
+    'recording' => 'يسجل رسالة صوتية…',
+    'video' => 'يرسل فيديو…',
+    'image' => 'يرسل صورة…',
+    'audio' => 'يرسل رسالة صوتية…',
+    'file' => 'يرسل ملفًا…',
+    _ => 'يكتب الآن…',
+  };
+  Timer? activityHeartbeat;
+  bool recordingActivity = false;
+  void recordingPresence(bool value) {
+    recordingActivity = value;
+    updatePresence();
+  }
+
+  void updatePresence() {
+    activityHeartbeat?.cancel();
+    String? kind = recordingActivity ? 'recording' : null;
+    for (final p in inFlight) {
+      kind ??= p.hasVideo
+          ? 'video'
+          : p.image != null
+          ? 'image'
+          : p.audio != null
+          ? 'audio'
+          : p.document != null
+          ? 'file'
+          : null;
+    }
+    if (kind == null) {
+      chats.activity(conversation.id, false, 'typing');
+      return;
+    }
+    void pulse() {
+      if (current) chats.activity(conversation.id, true, kind!);
+    }
+
+    pulse();
+    activityHeartbeat = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => pulse(),
+    );
+  }
+
   final inFlight = <PendingChatMessage>{};
   bool get sending => inFlight.isNotEmpty;
   bool slotAvailable(PendingChatMessage p) =>
@@ -1022,6 +1091,7 @@ class ChatThreadController extends ChangeNotifier {
     if (disposed) return;
     switch (e['type']) {
       case 'chat.typing':
+        peerActivity = e['activity'] as String? ?? 'typing';
         peerTyping = e['active'] == true;
         typingExpiry?.cancel();
         if (peerTyping)
@@ -1241,6 +1311,7 @@ class ChatThreadController extends ChangeNotifier {
       p.autoRetry = true;
     }
     inFlight.add(p);
+    updatePresence();
     p.busy = true;
     p.error = null;
     notify();
@@ -1343,6 +1414,7 @@ class ChatThreadController extends ChangeNotifier {
     } finally {
       if (!disposed) {
         inFlight.remove(p);
+        updatePresence();
         p.busy = false;
         unawaited(persist().catchError((Object _) => false));
         notify();
@@ -1381,6 +1453,7 @@ class ChatThreadController extends ChangeNotifier {
     disposed = true;
     draftTimer?.cancel();
     sendRetry?.cancel();
+    activityHeartbeat?.cancel();
     typingExpiry?.cancel();
     typingStop?.cancel();
     readRetry?.cancel();

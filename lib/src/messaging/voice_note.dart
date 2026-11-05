@@ -200,7 +200,15 @@ class VoicePlayer extends StatelessWidget {
 }
 
 class VoiceRecorderSheet extends StatefulWidget {
-  const VoiceRecorderSheet({super.key});
+  const VoiceRecorderSheet({
+    super.key,
+    this.autoStart = false,
+    this.onRecording,
+    this.cancel,
+  });
+  final bool autoStart;
+  final ValueChanged<bool>? onRecording;
+  final ValueNotifier<bool>? cancel;
   @override
   State<VoiceRecorderSheet> createState() => _VoiceRecorderSheetState();
 }
@@ -215,12 +223,31 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
   bool recording = false, busy = false;
   int durationMs = 0, generation = 0;
   bool starting = false;
+  double cancelDrag = 0;
   Future<void>? startWork, stopWork, callStop;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     voiceMediaStops[this] = stopForCall;
+    widget.cancel?.addListener(cancelRequested);
+    if (widget.autoStart)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (widget.cancel?.value == true) {
+          cancelRequested();
+        } else {
+          unawaited(start());
+        }
+      });
+  }
+
+  void cancelRequested() {
+    if (widget.cancel?.value == true && mounted) {
+      generation++;
+      widget.onRecording?.call(false);
+      Navigator.pop(context);
+    }
   }
 
   Future<void> stopForCall() => callStop ??= _stopForCall();
@@ -285,6 +312,7 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
       clock.reset();
       clock.start();
       setState(() => recording = true);
+      widget.onRecording?.call(true);
       timer = Timer.periodic(const Duration(milliseconds: 250), (_) {
         if (!mounted) return;
         setState(() => durationMs = clock.elapsedMilliseconds);
@@ -308,6 +336,7 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
       path = await recorder.stop();
       durationMs = clock.elapsedMilliseconds.clamp(100, 300000);
       if (mounted) setState(() => recording = false);
+      widget.onRecording?.call(false);
       if (path == null || durationMs < 500) {
         await removeFile();
         if (mounted) setState(() => error = 'سجّل نصف ثانية على الأقل.');
@@ -361,6 +390,8 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
   @override
   void dispose() {
     voiceMediaStops.remove(this);
+    widget.cancel?.removeListener(cancelRequested);
+    widget.onRecording?.call(false);
     generation++;
     timer?.cancel();
     clock.stop();
@@ -384,7 +415,26 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          const Text('سجّل، اسمع التسجيل، وبعدها أرسله. الحد 5 دقائق.'),
+          const Text(
+            'التسجيل يبدأ فورًا. اسحب لليسار للإلغاء، أو أوقفه وراجعه قبل الإرسال. الحد 5 دقائق.',
+          ),
+          GestureDetector(
+            onHorizontalDragStart: (_) => cancelDrag = 0,
+            onHorizontalDragUpdate: (d) {
+              cancelDrag += d.delta.dx;
+              if (cancelDrag < -64) {
+                widget.onRecording?.call(false);
+                Navigator.pop(context);
+              }
+            },
+            child: const Padding(
+              padding: EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [Icon(Icons.arrow_back), Text('اسحب لليسار للإلغاء')],
+              ),
+            ),
+          ),
           if (error != null)
             Padding(
               padding: const EdgeInsets.all(10),

@@ -376,8 +376,18 @@ void main() {
       addTearDown(a.dispose);
       await tester.pumpWidget(roomApp(AdminPage(accounts: a), scale: 1.4));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('admin-tab-staff')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.byKey(const Key('admin-tab-staff')), findsOneWidget);
       final tab = find.byKey(const Key('admin-tab-metrics'));
+      await tester.scrollUntilVisible(
+        tab,
+        -150,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.ensureVisible(tab);
       await tester.pumpAndSettle();
       await tester.tap(tab);

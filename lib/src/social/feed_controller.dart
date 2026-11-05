@@ -4,7 +4,7 @@ import '../accounts/account_controller.dart';
 import 'social_models.dart';
 
 class FeedController extends ChangeNotifier {
-  FeedController({required this.accounts, this.scope = 'all', this.userId});
+  FeedController({required this.accounts, this.scope = 'explore', this.userId});
   final AccountController accounts;
   final String? userId;
   String scope;

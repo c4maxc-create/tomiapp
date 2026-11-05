@@ -1431,7 +1431,7 @@ class _RoomSettingsPageState extends State<RoomSettingsPage> {
                         style: TextStyle(fontSize: 15),
                       ),
                       subtitle: const Text(
-                        'يسري بعد إعادة الدخول للغرفة.',
+                        'جودة المايك فقط، لا يشارك صوت التطبيقات. يسري بعد إعادة الدخول.',
                         style: TextStyle(fontSize: 11),
                       ),
                       value: r.highQuality,

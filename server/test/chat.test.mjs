@@ -82,6 +82,8 @@ test('authenticated websocket updates and typing reach only participants; logout
  t.after(()=>[wa,wb,wz].forEach(w=>w.terminate()));const stranger=[];wz.on('message',v=>stranger.push(JSON.parse(v)));
  const got=once(wb,'message');await send(api,a,c,'event');assert.equal(JSON.parse((await got)[0]).type,'chat.message');
  const typed=once(wb,'message');wa.send(JSON.stringify({type:'typing',conversationId:c.id,active:true}));assert.equal(JSON.parse((await typed)[0]).type,'chat.typing');
+ const recording=once(wb,'message');wa.send(JSON.stringify({type:'typing',conversationId:c.id,active:true,activity:'recording'}));const recordingEvent=JSON.parse((await recording)[0]);assert.equal(recordingEvent.activity,'recording');assert.equal(recordingEvent.userId,a.user.id);
+ const uploading=once(wb,'message');wa.send(JSON.stringify({type:'typing',conversationId:c.id,active:true,activity:'video'}));assert.equal(JSON.parse((await uploading)[0]).activity,'video');
  await api.request('PUT','/v1/chat/blocks/'+b.user.id,{blocked:true},a.token);
  // Use one predicate listener because a block invalidation may already be queued.
  const rejected=new Promise(resolve=>wa.on('message',v=>{const e=JSON.parse(v);if(e.type==='chat.error')resolve(e);}));

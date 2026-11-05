@@ -290,7 +290,7 @@ void main() {
         'https://tomi.example',
         client: MockClient((r) async {
           if (r.url.path == '/v1/me') return reply({'user': accountJson()});
-          if (r.url.queryParameters['scope'] == 'all') return old.future;
+          if (r.url.queryParameters['scope'] == 'explore') return old.future;
           return reply({
             'posts': [postJson(text: 'متابعاتي')],
             'nextCursor': null,

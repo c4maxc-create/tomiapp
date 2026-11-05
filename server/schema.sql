@@ -772,3 +772,9 @@ CREATE TABLE IF NOT EXISTS tomi_game_searches (
  match_id TEXT REFERENCES tomi_game_matches(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS tomi_game_search_waiting ON tomi_game_searches(kind,match_id,queued_at);
+
+CREATE TABLE IF NOT EXISTS tomi_call_cross_requests (
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ request_id TEXT NOT NULL, call_id TEXT NOT NULL REFERENCES tomi_calls(id) ON DELETE CASCADE,
+ PRIMARY KEY(user_id,request_id)
+);

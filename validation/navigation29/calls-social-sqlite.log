@@ -1,0 +1,35 @@
+✔ calls enforce participant access, stable start and single active call per user (13600.979058ms)
+✔ accept binds one receiving session; another device cannot read ICE or signal (15924.837845ms)
+✔ offer answer and ICE persist in order, are private and delete on end (4467.191796ms)
+✔ missed, declined, cancelled and stale sessions release both participants (2814.621599ms)
+✔ blocks and logout terminate calls; fresh calls with blocked peer are rejected (3283.351537ms)
+✔ TURN remains disabled without complete configuration and secrets never become client config (4288.622961ms)
+✔ signals reject oversized descriptions, mismatched media and arbitrary payloads (3688.261549ms)
+✔ incoming call push is durable, deduplicated and suppressed after acceptance (4758.675213ms)
+✔ video changes require peer consent and both ready cameras before SDP (4900.236332ms)
+✔ the callee can request video and owns that SDP offer round after a restart (9026.656775ms)
+✔ refusal, cancellation, timeout and denied camera preserve the audio call (3517.847793ms)
+✔ returning to audio stops video and a fresh upgrade needs consent again (3353.998031ms)
+✔ SDP rounds reject unbounded revisions and media commands reject unknown fields (2406.18044ms)
+✔ 0.6 is an additive migration of the verified 0.5 schema (4.985417ms)
+✔ 0.9 call devices negotiate session bindings and cancel every ringing device durably (3692.91259ms)
+✔ 0.9 a cancelled unsent call sends no stale ring and logout detaches cancellation (2472.054394ms)
+✔ 0.9 migration appends to the exact verified 0.8 database schema (2.939598ms)
+✔ crossed calls merge one table, retry after restart, and bind the receiving device (3545.925314ms)
+✔ text posts and profile counts survive restart; text works without R2 (2462.072707ms)
+✔ simultaneous and repeated requests cannot duplicate posts or comments (1109.360382ms)
+✔ likes are idempotent; author and comment ownership are enforced (3301.245212ms)
+✔ following and own feeds paginate without duplicates at equal timestamps (2800.149382ms)
+✔ unauthenticated, empty, oversized and forged content is refused (1349.162715ms)
+✔ image publication checks bytes and ownership; deleting queues safe cleanup (3476.633459ms)
+✔ missing, checksum-mismatched and fake image files are never published (1855.83916ms)
+✔ R2 signing matches the published AWS Signature V4 test vector (2.102156ms)
+✔ explore excludes followed accounts and own posts while retaining ordinary public posts (4346.496042ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 107118.018088

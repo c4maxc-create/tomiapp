@@ -25,7 +25,8 @@ String _role(String value) => switch (value) {
 };
 
 class AdminPage extends StatefulWidget {
-  const AdminPage({super.key, required this.accounts});
+  const AdminPage({super.key, required this.accounts, this.initialSection});
+  final String? initialSection;
   final AccountController accounts;
   @override
   State<AdminPage> createState() => _AdminPageState();
@@ -42,7 +43,8 @@ class _AdminPageState extends State<AdminPage> {
 
   Future<void> start() async {
     await model.loadAccess();
-    if (model.current && model.staff) await model.load();
+    if (model.current && model.staff && widget.initialSection != null)
+      await model.load(selected: widget.initialSection);
   }
 
   @override
@@ -52,159 +54,260 @@ class _AdminPageState extends State<AdminPage> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('إدارة التطبيق')),
-    body: AnimatedBuilder(
-      animation: model,
-      builder: (context, _) => RefreshIndicator(
-        onRefresh: () async {
-          await model.loadAccess();
-          if (model.staff) await model.load();
-        },
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(18),
+  static const sectionTitles = {
+    'reports': 'البلاغات',
+    'posts': 'المنشورات',
+    'users': 'الحسابات والأرصدة',
+    'rooms': 'الغرف الصوتية',
+    'metrics': 'المراقبة والإحصاءات',
+    'audit': 'سجل الإدارة',
+    'staff': 'فريق الإشراف',
+  };
+  static const sectionIcons = {
+    'reports': Icons.flag_outlined,
+    'posts': Icons.article_outlined,
+    'users': Icons.manage_accounts_outlined,
+    'rooms': Icons.spatial_audio_off_outlined,
+    'metrics': Icons.monitor_heart_outlined,
+    'audit': Icons.history_rounded,
+    'staff': Icons.admin_panel_settings_outlined,
+  };
+  Widget dashboard(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(20),
+    children: [
+      Container(
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xff29254e), Color(0xff12363d)],
+          ),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (model.accessLoading) const LinearProgressIndicator(),
-            AdminPendingBanner(model),
-            if (!model.accessLoading && !model.staff)
-              const Text(
-                'هذه الصفحة لإدارة التطبيق المخوّلة. صلاحية مشرف الغرفة لا تمنح صلاحية إدارة التطبيق.',
-              ),
-            if (model.staff) ...[
-              Text(
-                _role(model.role),
-                style: const TextStyle(
-                  color: TomiColors.accent,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 7,
-                runSpacing: 7,
-                children: [
-                  for (final e in {
-                    if (model.can('reports')) 'reports': 'البلاغات',
-                    if (model.can('posts')) 'posts': 'المنشورات',
-                    if (model.can('accounts') || model.can('bans'))
-                      'users': 'الحسابات',
-                    if (model.can('rooms')) 'rooms': 'الغرف',
-                    if (model.can('metrics')) 'metrics': 'المراقبة',
-                    if (model.can('audit')) 'audit': 'سجل الإدارة',
-                    if (model.role == 'owner') 'staff': 'المشرفون',
-                  }.entries)
-                    ChoiceChip(
-                      key: ValueKey('admin-tab-${e.key}'),
-                      label: Text(e.value),
-                      selected: model.section == e.key,
-                      onSelected: (_) {
-                        search.clear();
-                        unawaited(model.load(selected: e.key));
-                      },
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (model.section == 'reports')
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final e in {
-                      ...reportStatusLabels,
-                      'all': 'كل الحالات',
-                    }.entries)
-                      ChoiceChip(
-                        label: Text(e.value),
-                        selected: model.filter == e.key,
-                        onSelected: (_) => model.load(selectedFilter: e.key),
-                      ),
-                  ],
-                ),
-              if (model.section == 'rooms')
-                Wrap(
-                  spacing: 6,
-                  children: [
-                    for (final e in {
-                      'open': 'المفتوحة',
-                      'closed': 'المغلقة',
-                      'all': 'كل الغرف',
-                    }.entries)
-                      ChoiceChip(
-                        label: Text(e.value),
-                        selected: model.filter == e.key,
-                        onSelected: (_) => model.load(selectedFilter: e.key),
-                      ),
-                  ],
-                ),
-              if (model.role == 'owner')
-                FilledButton.icon(
-                  key:const Key('admin-roulette'),
-                  onPressed:()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>RouletteAdminPage(accounts:widget.accounts))),
-                  icon:const Icon(Icons.casino_outlined),label:const Text('إدارة مدار الحظ • الروليت'),
-                ),
-              if (model.role == 'owner')
-                OutlinedButton.icon(
-                  key: const Key('admin-create-account'),
-                  onPressed: model.actionLocked
-                      ? null
-                      : () => createManagedAccount(context, model),
-                  icon: const Icon(Icons.person_add_alt),
-                  label: const Text('إنشاء حساب مميز'),
-                ),
-              if (['users', 'staff'].contains(model.section))
-                TextField(
-                  key: const Key('admin-user-search'),
-                  controller: search,
-                  maxLength: 40,
-                  decoration: InputDecoration(
-                    labelText: 'بحث باليوزر',
-                    suffixIcon: IconButton(
-                      tooltip: 'بحث',
-                      onPressed: () => model.load(search: search.text.trim()),
-                      icon: const Icon(Icons.search),
-                    ),
-                  ),
-                  onSubmitted: (q) => model.load(search: q.trim()),
-                ),
-              if (model.loading) const LinearProgressIndicator(),
-              if (model.section == 'metrics' && model.metrics.isNotEmpty)
-                _OperationsView(model.metrics),
-              if (!model.loading &&
-                  model.items.isEmpty &&
-                  model.section != 'metrics' &&
-                  model.error == null)
-                const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text(
-                    'لا توجد عناصر بهذه القائمة.',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              for (final row in model.items)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: switch (model.section) {
-                    'reports' => reportCard(context, row),
-                    'posts' => postCard(context, row),
-                    'users' || 'staff' => accountCard(context, row),
-                    'rooms' => roomCard(context, row),
-                    _ => auditCard(row),
-                  },
-                ),
-              if (model.nextBefore != null)
-                TextButton(
-                  onPressed: model.loading
-                      ? null
-                      : () => model.load(more: true),
-                  child: const Text('عرض الأقدم'),
-                ),
-            ],
+            const Icon(
+              Icons.verified_user_outlined,
+              size: 36,
+              color: TomiColors.accent,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'مركز التحكم',
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+            ),
+            Text(_role(model.role)),
+            const Text('اختار القسم لإدارة محتواه في نافذة مستقلة.'),
           ],
         ),
       ),
+      const SizedBox(height: 18),
+      for (final entry in sectionTitles.entries)
+        if (entry.key == 'staff'
+            ? model.role == 'owner'
+            : entry.key == 'users'
+            ? model.can('accounts') || model.can('bans')
+            : model.can(entry.key))
+          Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: ListTile(
+              key: ValueKey('admin-tab-${entry.key}'),
+              contentPadding: const EdgeInsets.all(16),
+              leading: CircleAvatar(
+                backgroundColor: TomiColors.accent.withValues(alpha: .12),
+                child: Icon(sectionIcons[entry.key], color: TomiColors.accent),
+              ),
+              title: Text(
+                entry.value,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              trailing: const Icon(Icons.chevron_left),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => AdminPage(
+                    accounts: widget.accounts,
+                    initialSection: entry.key,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      if (model.role == 'owner') ...[
+        Card(
+          child: ListTile(
+            key: const Key('admin-roulette'),
+            leading: const Icon(Icons.casino_outlined),
+            title: const Text('إدارة الروليت'),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => RouletteAdminPage(accounts: widget.accounts),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          key: const Key('admin-create-account'),
+          onPressed: model.actionLocked
+              ? null
+              : () => createManagedAccount(context, model),
+          icon: const Icon(Icons.person_add_alt),
+          label: const Text('إنشاء حساب مميز'),
+        ),
+      ],
+      AdminPendingBanner(model),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: Text(
+        widget.initialSection == null
+            ? 'مركز إدارة TOMI'
+            : sectionTitles[widget.initialSection] ?? 'إدارة التطبيق',
+      ),
+    ),
+    body: AnimatedBuilder(
+      animation: model,
+      builder: (context, _) => widget.initialSection == null && model.staff
+          ? dashboard(context)
+          : RefreshIndicator(
+              onRefresh: () async {
+                await model.loadAccess();
+                if (model.staff) await model.load();
+              },
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(18),
+                children: [
+                  if (model.accessLoading) const LinearProgressIndicator(),
+                  AdminPendingBanner(model),
+                  if (!model.accessLoading && !model.staff)
+                    const Text(
+                      'هذه الصفحة لإدارة التطبيق المخوّلة. صلاحية مشرف الغرفة لا تمنح صلاحية إدارة التطبيق.',
+                    ),
+                  if (model.staff) ...[
+                    Text(
+                      _role(model.role),
+                      style: const TextStyle(
+                        color: TomiColors.accent,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const SizedBox(height: 12),
+                    if (model.section == 'reports')
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final e in {
+                            ...reportStatusLabels,
+                            'all': 'كل الحالات',
+                          }.entries)
+                            ChoiceChip(
+                              label: Text(e.value),
+                              selected: model.filter == e.key,
+                              onSelected: (_) =>
+                                  model.load(selectedFilter: e.key),
+                            ),
+                        ],
+                      ),
+                    if (model.section == 'rooms')
+                      Wrap(
+                        spacing: 6,
+                        children: [
+                          for (final e in {
+                            'open': 'المفتوحة',
+                            'closed': 'المغلقة',
+                            'all': 'كل الغرف',
+                          }.entries)
+                            ChoiceChip(
+                              label: Text(e.value),
+                              selected: model.filter == e.key,
+                              onSelected: (_) =>
+                                  model.load(selectedFilter: e.key),
+                            ),
+                        ],
+                      ),
+                    if (model.role == 'owner')
+                      FilledButton.icon(
+                        key: const Key('admin-roulette'),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                RouletteAdminPage(accounts: widget.accounts),
+                          ),
+                        ),
+                        icon: const Icon(Icons.casino_outlined),
+                        label: const Text('إدارة مدار الحظ • الروليت'),
+                      ),
+                    if (model.role == 'owner')
+                      OutlinedButton.icon(
+                        key: const Key('admin-create-account'),
+                        onPressed: model.actionLocked
+                            ? null
+                            : () => createManagedAccount(context, model),
+                        icon: const Icon(Icons.person_add_alt),
+                        label: const Text('إنشاء حساب مميز'),
+                      ),
+                    if (['users', 'staff'].contains(model.section))
+                      TextField(
+                        key: const Key('admin-user-search'),
+                        controller: search,
+                        maxLength: 40,
+                        decoration: InputDecoration(
+                          labelText: 'بحث باليوزر',
+                          suffixIcon: IconButton(
+                            tooltip: 'بحث',
+                            onPressed: () =>
+                                model.load(search: search.text.trim()),
+                            icon: const Icon(Icons.search),
+                          ),
+                        ),
+                        onSubmitted: (q) => model.load(search: q.trim()),
+                      ),
+                    if (model.loading) const LinearProgressIndicator(),
+                    if (model.section == 'metrics' && model.metrics.isNotEmpty)
+                      _OperationsView(model.metrics),
+                    if (!model.loading &&
+                        model.items.isEmpty &&
+                        model.section != 'metrics' &&
+                        model.error == null)
+                      const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text(
+                          'لا توجد عناصر بهذه القائمة.',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    for (final row in model.items)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: switch (model.section) {
+                          'reports' => reportCard(context, row),
+                          'posts' => postCard(context, row),
+                          'users' || 'staff' => accountCard(context, row),
+                          'rooms' => roomCard(context, row),
+                          _ => auditCard(row),
+                        },
+                      ),
+                    if (model.nextBefore != null)
+                      TextButton(
+                        onPressed: model.loading
+                            ? null
+                            : () => model.load(more: true),
+                        child: const Text('عرض الأقدم'),
+                      ),
+                  ],
+                ],
+              ),
+            ),
     ),
   );
   Widget postCard(BuildContext context, Map<String, dynamic> row) => TomiCard(

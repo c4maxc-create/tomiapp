@@ -1,0 +1,9 @@
+✔ authenticated websocket updates and typing reach only participants; logout closes the socket (4290.246969ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4513.290916

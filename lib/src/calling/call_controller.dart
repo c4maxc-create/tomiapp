@@ -290,6 +290,13 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> start(String conversationId, {bool video = false}) async {
+    final existing = active;
+    if (existing?.incoming == true &&
+        existing!.conversationId == conversationId &&
+        existing.video == video) {
+      await accept();
+      return;
+    }
     if (disposed ||
         identity == null ||
         !foreground ||
@@ -339,7 +346,8 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
       if (active!.ended) return;
       await keepAudio(gen);
       if (!valid(gen) || active?.ended != false) return;
-      await beginMedia(gen, caller: true);
+      await beginMedia(gen, caller: active!.isCaller);
+      if (!active!.isCaller) await syncSignals(gen);
     } on AccountFailure catch (e) {
       if (valid(gen)) {
         error = e.message;

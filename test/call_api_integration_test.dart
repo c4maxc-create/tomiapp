@@ -73,14 +73,15 @@ void main() {
           b = await account(1),
           ma = FakeCallMedia(),
           mb = FakeCallMedia();
+      final mediaA = [ma], mediaB = [mb];
       final ca = CallController(
             accounts: a,
-            mediaFactory: () => ma,
+            mediaFactory: () => mediaA.last,
             autoPoll: false,
           ),
           cb = CallController(
             accounts: b,
-            mediaFactory: () => mb,
+            mediaFactory: () => mediaB.last,
             autoPoll: false,
           );
       addTearDown(() async {
@@ -171,6 +172,38 @@ void main() {
       final history = await b.chatRequest('GET', '/v1/calls');
       expect((history['calls'] as List).length, 1);
       expect(((history['calls'] as List).first as Map)['reason'], 'ended');
+      // Crossing start requests must preserve one caller and one answerer.
+      final na = FakeCallMedia(), nb = FakeCallMedia();
+      mediaA.add(na);
+      mediaB.add(nb);
+      final tid = (conversation['conversation'] as Map)['id'] as String;
+      await Future.wait([ca.start(tid), cb.start(tid)]);
+      for (var i = 0; i < 12; i++) {
+        await ca.signalTail;
+        await cb.signalTail;
+        await ca.tick();
+        await cb.tick();
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      expect(ca.error, isNull);
+      expect(cb.error, isNull);
+      expect(ca.active!.id, cb.active!.id);
+      expect(ca.active!.isCaller, !cb.active!.isCaller);
+      expect(ca.active!.incoming, false);
+      expect(cb.active!.incoming, false);
+      expect(na.received, contains(ca.active!.isCaller ? 'answer' : 'offer'));
+      expect(nb.received, contains(cb.active!.isCaller ? 'answer' : 'offer'));
+      na.bus.add({'type': 'connected'});
+      nb.bus.add({'type': 'connected'});
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      await ca.tick();
+      await cb.tick();
+      expect(ca.active!.state, 'connected');
+      expect(cb.active!.state, 'connected');
+      await ca.hangup();
+      await cb.tick();
+      final crossedHistory = await b.chatRequest('GET', '/v1/calls');
+      expect((crossedHistory['calls'] as List).length, 2);
     },
     skip: Platform.environment['TOMI_CALL_INTEGRATION'] != '1',
     timeout: const Timeout(Duration(seconds: 60)),

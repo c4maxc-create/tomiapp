@@ -289,6 +289,61 @@ class _TomiAppState extends State<TomiApp> {
     super.dispose();
   }
 
+  Widget roomOverlay(Widget child) {
+    final c = accounts?.voiceRooms;
+    if (c == null) return child;
+    return AnimatedBuilder(
+      animation: c,
+      builder: (context, _) => Stack(
+        children: [
+          child,
+          if (c.minimized && c.active != null)
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: MediaQuery.paddingOf(context).bottom + 84,
+              child: Material(
+                elevation: 12,
+                color: TomiColors.surface,
+                borderRadius: BorderRadius.circular(20),
+                child: ListTile(
+                  dense: true,
+                  leading: const Icon(
+                    Icons.graphic_eq,
+                    color: TomiColors.accent,
+                  ),
+                  title: Text(
+                    c.active!.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    c.microphoneOn
+                        ? 'متصل • المايك مفتوح'
+                        : 'متصل • المايك مغلق',
+                  ),
+                  onTap: () {
+                    c.expand();
+                    navigator.currentState?.push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => VoiceRoomPage(controller: c),
+                      ),
+                    );
+                  },
+                  trailing: IconButton(
+                    key: const Key('mini-room-leave'),
+                    tooltip: 'مغادرة الغرفة نهائيًا',
+                    onPressed: () => c.leave(),
+                    icon: const Icon(Icons.call_end, color: Colors.redAccent),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'TOMI',
@@ -299,12 +354,12 @@ class _TomiAppState extends State<TomiApp> {
     supportedLocales: const [Locale('ar'), Locale('en')],
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
     builder: (context, child) => widget.textScaler == null
-        ? child!
+        ? roomOverlay(child!)
         : MediaQuery(
             data: MediaQuery.of(
               context,
             ).copyWith(textScaler: widget.textScaler),
-            child: child!,
+            child: roomOverlay(child!),
           ),
     theme: TomiTheme.dark(),
     home: accountHome(),
@@ -462,7 +517,11 @@ class _TomiShellState extends State<TomiShell> {
                           accounts: widget.accounts!,
                           visible: selected == 2,
                         ),
-                  GamesScreen(store: widget.store,accounts:widget.accounts,visible:selected==3),
+                  GamesScreen(
+                    store: widget.store,
+                    accounts: widget.accounts,
+                    visible: selected == 3,
+                  ),
                   widget.accounts == null
                       ? ProfileScreen(store: widget.store)
                       : AccountProfileScreen(

@@ -62,15 +62,83 @@ class VideoTile extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     button: true,
     label: 'فتح الفيديو',
-    child: FilledButton.tonalIcon(
-      onPressed: () => Navigator.push(
+    child: InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => Navigator.push(
         context,
         MaterialPageRoute<void>(builder: (_) => VideoPage(source: source)),
       ),
-      icon: const Icon(Icons.play_circle_outline, size: 38),
-      label: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Text('فيديو • ${voiceTime(video.durationMs)}'),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: AspectRatio(
+          aspectRatio: (video.width / video.height).clamp(.8, 1.78),
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xff253947),
+                  Color(0xff28243f),
+                  Color(0xff101820),
+                ],
+              ),
+            ),
+            child: Stack(
+              children: [
+                const Positioned.fill(
+                  child: Center(
+                    child: Icon(
+                      Icons.movie_outlined,
+                      size: 100,
+                      color: Color(0x155fffff),
+                    ),
+                  ),
+                ),
+                const Center(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Color(0x99000000),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Icon(
+                        Icons.play_arrow_rounded,
+                        size: 42,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 12,
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'فيديو • ${voiceTime(video.durationMs)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '${video.width} × ${video.height}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     ),
   );

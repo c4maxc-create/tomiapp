@@ -32,7 +32,8 @@ export function createRealtime({server,origins,authenticate,validSessions,typing
      if(data.type!=='typing'||typeof data.active!=='boolean'||typeof data.conversationId!=='string')throw Error('frame');
      await limit('ws-typing:'+ws.userId,90);
      if(!(await validSessions([ws.tokenHash])).has(ws.tokenHash)){ws.close(4401,'Session expired');return;}
-     await typing(ws.userId,data.conversationId,data.active);
+     const activity=data.activity??'typing';if(!['typing','recording','video','image','audio','file'].includes(activity))throw Error('frame');
+     await typing(ws.userId,data.conversationId,data.active,activity);
     }
    }).catch(error=>{
     if(!ws.userId)ws.close(4401,'Authentication failed');

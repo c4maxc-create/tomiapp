@@ -9,7 +9,11 @@ abstract class ChatConnection {
   Future<void> close();
 }
 
-class WebChatConnection implements ChatConnection {
+abstract class ChatActivityConnection implements ChatConnection {
+  void activity(String id, bool active, String activity);
+}
+
+class WebChatConnection implements ChatActivityConnection {
   WebChatConnection(this.channel);
   final WebSocketChannel channel;
   @override
@@ -21,6 +25,15 @@ class WebChatConnection implements ChatConnection {
   @override
   void typing(String id, bool active) => channel.sink.add(
     jsonEncode({'type': 'typing', 'conversationId': id, 'active': active}),
+  );
+  @override
+  void activity(String id, bool active, String activity) => channel.sink.add(
+    jsonEncode({
+      'type': 'typing',
+      'conversationId': id,
+      'active': active,
+      'activity': activity,
+    }),
   );
   @override
   Future<void> close() async {

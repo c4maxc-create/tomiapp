@@ -40,6 +40,10 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
   void initState() {
     super.initState();
     message.text = c.pendingMessage?['text'] as String? ?? c.roomDraft;
+    if (c.minimized)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) c.expand();
+      });
     c.addListener(changed);
     effects.addListener(effectChanged);
     effects.ingest(
@@ -76,6 +80,11 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
     message.dispose();
     chat.dispose();
     super.dispose();
+  }
+
+  void minimize() {
+    c.minimize();
+    Navigator.pop(context);
   }
 
   Future<void> leave() async {
@@ -321,7 +330,13 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
               for (final member in listeners)
                 ListTile(
                   leading: AccountAvatar(member.user, size: 38),
-                  title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(member.user.displayName), CharismaBadge(member.user.identity)]),
+                  title: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(member.user.displayName),
+                      CharismaBadge(member.user.identity),
+                    ],
+                  ),
                   onTap: () => Navigator.pop(sheet, member),
                 ),
             ],
@@ -695,8 +710,8 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
           children: [
             IconButton(
               key: const Key('leave-voice-room'),
-              tooltip: 'مغادرة الغرفة',
-              onPressed: leave,
+              tooltip: 'تصغير الغرفة',
+              onPressed: minimize,
               icon: const Icon(
                 Icons.chevron_right_rounded,
                 textDirection: TextDirection.ltr,
@@ -1106,7 +1121,7 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
         child: PopScope(
           canPop: r == null || leaving,
           onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) unawaited(leave());
+            if (!didPop) minimize();
           },
           child: Scaffold(
             resizeToAvoidBottomInset: true,
@@ -1155,8 +1170,9 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
                                 child: LayoutBuilder(
                                   builder: (context, box) {
                                     if (box.maxHeight < 460 ||
-                                        MediaQuery.textScalerOf(context)
-                                                .scale(14) >
+                                        MediaQuery.textScalerOf(
+                                              context,
+                                            ).scale(14) >
                                             20)
                                       return SingleChildScrollView(
                                         child: Column(

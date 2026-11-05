@@ -89,6 +89,17 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
   DateTime lastSync = DateTime.now(),
       lastHeartbeat = DateTime.fromMillisecondsSinceEpoch(0);
   Future<void> releaseTail = Future.value();
+  bool minimized = false;
+  void minimize() {
+    minimized = active != null;
+    notify();
+  }
+
+  void expand() {
+    minimized = false;
+    notify();
+  }
+
   bool backgroundAudio = false;
   String? audioLease;
   bool get inRoom => active != null || joining;
@@ -123,6 +134,7 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
         : null;
     if (disposed || key == sessionKey) return;
     sessionKey = key;
+    minimized = false;
     generation++;
     poll?.cancel();
     release();
@@ -231,8 +243,10 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
       final index = rooms.indexWhere((r) => r.id == room.id);
       if (index >= 0) {
         final old = rooms[index],
-            next = VoiceRoom({...old.data, 'preferences': prefs})
-                .preservePreferences(old);
+            next = VoiceRoom({
+              ...old.data,
+              'preferences': prefs,
+            }).preservePreferences(old);
         if (scope == 'favorites' && !next.favorite ||
             scope == 'following' && !next.following)
           rooms.removeAt(index);
@@ -240,8 +254,10 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
           rooms[index] = next;
       }
       if (active?.id == room.id)
-        active = VoiceRoom({...active!.data, 'preferences': prefs})
-            .preservePreferences(active!);
+        active = VoiceRoom({
+          ...active!.data,
+          'preferences': prefs,
+        }).preservePreferences(active!);
       error = null;
     } on AccountFailure catch (e) {
       if (valid(gen)) {
@@ -1286,7 +1302,8 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
         try {
           await persistRoom();
         } catch (_) {
-          error = 'تعذّر حفظ الإرسال على الجهاز؛ لا تغلق الصفحة قبل إعادة المحاولة.';
+          error =
+              'تعذّر حفظ الإرسال على الجهاز؛ لا تغلق الصفحة قبل إعادة المحاولة.';
         }
       }
     } catch (_) {
@@ -1454,6 +1471,7 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> leave({String? message}) async {
+    minimized = false;
     final saved = persistRoom().catchError((Object _) => false);
     final r = active,
         oldIdentity = identity,

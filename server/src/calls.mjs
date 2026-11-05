@@ -91,12 +91,20 @@ export function createCalls({database,iceProvider,readJson,respond,limit,userByI
         if((await db.query('SELECT 1 FROM tomi_account_restrictions WHERE user_id IN (?,?) AND suspended=1',[t.low_user_id,t.high_user_id])).rows.length)fail(403,'CALL_UNAVAILABLE','الاتصال بهذا الحساب غير متاح.');
         const old=(await db.query('SELECT * FROM tomi_calls WHERE caller_id=? AND request_id=?',[current.id,d.requestId])).rows[0];
         if(old){if(old.thread_id!==d.conversationId||old.kind!==d.kind)fail(409,'REQUEST_CHANGED','طلب المكالمة تغيّر.');if(old.caller_session!==current.tokenHash)fail(409,'CALL_OTHER_DEVICE','المكالمة بدأت من جهاز آخر.');return {r:old,replay:true};}
+        const alias=(await db.query('SELECT call_id FROM tomi_call_cross_requests WHERE user_id=? AND request_id=?',[current.id,d.requestId])).rows[0];
+        if(alias){const prior=await row(db,current.id,alias.call_id);if(prior.thread_id!==d.conversationId||prior.kind!==d.kind)fail(409,'REQUEST_CHANGED','طلب المكالمة تغيّر.');if(!owner(prior,current))fail(409,'CALL_OTHER_DEVICE','تم الاتصال من جهاز آخر.');return {r:prior,replay:true};}
         const callee=t.low_user_id===current.id?t.high_user_id:t.low_user_id;
         if((await db.query('SELECT 1 FROM tomi_user_blocks WHERE (blocker_id=? AND blocked_id=?) OR (blocker_id=? AND blocked_id=?)',[current.id,callee,callee,current.id])).rows.length)fail(403,'CHAT_BLOCKED','الاتصال غير متاح مع هذا المستخدم.');
         // A stable call-lock order also covers two busy users calling across pairs.
         const activeRows=(await db.query('SELECT user_id,call_id FROM tomi_active_calls WHERE user_id IN (?,?)',[current.id,callee])).rows;
         const activeById=new Map(activeRows.map(v=>[v.call_id,v.user_id]));
         for(const activeId of [...activeById.keys()].sort())await expire(db,await row(db,activeById.get(activeId),activeId,true));
+        const cross=(await db.query("SELECT c.* FROM tomi_calls c JOIN tomi_active_calls a ON a.call_id=c.id WHERE a.user_id=? AND c.caller_id=? AND c.callee_id=? AND c.thread_id=? AND c.state='ringing'",[current.id,callee,current.id,t.id])).rows[0];
+        if(cross && cross.kind===d.kind){
+          await db.query("UPDATE tomi_calls SET state='connecting',callee_session=?,callee_seen=?,accepted_at=?,connect_deadline=?,updated_at=? WHERE id=?",[current.tokenHash,stamp(),stamp(),stamp(45000),stamp(),cross.id]);
+          await db.query('INSERT INTO tomi_call_cross_requests(user_id,request_id,call_id) VALUES(?,?,?)',[current.id,d.requestId,cross.id]);
+          return {r:await row(db,current.id,cross.id),replay:false};
+        }
         if((await db.query('SELECT 1 FROM tomi_active_calls WHERE user_id=?',[current.id])).rows.length)fail(409,'CALL_BUSY','عندك مكالمة جارية؛ أنهِها أولًا.');
         if((await db.query('SELECT 1 FROM tomi_voice_presence WHERE user_id=?',[current.id])).rows.length)fail(409,'ROOM_BUSY','غادر الغرفة الصوتية قبل بدء المكالمة.');
         const busy=(await db.query('SELECT 1 FROM tomi_active_calls WHERE user_id=?',[callee])).rows.length>0||(await db.query('SELECT 1 FROM tomi_voice_presence WHERE user_id=?',[callee])).rows.length>0;

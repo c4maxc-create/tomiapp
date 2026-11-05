@@ -287,10 +287,25 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                                 color: Colors.white,
                               ),
                             ),
-                            const Expanded(child: Text('TOMI',textDirection:TextDirection.ltr,textAlign:TextAlign.center,style:TextStyle(fontSize:27,fontWeight:FontWeight.w900,letterSpacing:4,color:TomiColors.text))),
+                            const Expanded(
+                              child: Text(
+                                'TOMI',
+                                textDirection: TextDirection.ltr,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 27,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 4,
+                                  color: TomiColors.text,
+                                ),
+                              ),
+                            ),
                             PopupMenuButton<String>(
                               key: const Key('feed-filters'),
-                              icon: const Icon(Icons.tune_rounded,color:TomiColors.accent),
+                              icon: const Icon(
+                                Icons.tune_rounded,
+                                color: TomiColors.accent,
+                              ),
                               tooltip: 'قائمة المنشورات',
                               onSelected: (value) async {
                                 if (value == 'search') {
@@ -308,7 +323,8 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                               },
                               itemBuilder: (_) => [
                                 for (final e in {
-                                  'all': 'الرئيسية',
+                                  'explore': 'استكشاف',
+                                  'all': 'كل المنشورات',
                                   'following': 'متابعاتي',
                                   'mine': 'منشوراتي',
                                   'saved': 'المحفوظات',
@@ -354,6 +370,29 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
+                      ),
+                    ),
+                  if (widget.userId == null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 8,
+                      ),
+                      child: SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(
+                            value: 'following',
+                            label: Text('أتابعهم'),
+                          ),
+                          ButtonSegment(
+                            value: 'explore',
+                            label: Text('استكشاف'),
+                          ),
+                        ],
+                        selected: {
+                          feed.scope == 'following' ? 'following' : 'explore',
+                        },
+                        onSelectionChanged: (v) => feed.select(v.first),
                       ),
                     ),
                   if (feed.scope != 'all' && widget.userId == null)
@@ -566,7 +605,8 @@ class RealPostCard extends StatelessWidget {
     builder: (_) =>
         RealCommentsSheet(accounts: accounts, post: post, onUpdated: onUpdated),
   );
-  Future<void> share(BuildContext c) => showPostShareSheet(c, accounts, post.id);
+  Future<void> share(BuildContext c) =>
+      showPostShareSheet(c, accounts, post.id);
   @override
   Widget build(BuildContext c) => Container(
     margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
