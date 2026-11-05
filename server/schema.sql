@@ -763,3 +763,12 @@ CREATE TABLE IF NOT EXISTS tomi_post_share_actions (
  actor_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,request_id TEXT NOT NULL,
  fingerprint TEXT NOT NULL,result TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(actor_id,request_id)
 );
+CREATE TABLE IF NOT EXISTS tomi_game_search_locks (kind TEXT PRIMARY KEY,tick BIGINT NOT NULL DEFAULT 0);
+INSERT INTO tomi_game_search_locks(kind) VALUES('uno'),('snakes'),('jackaroo'),('camel'),('wheel') ON CONFLICT(kind) DO NOTHING;
+CREATE TABLE IF NOT EXISTS tomi_game_searches (
+ user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,
+ kind TEXT NOT NULL CHECK(kind IN('uno','snakes','jackaroo','camel','wheel')),
+ queued_at BIGINT NOT NULL,expires_at BIGINT NOT NULL,
+ match_id TEXT REFERENCES tomi_game_matches(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS tomi_game_search_waiting ON tomi_game_searches(kind,match_id,queued_at);

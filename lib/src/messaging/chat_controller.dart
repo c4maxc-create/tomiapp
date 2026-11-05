@@ -73,11 +73,15 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
     if (!realtimeEnabled) return;
     unawaited(connect());
     poll?.cancel();
-    poll = Timer.periodic(const Duration(seconds: 30), (_) {
+    int ticks = 0;
+    poll = Timer.periodic(const Duration(seconds: 3), (_) {
+      ticks++;
       if (!foreground || disposed) return;
-      unawaited(refresh());
-      for (final t in threads.values) {
-        if (t.visible) unawaited(t.sync(reconcile: !connected));
+      if (!connected || ticks % 10 == 0) {
+        if (!loading) unawaited(refresh());
+        for (final t in threads.values) {
+          if (t.visible) unawaited(t.sync(reconcile: !connected));
+        }
       }
     });
   }
@@ -147,8 +151,8 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
             for (final t in threads.values) {
               if (t.visible) unawaited(t.sync(reconcile: true));
             }
-          } else if (event['type'] != 'call.changed' &&
-              event['type'] != 'voice_room.changed' && event['type'] != 'roulette.live') {
+          } else if ((event['type'] as String? ?? '').startsWith('chat.') ||
+              (event['type'] as String? ?? '').startsWith('group.')) {
             final id = event['conversationId'];
             if (id is String) {
               if (event['type'] == 'group.member-left' &&
@@ -211,7 +215,7 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
     if (disposed || identity == null) return;
     refreshTimer?.cancel();
     refreshTimer = Timer(
-      const Duration(milliseconds: 300),
+      const Duration(milliseconds: 120),
       () => unawaited(refresh()),
     );
   }
@@ -352,8 +356,12 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
       totalUnread += value.unreadCount;
     }
     conversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final open = threads[value.id];
+    if (open != null && open.current) {
+      open.conversation = value.preserveReads(open.conversation);
+      open.notify();
+    }
     notify();
-    scheduleRefresh();
   }
 
   final storedCounts = <String, int>{},
@@ -532,6 +540,7 @@ class ChatThreadController extends ChangeNotifier {
     }
   }
 
+  final committedMediaKeys = <String>{};
   Future<bool> persist() async {
     await restored;
     if (!current || savedOwner == null) return false;
@@ -558,7 +567,8 @@ class ChatThreadController extends ChangeNotifier {
         ...pending,
         if (draftAttachment != null) draftAttachment!,
       ])
-        if (p.media != null) p.mediaKey!: p.media!.bytes,
+        if (p.media != null && !committedMediaKeys.contains(p.mediaKey))
+          p.mediaKey!: p.media!.bytes,
     };
     final ok = await chats.accounts.draftStore.write(
       savedOwner!,
@@ -567,6 +577,7 @@ class ChatThreadController extends ChangeNotifier {
       blobs: blobs,
       valid: () => current,
     );
+    if (ok) committedMediaKeys.addAll(blobs.keys);
     if (current) {
       chats.storedCounts[conversation.id] = pending.length;
       chats.storedVoiceBytes[conversation.id] = pending
@@ -626,10 +637,11 @@ class ChatThreadController extends ChangeNotifier {
         !current ||
         !chats.foreground ||
         pending.isEmpty ||
-        sending ||
         sendRetry != null)
       return;
-    final eligible = pending.where((p) => p.autoRetry && p.attempts < 5);
+    final eligible = pending.where(
+      (p) => p.autoRetry && p.attempts < 5 && !p.busy && slotAvailable(p),
+    );
     if (eligible.isEmpty) return;
     final p = eligible.first;
     sendRetry = Timer(Duration(seconds: min(30, 1 << min(p.attempts, 5))), () {
@@ -691,9 +703,12 @@ class ChatThreadController extends ChangeNotifier {
       atLatest = true,
       historyWindow = false,
       peerTyping = false,
-      sending = false,
       reading = false,
       syncAgain = false;
+  final inFlight = <PendingChatMessage>{};
+  bool get sending => inFlight.isNotEmpty;
+  bool slotAvailable(PendingChatMessage p) =>
+      !inFlight.contains(p) && !inFlight.any((q) => q.hasMedia == p.hasMedia);
   int metadataEpoch = 0, windowRevision = 0;
   int? nextBefore;
   String? error;
@@ -1021,10 +1036,23 @@ class ChatThreadController extends ChangeNotifier {
       case 'group.member-left':
         metadataEpoch++;
         final mid = e['messageId'];
-        if (mid is String) unawaited(refreshMessage(mid));
-        unawaited(sync(reconcile: true));
+        if (mid is String)
+          unawaited(refreshMessage(mid));
+        else
+          unawaited(sync(reconcile: true));
       case 'chat.message':
-        unawaited(sync());
+        final payload = e['message'];
+        if (payload is Map && payload['conversationId'] == conversation.id) {
+          final gap =
+              (payload['sequence'] as num).toInt() > highestSequence + 1;
+          merge([Map<String, dynamic>.from(payload)]);
+          if (gap) unawaited(sync(reconcile: true));
+          error = null;
+          notify();
+          unawaited(persist().catchError((Object _) => false));
+          if (visible && atLatest) unawaited(markVisibleRead());
+        } else
+          unawaited(sync());
       case 'chat.read':
         unawaited(sync());
       case 'chat.blocked':
@@ -1201,7 +1229,10 @@ class ChatThreadController extends ChangeNotifier {
 
   Future<void> retryPending(PendingChatMessage p, {bool manual = false}) async {
     await restored;
-    if (!current || sending || !pending.contains(p) || !conversation.canSend)
+    if (!current ||
+        !slotAvailable(p) ||
+        !pending.contains(p) ||
+        !conversation.canSend)
       return;
     sendRetry?.cancel();
     sendRetry = null;
@@ -1209,7 +1240,7 @@ class ChatThreadController extends ChangeNotifier {
       p.attempts = 0;
       p.autoRetry = true;
     }
-    sending = true;
+    inFlight.add(p);
     p.busy = true;
     p.error = null;
     notify();
@@ -1311,12 +1342,15 @@ class ChatThreadController extends ChangeNotifier {
       }
     } finally {
       if (!disposed) {
-        sending = false;
+        inFlight.remove(p);
         p.busy = false;
         unawaited(persist().catchError((Object _) => false));
         notify();
         final fresh = pending
-            .where((q) => q.autoRetry && q.attempts == 0 && !q.busy)
+            .where(
+              (q) =>
+                  q.autoRetry && q.attempts == 0 && !q.busy && slotAvailable(q),
+            )
             .firstOrNull;
         if (current && fresh != null && fresh != p)
           unawaited(retryPending(fresh));

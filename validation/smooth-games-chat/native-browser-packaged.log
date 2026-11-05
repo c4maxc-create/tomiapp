@@ -1,0 +1,8 @@
+00:00 +0: loading /workspace/tomiapp/test/csharp_asset_server_test.dart
+00:00 +0: CSharp assets use isolated loopback origin, exact manifest, WASM MIME and deny foreign access
+00:00 +1: packaged CSharp UI boots under the actual native asset server CSP and talks to real API
+{"viewport": 320, "real_api_games": 5, "card_and_dice_animation": "passed", "friends_lobby": "passed", "public_matchmaking": "passed", "roulette": "server_state_and_confirmed_wallet_debit", "errors": []}
+{"viewport": 390, "real_api_games": 5, "card_and_dice_animation": "passed", "friends_lobby": "passed", "public_matchmaking": "passed", "roulette": "server_state_and_confirmed_wallet_debit", "errors": []}
+{"viewport": 1440, "real_api_games": 5, "card_and_dice_animation": "passed", "friends_lobby": "passed", "public_matchmaking": "passed", "roulette": "server_access_gate", "errors": []}
+
+00:51 +2: All tests passed!

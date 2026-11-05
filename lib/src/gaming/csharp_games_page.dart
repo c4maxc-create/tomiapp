@@ -7,6 +7,9 @@ import '../accounts/account_controller.dart';
 import '../roulette/live_controller.dart';
 import 'csharp_asset_server.dart';
 import 'game_controller.dart';
+import 'game_invite_sheet.dart';
+import 'game_models.dart';
+import 'package:flutter/services.dart';
 
 /// The app hosts the compiled Blazor UI; native controllers own authentication,
 /// revision fencing, durable request IDs, retry and wallet updates.
@@ -41,7 +44,7 @@ class _CSharpGamesPageState extends State<CSharpGamesPage>
       processing = false,
       wheelActive = false,
       started = false;
-  String? failure, closedMatchId;
+  String? failure, closedMatchId, lastStateFrame;
   bool get foreground => widget.visible && resumed && games.current;
   @override
   void initState() {
@@ -85,8 +88,10 @@ class _CSharpGamesPageState extends State<CSharpGamesPage>
       web = controller;
       await controller.loadRequest(server.entry);
       if (!mounted) return;
-      clock = Timer.periodic(const Duration(milliseconds: 500), (_) {
-        if (foreground && roulette != null && wheelActive) changed();
+      clock = Timer.periodic(const Duration(milliseconds: 250), (_) {
+        if (foreground && roulette != null && wheelActive) {
+          unawaited(send({'clock': true, 'rouletteNow': roulette!.serverNow}));
+        }
       });
       setState(() {});
     } catch (_) {
@@ -144,6 +149,15 @@ class _CSharpGamesPageState extends State<CSharpGamesPage>
 
   Future<void> send(Map<String, dynamic> value) async {
     try {
+      if (value['clock'] != true) {
+        final comparable = Map<String, dynamic>.from(value)
+          ..remove('ack')
+          ..remove('serverNow')
+          ..remove('rouletteNow');
+        final frame = jsonEncode(comparable);
+        if (value['ack'] == null && frame == lastStateFrame) return;
+        lastStateFrame = frame;
+      }
       await web?.runJavaScript(
         'window.tomiNative.receive(${jsonEncode(value)});',
       );
@@ -178,7 +192,7 @@ class _CSharpGamesPageState extends State<CSharpGamesPage>
           ? (message['args'] as Map).cast<String, dynamic>()
           : <String, dynamic>{};
       if (command == 'select') {
-        wheelActive = args['kind'] == 'wheel';
+        wheelActive = args['kind'] == 'coins';
         if (wheelActive) {
           roulette ??= LiveRouletteController(widget.accounts, null)
             ..addListener(changed);
@@ -186,8 +200,60 @@ class _CSharpGamesPageState extends State<CSharpGamesPage>
         } else {
           roulette?.lifecycle(false);
         }
+      } else if (command == 'copyCode' && games.match?['status'] == 'waiting') {
+        await Clipboard.setData(
+          ClipboardData(text: games.match!['code'] as String),
+        );
+      } else if (command == 'invite' && games.match?['status'] == 'waiting') {
+        final matchId = games.match!['id'],
+            code = games.match!['code'],
+            kind = games.match!['kind'];
+        final uid = await showModalBottomSheet<String>(
+          context: context,
+          isScrollControlled: true,
+          showDragHandle: true,
+          builder: (_) => GameInviteSheet(accounts: widget.accounts),
+        );
+        if (uid != null &&
+            foreground &&
+            games.match?['id'] == matchId &&
+            games.match?['status'] == 'waiting') {
+          final conversation = await widget.accounts.chats.open(uid);
+          final thread = widget.accounts.chats.thread(conversation);
+          await thread.restored;
+          if (foreground) {
+            thread.enqueue(
+              'دعوة للعب ${gameName(kind as String)} • كود الغرفة: $code\nافتح قسم الألعاب ثم انضم بكود الطاولة.',
+              null,
+            );
+            if (mounted)
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('الدعوة قيد الإرسال في المحادثات'),
+                ),
+              );
+          }
+        }
+      } else if ((command == 'search' || command == 'cancelSearch') &&
+          const [
+            'uno',
+            'snakes',
+            'jackaroo',
+            'camel',
+            'wheel',
+          ].contains(args['kind'])) {
+        await games.searchGame(
+          args['kind'] as String,
+          cancel: command == 'cancelSearch',
+        );
       } else if (command == 'create' &&
-          const ['uno', 'snakes', 'jackaroo', 'camel'].contains(args['kind']) &&
+          const [
+            'uno',
+            'snakes',
+            'jackaroo',
+            'camel',
+            'wheel',
+          ].contains(args['kind']) &&
           const ['practice', 'friends'].contains(args['mode'])) {
         await games.create(args['kind'] as String, args['mode'] as String);
       } else if (command == 'join' &&
@@ -219,7 +285,14 @@ class _CSharpGamesPageState extends State<CSharpGamesPage>
             );
         } else if (command == 'action') {
           final type = args['type'];
-          if (const ['start', 'leave', 'draw', 'pass', 'roll'].contains(type))
+          if (const [
+            'start',
+            'leave',
+            'draw',
+            'pass',
+            'roll',
+            'spin',
+          ].contains(type))
             await games.act(type as String);
           else if (type == 'play' && args['cardId'] is String) {
             final allowed = games.match?['playableCardIds'] as List? ?? [];

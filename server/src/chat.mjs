@@ -136,7 +136,12 @@ export function createChat({database,storage,avatarStorage=storage,readJson,resp
      await enqueuePush(db,{messageId:mid,recipientId:locked.low_user_id===viewer?locked.high_user_id:locked.low_user_id,threadId:tid});
      await db.query('UPDATE tomi_chat_members SET visible=1 WHERE thread_id=?',[tid]);return{id:mid,repeated:false,row:locked};
     });}catch(error){if(!isUniqueConflict(error))throw error;const mid=await existing(database,viewer,requestId,hash);if(!mid)fail(409,'UPLOAD_INVALID','الصورة استُخدمت.');saved={id:mid,repeated:true,row};}
-    if(!saved.repeated)notify(saved.row,'chat.message',{messageId:saved.id});respond(response,saved.repeated?200:201,{message:await message(viewer,tid,saved.id),conversation:threadJson(await thread(viewer,tid),viewer)});return true;
+    const delivered=await message(viewer,tid,saved.id);
+    if(!saved.repeated){
+     realtime?.emit([viewer],{type:'chat.message',conversationId:tid,messageId:saved.id,message:delivered});
+     realtime?.emit([saved.row.low_user_id===viewer?saved.row.high_user_id:saved.row.low_user_id],{type:'chat.message',conversationId:tid,messageId:saved.id,message:{...delivered,isMine:false,requestId:null}});
+    }
+    respond(response,saved.repeated?200:201,{message:delivered,conversation:threadJson(await thread(viewer,tid),viewer)});return true;
    }
    if(method==='PUT'&&action==='/read'){
     await limit('chat-read:'+viewer,90);const d=await readJson(request);fields(d,['sequence']);const seq=integer(d.sequence);

@@ -71,7 +71,12 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
 
   Future<void> action(String value) async {
     if (value == 'requests') {
-      await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => PostShareRequestsPage(accounts: widget.accounts)));
+      await Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PostShareRequestsPage(accounts: widget.accounts),
+        ),
+      );
       if (mounted) await chats.refresh();
     } else if (value == 'group') {
       final c = await Navigator.push<DirectConversation>(
@@ -193,7 +198,14 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
                                     PopupMenuButton<String>(
                                       key: const Key('chat-inbox-menu'),
                                       tooltip: 'قائمة المحادثات',
-                                      icon: Badge(isLabelVisible: chats.shareRequestsCount > 0, label: Text('${chats.shareRequestsCount}'), child: const Icon(Icons.menu_rounded)),
+                                      icon: Badge(
+                                        isLabelVisible:
+                                            chats.shareRequestsCount > 0,
+                                        label: Text(
+                                          '${chats.shareRequestsCount}',
+                                        ),
+                                        child: const Icon(Icons.menu_rounded),
+                                      ),
                                       onSelected: action,
                                       itemBuilder: (_) => [
                                         const PopupMenuItem(
@@ -217,7 +229,18 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
                                             title: Text('البحث عن شخص'),
                                           ),
                                         ),
-                                        PopupMenuItem(value: 'requests', child: ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.mark_email_unread_outlined), title: Text('طلبات الغرباء (${chats.shareRequestsCount})'))),
+                                        PopupMenuItem(
+                                          value: 'requests',
+                                          child: ListTile(
+                                            contentPadding: EdgeInsets.zero,
+                                            leading: const Icon(
+                                              Icons.mark_email_unread_outlined,
+                                            ),
+                                            title: Text(
+                                              'طلبات الغرباء (${chats.shareRequestsCount})',
+                                            ),
+                                          ),
+                                        ),
                                         const PopupMenuItem(
                                           value: 'blocked',
                                           child: ListTile(
@@ -1316,6 +1339,44 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
     thread.noteTyping();
   }
 
+  Future<void> pickGif() async {
+    if (picking || thread.sending) return;
+    setState(() => picking = true);
+    try {
+      final file = await files.openFile(
+        acceptedTypeGroups: [
+          const files.XTypeGroup(
+            label: 'GIF',
+            extensions: ['gif'],
+            mimeTypes: ['image/gif'],
+          ),
+        ],
+      );
+      if (file == null) return;
+      if (await file.length() > 10 * 1024 * 1024)
+        throw const AccountFailure('GIF_SIZE', 'اختار GIF أصغر من10 MB.');
+      final bytes = await file.readAsBytes();
+      if (bytes.length < 13 ||
+          !['GIF87a', 'GIF89a'].contains(String.fromCharCodes(bytes.take(6))))
+        throw const AccountFailure('GIF_TYPE', 'الملف مو GIF صالح.');
+      final selected = ImageDraft(bytes, 'image/gif');
+      await thread.setAttachment(selected);
+      if (mounted && thread.current)
+        setState(() {
+          image = selected;
+          video = null;
+          document = null;
+          pane = 0;
+        });
+    } on AccountFailure catch (e) {
+      if (mounted) showNote(context, e.message);
+    } catch (_) {
+      if (mounted) showNote(context, 'تعذّر فتح GIF؛ جرّب ملفًا ثانيًا.');
+    } finally {
+      if (mounted) setState(() => picking = false);
+    }
+  }
+
   void sendSticker(String id) {
     try {
       thread.enqueue('', null, stickerId: id);
@@ -1513,6 +1574,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
       '🐼',
       '🐱',
     ];
+    final stickerKeys = tomiStickers.keys
+        .where(
+          (id) => pane == 3
+              ? animatedStickerIds.contains(id)
+              : !animatedStickerIds.contains(id),
+        )
+        .toList();
     return Container(
       key: const Key('chat-expression-panel'),
       height: height,
@@ -1541,13 +1609,23 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                   segments: const [
                     ButtonSegment(
                       value: 1,
-                      label: Text('إيموجي'),
-                      icon: Icon(Icons.emoji_emotions_outlined, size: 18),
+                      label: Text(
+                        'إيموجي',
+                        maxLines: 1,
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    ButtonSegment(
+                      value: 3,
+                      label: Text('GIF', style: TextStyle(fontSize: 12)),
                     ),
                     ButtonSegment(
                       value: 2,
-                      label: Text('ملصقات'),
-                      icon: Icon(Icons.sticky_note_2_outlined, size: 18),
+                      label: Text(
+                        'ملصقات',
+                        maxLines: 1,
+                        style: TextStyle(fontSize: 12),
+                      ),
                     ),
                   ],
                   selected: {pane},
@@ -1557,6 +1635,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
               const SizedBox(width: 14),
             ],
           ),
+          if (pane == 3)
+            TextButton.icon(
+              onPressed: picking ? null : pickGif,
+              icon: const Icon(Icons.gif_box_outlined),
+              label: const Text('GIF من جهازك'),
+            ),
           Expanded(
             child: GridView.builder(
               padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
@@ -1565,7 +1649,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                 mainAxisSpacing: 6,
                 crossAxisSpacing: 6,
               ),
-              itemCount: pane == 1 ? emojis.length : tomiStickers.length,
+              itemCount: pane == 1 ? emojis.length : stickerKeys.length,
               itemBuilder: (context, i) => pane == 1
                   ? InkResponse(
                       key: ValueKey('chat-emoji-$i'),
@@ -1578,15 +1662,10 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                       ),
                     )
                   : InkWell(
-                      key: ValueKey(
-                        'chat-sticker-${tomiStickers.keys.elementAt(i)}',
-                      ),
+                      key: ValueKey('chat-sticker-${stickerKeys[i]}'),
                       borderRadius: BorderRadius.circular(14),
-                      onTap: () => sendSticker(tomiStickers.keys.elementAt(i)),
-                      child: TomiSticker(
-                        id: tomiStickers.keys.elementAt(i),
-                        size: 82,
-                      ),
+                      onTap: () => sendSticker(stickerKeys[i]),
+                      child: TomiSticker(id: stickerKeys[i], size: 82),
                     ),
             ),
           ),
@@ -1669,265 +1748,320 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
             mainAxisSize: MainAxisSize.min,
             children: [
               GestureDetector(
-        onDoubleTap: !m.deleted && c.canSend
-            ? () async {
-                try {
-                  await thread.changeTool(m, 'reaction', {'emoji': '❤️'});
-                } catch (_) {
-                  if (mounted) showNote(context, 'تعذّر إضافة التفاعل.');
-                }
-              }
-            : null,
+                onDoubleTap: !m.deleted && c.canSend
+                    ? () async {
+                        try {
+                          await thread.changeTool(m, 'reaction', {
+                            'emoji': '❤️',
+                          });
+                        } catch (_) {
+                          if (mounted)
+                            showNote(context, 'تعذّر إضافة التفاعل.');
+                        }
+                      }
+                    : null,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-              if (c.isGroup &&
-                  !m.isMine &&
-                  !m.deleted &&
-                  m.authorName.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 5),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(
-                    m.authorName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                      color: p.accent,
-                    ),
-                  ), CharismaBadge(m.authorIdentity, compact: true)]),
-                ),
-              if (m.deleted)
-                Text(
-                  'تم حذف الرسالة',
-                  style: TextStyle(
-                    color: p.muted,
-                    fontStyle: FontStyle.italic,
-                    fontSize: 13,
-                  ),
-                )
-              else ...[
-                if (m.reply != null)
-                  InkWell(
-                    onTap: () => showMessage(m.reply!['id'] as String),
-                    child: Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.only(bottom: 7),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(
-                          alpha: p.dark ? .12 : .035,
-                        ),
-                        border: BorderDirectional(
-                          start: BorderSide(color: p.accent, width: 3),
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            m.reply!['author'] as String? ?? 'رد',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: p.accent,
+                    if (c.isGroup &&
+                        !m.isMine &&
+                        !m.deleted &&
+                        m.authorName.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 5),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              m.authorName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                                color: p.accent,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            m.reply!['text'] as String,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 12, color: p.muted),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                if (m.data['sharedPost'] != null)
-                  InkWell(
-                    key: ValueKey('shared-post-${m.id}'),
-                    onTap: (m.data['sharedPost'] as Map)['available'] == true && (m.data['sharedPost'] as Map)['id'] is String
-                        ? () => Navigator.push<void>(context, MaterialPageRoute(builder: (_) => SharedPostPage(accounts: widget.chats.accounts, postId: (m.data['sharedPost'] as Map)['id'] as String))) : null,
-                    child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: p.raised, borderRadius: BorderRadius.circular(12)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.article_outlined,size: 20), SizedBox(width: 6), Flexible(child: Text('منشور مشارك'))]),
-                      Text((m.data['sharedPost'] as Map)['available'] == true ? (m.data['sharedPost'] as Map)['text'] as String : 'هذا المنشور لم يعد متاحًا',maxLines: 4,overflow: TextOverflow.ellipsis),
-                    ])),
-                  ),
-                if (sticker) TomiSticker(id: m.stickerId!, size: 144),
-                if (m.video != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(9),
-                    child: VideoTile(
-                      video: m.video!,
-                      source: () => thread.mediaSource(m.id, 'video'),
-                    ),
-                  ),
-                if (m.image?.url != null)
-                  InkWell(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            ChatImagePage(thread: thread, messageId: m.id),
-                      ),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(9),
-                      child: Image.network(
-                        m.image!.url!,
-                        height: 190,
-                        width: 280,
-                        fit: BoxFit.cover,
-                        cacheWidth: 650,
-                        errorBuilder: (_, _, _) => TextButton.icon(
-                          onPressed: () => thread.refreshMessage(m.id),
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('تحديث الصورة'),
+                            CharismaBadge(m.authorIdentity, compact: true),
+                          ],
                         ),
                       ),
-                    ),
-                  ),
-                if (m.document != null)
-                  InkWell(
-                    key: ValueKey('document-${m.id}'),
-                    borderRadius: BorderRadius.circular(10),
-                    onTap: () => openDocument(m),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: .06),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.description_rounded,
-                            size: 30,
-                            color: p.accent,
-                          ),
-                          const SizedBox(width: 9),
-                          Flexible(
+                    if (m.deleted)
+                      Text(
+                        'تم حذف الرسالة',
+                        style: TextStyle(
+                          color: p.muted,
+                          fontStyle: FontStyle.italic,
+                          fontSize: 13,
+                        ),
+                      )
+                    else ...[
+                      if (m.reply != null)
+                        InkWell(
+                          onTap: () => showMessage(m.reply!['id'] as String),
+                          child: Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 7),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(
+                                alpha: p.dark ? .12 : .035,
+                              ),
+                              border: BorderDirectional(
+                                start: BorderSide(color: p.accent, width: 3),
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  m.document!.name,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
+                                  m.reply!['author'] as String? ?? 'رد',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: p.accent,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 2),
                                 Text(
-                                  '${documentSize(m.document!.byteLength)} • ${m.document!.name.split('.').last.toUpperCase()}',
-                                  textDirection: TextDirection.ltr,
+                                  m.reply!['text'] as String,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 12,
                                     color: p.muted,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            Icons.download_rounded,
-                            size: 20,
-                            color: p.muted,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                if (m.audio != null)
-                  _ChatVoiceMessage(
-                    playback: playback,
-                    id: m.id,
-                    durationMs: m.audio!.durationMs,
-                    source: () => thread.mediaSource(m.id, 'audio'),
-                  ),
-                if (m.text.isNotEmpty)
-                  Padding(
-                    padding: EdgeInsets.only(
-                      top:
-                          m.image != null ||
-                              m.video != null ||
-                              m.document != null
-                          ? 7
-                          : 0,
-                    ),
-                    child: Text(
-                      m.text,
-                      style: TextStyle(
-                        fontSize: 15.5,
-                        height: 1.35,
-                        color: p.text,
-                      ),
-                    ),
-                  ),
-                if (m.reactions.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 3,
-                      children: [
-                        for (final r in m.reactions)
-                          InkWell(
-                            borderRadius: BorderRadius.circular(14),
-                            onTap: !c.canSend || mutating
-                                ? null
-                                : () async {
-                                    try {
-                                      await thread.changeTool(m, 'reaction', {
-                                        'emoji': r['mine'] == true
-                                            ? null
-                                            : r['emoji'],
-                                      });
-                                    } catch (_) {
-                                      if (mounted)
-                                        showNote(
-                                          context,
-                                          'تعذّر تغيير التفاعل.',
-                                        );
-                                    }
-                                  },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: r['mine'] == true
-                                    ? p.accent.withValues(alpha: .16)
-                                    : p.raised,
-                                border: Border.all(
-                                  color: r['mine'] == true
-                                      ? p.accent.withValues(alpha: .45)
-                                      : Colors.transparent,
+                        ),
+                      if (m.data['sharedPost'] != null)
+                        InkWell(
+                          key: ValueKey('shared-post-${m.id}'),
+                          onTap:
+                              (m.data['sharedPost'] as Map)['available'] ==
+                                      true &&
+                                  (m.data['sharedPost'] as Map)['id'] is String
+                              ? () => Navigator.push<void>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => SharedPostPage(
+                                      accounts: widget.chats.accounts,
+                                      postId:
+                                          (m.data['sharedPost'] as Map)['id']
+                                              as String,
+                                    ),
+                                  ),
+                                )
+                              : null,
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: p.raised,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.article_outlined, size: 20),
+                                    SizedBox(width: 6),
+                                    Flexible(child: Text('منشور مشارك')),
+                                  ],
                                 ),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Text(
-                                '${r['emoji']} ${r['count']}',
-                                style: const TextStyle(fontSize: 12),
+                                Text(
+                                  (m.data['sharedPost'] as Map)['available'] ==
+                                          true
+                                      ? (m.data['sharedPost'] as Map)['text']
+                                            as String
+                                      : 'هذا المنشور لم يعد متاحًا',
+                                  maxLines: 4,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if (sticker) TomiSticker(id: m.stickerId!, size: 144),
+                      if (m.video != null)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(9),
+                          child: VideoTile(
+                            video: m.video!,
+                            source: () => thread.mediaSource(m.id, 'video'),
+                          ),
+                        ),
+                      if (m.image?.url != null)
+                        InkWell(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => ChatImagePage(
+                                thread: thread,
+                                messageId: m.id,
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                  ),
-              ],
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(9),
+                            child: Image.network(
+                              m.image!.url!,
+                              height: 190,
+                              width: 280,
+                              fit: BoxFit.cover,
+                              cacheWidth: 650,
+                              errorBuilder: (_, _, _) => TextButton.icon(
+                                onPressed: () => thread.refreshMessage(m.id),
+                                icon: const Icon(Icons.refresh_rounded),
+                                label: const Text('تحديث الصورة'),
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (m.document != null)
+                        InkWell(
+                          key: ValueKey('document-${m.id}'),
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () => openDocument(m),
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: .06),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.description_rounded,
+                                  size: 30,
+                                  color: p.accent,
+                                ),
+                                const SizedBox(width: 9),
+                                Flexible(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        m.document!.name,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${documentSize(m.document!.byteLength)} • ${m.document!.name.split('.').last.toUpperCase()}',
+                                        textDirection: TextDirection.ltr,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: p.muted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.download_rounded,
+                                  size: 20,
+                                  color: p.muted,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if (m.audio != null)
+                        _ChatVoiceMessage(
+                          playback: playback,
+                          id: m.id,
+                          durationMs: m.audio!.durationMs,
+                          source: () => thread.mediaSource(m.id, 'audio'),
+                        ),
+                      if (m.text.isNotEmpty)
+                        Padding(
+                          padding: EdgeInsets.only(
+                            top:
+                                m.image != null ||
+                                    m.video != null ||
+                                    m.document != null
+                                ? 7
+                                : 0,
+                          ),
+                          child: Text(
+                            m.text,
+                            style: TextStyle(
+                              fontSize: 15.5,
+                              height: 1.35,
+                              color: p.text,
+                            ),
+                          ),
+                        ),
+                      if (m.reactions.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Wrap(
+                            spacing: 4,
+                            runSpacing: 3,
+                            children: [
+                              for (final r in m.reactions)
+                                InkWell(
+                                  borderRadius: BorderRadius.circular(14),
+                                  onTap: !c.canSend || mutating
+                                      ? null
+                                      : () async {
+                                          try {
+                                            await thread
+                                                .changeTool(m, 'reaction', {
+                                                  'emoji': r['mine'] == true
+                                                      ? null
+                                                      : r['emoji'],
+                                                });
+                                          } catch (_) {
+                                            if (mounted)
+                                              showNote(
+                                                context,
+                                                'تعذّر تغيير التفاعل.',
+                                              );
+                                          }
+                                        },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 7,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: r['mine'] == true
+                                          ? p.accent.withValues(alpha: .16)
+                                          : p.raised,
+                                      border: Border.all(
+                                        color: r['mine'] == true
+                                            ? p.accent.withValues(alpha: .45)
+                                            : Colors.transparent,
+                                      ),
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: Text(
+                                      '${r['emoji']} ${r['count']}',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ],
                 ),
               ),
@@ -2434,18 +2568,28 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Row(children: [Expanded(child:
-                          Text(
-                            c.peer.displayName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              height: 1.2,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  c.peer.displayName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ),
+                              Flexible(
+                                child: CharismaBadge(
+                                  c.peer.identity,
+                                  compact: true,
+                                ),
+                              ),
+                            ],
                           ),
-                          ), Flexible(child: CharismaBadge(c.peer.identity, compact: true))]),
                           const SizedBox(height: 3),
                           Text(
                             status,

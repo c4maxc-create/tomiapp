@@ -68,8 +68,13 @@ class AccountApi {
           .timeout(
             Duration(
               seconds:
-                  (path.startsWith('/v1/calls') || path.startsWith('/v1/rooms'))
+                  (path.startsWith('/v1/calls') ||
+                      path.startsWith('/v1/rooms') ||
+                      path.startsWith('/v1/games'))
                   ? 12
+                  : (path.startsWith('/v1/chats') ||
+                        path.startsWith('/v1/groups'))
+                  ? 18
                   : 75,
             ),
           );

@@ -25,10 +25,14 @@ public sealed class NativeSession(IJSRuntime js):IAsyncDisposable
     public bool MyTurn=>CanAct&&Match.Text("status")=="playing"&&(Match.Text("kind")=="camel"||Match.Num("turn")==Match.Num("mySeat"));
     public string? TransportError{get;private set;}
     public event Action? Changed;
+    public event Action? ClockChanged;
+    public long RouletteNow{get;private set;}
     string? inFlight;
     public async Task Connect(){reference=DotNetObjectReference.Create(this);await js.InvokeVoidAsync("tomiNative.connect",reference);}
     [JSInvokable]public void Receive(JsonElement value)
     {
+        if(value.Get("rouletteNow").ValueKind==JsonValueKind.Number)RouletteNow=value.Get("rouletteNow").GetInt64();
+        if(value.Yes("clock")){ClockChanged?.Invoke();return;}
         State=value;
         if(inFlight is not null&&value.Text("ack")==inFlight){Waiting=false;inFlight=null;}
         Changed?.Invoke();

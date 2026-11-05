@@ -5,6 +5,7 @@ public abstract class PreviewComponent:ComponentBase,IDisposable
     [Parameter]public double AnimationSpeed {get;set;}=1;
     [Parameter]public bool ReducedMotion {get;set;}
     protected bool Busy {get;private set;}
+    protected bool Disposed=>stop.IsCancellationRequested;
     readonly CancellationTokenSource stop=new();
     protected Task Pause(int ms)=>Task.Delay(ReducedMotion?1:(int)(ms/Math.Clamp(AnimationSpeed,.5,2)),stop.Token);
     protected async Task Animate(Func<Task> action)

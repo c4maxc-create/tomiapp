@@ -12,8 +12,7 @@ class ChatPalette {
       dark ? TomiColors.background : const Color(0xFFF2F4F7);
   Color get surface => dark ? TomiColors.surface : Colors.white;
   Color get raised => dark ? TomiColors.raised : const Color(0xFFEDF0F4);
-  Color get outgoing =>
-      dark ? TomiColors.outgoing : const Color(0xFFD8E8FF);
+  Color get outgoing => dark ? TomiColors.outgoing : const Color(0xFFD8E8FF);
   Color get incoming => dark ? TomiColors.raised : Colors.white;
   Color get text => dark ? TomiColors.text : const Color(0xFF17212D);
   Color get muted => dark ? TomiColors.muted : const Color(0xFF74808F);
@@ -117,7 +116,11 @@ String chatDay(DateTime? date) {
 String documentSize(int bytes) => bytes >= 1024 * 1024
     ? '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB'
     : '${(bytes / 1024).ceil()} KB';
+const animatedStickerIds = ['gif_heart', 'gif_wave', 'gif_party'];
 const tomiStickers = {
+  'gif_heart': ('قلب متحرك', Icons.favorite_rounded),
+  'gif_wave': ('هلا متحركة', Icons.waving_hand_rounded),
+  'gif_party': ('احتفال متحرك', Icons.celebration_rounded),
   'hello': ('هلا', Icons.waving_hand_rounded),
   'love': ('أحبك', Icons.favorite_rounded),
   'laugh': ('هههه', Icons.sentiment_very_satisfied_rounded),
@@ -139,6 +142,20 @@ class TomiSticker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = tomiStickers[id] ?? tomiStickers['hello']!;
+    if (animatedStickerIds.contains(id) &&
+        !MediaQuery.disableAnimationsOf(context)) {
+      return Semantics(
+        label: 'GIF ${s.$1}',
+        image: true,
+        child: Image.asset(
+          'assets/stickers/$id.gif',
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+          gaplessPlayback: true,
+        ),
+      );
+    }
     return Semantics(
       label: 'ملصق ${s.$1}',
       image: true,

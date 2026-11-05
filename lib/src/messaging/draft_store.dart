@@ -90,6 +90,7 @@ class FileDraftStore implements DraftStore {
   final Future<Directory> Function() directory;
   static final tails = <String, Future<void>>{};
   static const maxBytes = 100 * 1024 * 1024;
+  static final lastCollections = <String, DateTime>{};
   @override
   Future<void> erase(String owner) => serial(owner, (dir) async {
     if (await dir.exists()) await dir.delete(recursive: true);
@@ -209,6 +210,12 @@ class FileDraftStore implements DraftStore {
         );
     }
     final f = File('${dir.path}/${filename(scope)}.json');
+    final previousRefs = <String>{};
+    if (await f.exists()) {
+      try {
+        refs((await decode(f))['data'], previousRefs);
+      } catch (_) {}
+    }
     if (data == null) {
       if (valid?.call() == false) return false;
       if (await f.exists()) await f.delete();
@@ -229,6 +236,13 @@ class FileDraftStore implements DraftStore {
       }
       await temp.rename(f.path);
     }
+    final last = lastCollections[dir.path];
+    final removed = previousRefs.difference(live).isNotEmpty;
+    if (data != null &&
+        !removed &&
+        last != null &&
+        DateTime.now().difference(last).inSeconds < 30)
+      return true;
     // One account queue serializes blob creation and metadata commit together.
     // A corrupt metadata file stops collection; never silently erase its media.
     final referenced = <String>{};
@@ -236,6 +250,7 @@ class FileDraftStore implements DraftStore {
       await for (final x in dir.list())
         if (x is File && x.path.endsWith('.json'))
           refs((await decode(x))['data'], referenced);
+      lastCollections[dir.path] = DateTime.now();
       await for (final x in dir.list())
         if (x is File && x.path.endsWith('.blob')) {
           final key = x.uri.pathSegments.last.replaceFirst('.blob', '');

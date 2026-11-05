@@ -136,6 +136,7 @@ class ChatFakeApi extends AccountApi {
       final m = {
         ...row(rows.length + 1, mine: true, nonce: nonce),
         'text': body['text'],
+        'stickerId': body['stickerId'],
       };
       rows.add(m);
       byNonce[nonce] = m;

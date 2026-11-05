@@ -1,0 +1,15 @@
+✔ public search pairs same-game humans for all five games and keeps hands private (5456.237913ms)
+✔ concurrent public searches assign each account to one pair and survive restart (5694.275319ms)
+✔ search excludes blocks/private matches and cancellation does not silently leave a matched table (3866.495774ms)
+✔ expired searches are not paired and changing games requires cancelling the old queue (3585.958209ms)
+✔ new GIF chat messages arrive as scoped realtime payloads without exposing sender nonces to peers (5331.978288ms)
+✔ motion events are sequenced and expose the complete authoritative dice path (4.656707ms)
+✔ free wheel private play is authoritative and cannot debit or credit account coins (4430.065674ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 28789.544725

@@ -1,7 +1,7 @@
 name: tomi_app
 description: TOMI Arabic native app with private chats, voice and video calls, avatars and optional push.
 publish_to: none
-version: 1.7.0-beta.1+27
+version: 1.7.0-beta.1+28
 
 environment:
   sdk: '>=3.10.0 <4.0.0'
@@ -36,5 +36,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/stickers/
     - assets/tomi_games/
     - assets/tomi_games/_framework/

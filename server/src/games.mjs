@@ -1,3 +1,4 @@
+import {createGameSearch} from './game_search.mjs';
 import {randomUUID,randomBytes} from 'node:crypto';
 import {ApiError,digest} from './security.mjs';
 import {newGame,performGameAction,automaticAction,publicGameState} from './game_engine.mjs';
@@ -12,6 +13,7 @@ function fields(d,keys) {if(Object.keys(d).some(k=>!keys.includes(k)))fail(400,'
 
 export function createGames({database,readJson,respond,limit,usersByIds,emit,accountGate,clock=Date.now,autoTick=true,unbound=fn=>fn()}) {
   let timer=null,closed=false,sweeping=null;
+  const search=createGameSearch({database,clock,accountGate,emit});
   const getMembers=(db,id)=>db.query('SELECT user_id,seat FROM tomi_game_players WHERE match_id=? ORDER BY user_id',[id]);
   async function notify(id) {
     if(closed)return;
@@ -90,7 +92,7 @@ export function createGames({database,readJson,respond,limit,usersByIds,emit,acc
     const row=(await database.query('SELECT w.coins,w.next_claim,g.xp,p.received FROM tomi_room_wallets w LEFT JOIN tomi_game_progress g ON g.user_id=w.user_id LEFT JOIN tomi_user_progress p ON p.user_id=w.user_id WHERE w.user_id=?',[c.id])).rows[0];
     const active=(await database.query("SELECT m.id,m.code,m.kind,m.mode,m.status,m.revision FROM tomi_game_matches m JOIN tomi_game_players p ON p.match_id=m.id WHERE p.user_id=? AND m.status IN('waiting','playing') ORDER BY m.updated_at DESC LIMIT 4",[c.id])).rows;
     if(active.length)startTimer();
-    return {coins:Number(row.coins),nextClaim:row.next_claim,progress:gameProgress(row.xp??0),charisma:charismaStatus(row.received??0),activeMatches:active,availableGames:['uno','snakes','jackaroo','camel'],policy};
+    return {coins:Number(row.coins),nextClaim:row.next_claim,progress:gameProgress(row.xp??0),charisma:charismaStatus(row.received??0),activeMatches:active,availableGames:['uno','snakes','jackaroo','camel','wheel'],search:await search.status(c),policy};
   }
   async function snapshot(id,c) {
     const row=await transact(id,async(db,row,members)=>{
@@ -103,12 +105,12 @@ export function createGames({database,readJson,respond,limit,usersByIds,emit,acc
     const publicState=row.status==='cancelled'||state.status==='waiting'?{status:row.status,players:(state.players??[]).map(p=>({seat:p.seat,bot:p.bot,position:p.position??0,cardCount:p.hand?.length??0})),hand:[],history:[],sequence:0,result:null}:publicGameState(state,Number(me.seat));
     const award=(await database.query('SELECT xp FROM tomi_game_awards WHERE user_id=? AND source_kind=? AND source_id=?',[c.id,row.kind,id])).rows[0];
     if(row.status==='playing'||row.status==='waiting')startTimer();
-    return {...publicState,id:row.id,code:row.code,kind:row.kind,mode:row.mode,revision:Number(row.revision),host:row.host_id===c.id,mySeat:Number(me.seat),serverTime:clock(),earnedXp:Number(award?.xp??0),policy,
+    return {...publicState,id:row.id,code:row.code,kind:row.kind,mode:row.mode,revision:Number(row.revision),lobbyType:state.matchmaking?'public':'private',host:row.host_id===c.id,mySeat:Number(me.seat),serverTime:clock(),earnedXp:Number(award?.xp??0),policy,
       players:publicState.players.map(p=>({...p,user:profiles.get(members.find(m=>Number(m.seat)===p.seat)?.user_id)??null}))};
   }
   async function create(c,d) {
     fields(d,['requestId','kind','mode']);
-    if(!uuid(d.requestId)||!['uno','snakes','jackaroo','camel'].includes(d.kind)||!['practice','friends'].includes(d.mode))fail(400,'VALIDATION','اختَر اللعبة وطريقة اللعب.');
+    if(!uuid(d.requestId)||!['uno','snakes','jackaroo','camel','wheel'].includes(d.kind)||!['practice','friends'].includes(d.mode))fail(400,'VALIDATION','اختَر اللعبة وطريقة اللعب.');
     const fp=digest(JSON.stringify(['create',d.kind,d.mode]));
     return database.transaction(async db=>{
       await db.query('UPDATE tomi_users SET updated_at=updated_at WHERE id=?',[c.id]);
@@ -152,7 +154,7 @@ export function createGames({database,readJson,respond,limit,usersByIds,emit,acc
   }
   async function action(c,id,d) {
     fields(d,['requestId','expectedRevision','type','cardId','color','uno','choice']);
-    if(!uuid(d.requestId)||!Number.isSafeInteger(d.expectedRevision)||d.expectedRevision<0||!['start','leave','play','draw','pass','roll','choose'].includes(d.type)||d.uno!==undefined&&typeof d.uno!=='boolean'||d.cardId!==undefined&&typeof d.cardId!=='string'||d.color!==undefined&&typeof d.color!=='string')fail(400,'VALIDATION','خطوة اللعبة غير صحيحة.');
+    if(!uuid(d.requestId)||!Number.isSafeInteger(d.expectedRevision)||d.expectedRevision<0||!['start','leave','play','draw','pass','roll','choose','spin'].includes(d.type)||d.uno!==undefined&&typeof d.uno!=='boolean'||d.cardId!==undefined&&typeof d.cardId!=='string'||d.color!==undefined&&typeof d.color!=='string')fail(400,'VALIDATION','خطوة اللعبة غير صحيحة.');
     if(d.type==='choose'&&(typeof d.choice!=='string'||d.choice.length>100)||d.type!=='choose'&&d.choice!==undefined)fail(400,'VALIDATION','اختَر حركة صحيحة.');
     if(d.type!=='play'&&(d.cardId!==undefined||d.color!==undefined||d.uno!==undefined))fail(400,'VALIDATION','حقول الورقة متاحة عند لعبها فقط.');
     const fp=digest(JSON.stringify(['action',id,d.expectedRevision,d.type,d.cardId??null,d.color??null,d.uno??null,...(d.type==='choose'?[d.choice]:[])]));
@@ -185,6 +187,12 @@ export function createGames({database,readJson,respond,limit,usersByIds,emit,acc
     if(!url.pathname.startsWith('/v1/games'))return false;
     if(url.pathname.startsWith('/v1/games/live-roulette'))return false;
     if(req.method==='GET'&&url.pathname==='/v1/games'){respond(res,200,await summary(c));return true;}
+    if(req.method==='POST'&&['/v1/games/search','/v1/games/search/cancel'].includes(url.pathname)){
+      await limit('game-search:'+c.id,30);const d=await readJson(req);fields(d,['kind']);
+      const found=url.pathname.endsWith('/cancel')?await search.cancel(c,d.kind):await search.start(c,d.kind);
+      if(found?.matchId)startTimer();
+      respond(res,200,{...await summary(c),search:found,match:found?.matchId?await snapshot(found.matchId,c):null});return true;
+    }
     const match=url.pathname.match(/^\/v1\/games\/matches\/([a-f0-9-]{36})(?:\/(action))?$/);
     if(req.method==='GET'&&match&&!match[2]){respond(res,200,{match:await snapshot(match[1],c)});return true;}
     let result;

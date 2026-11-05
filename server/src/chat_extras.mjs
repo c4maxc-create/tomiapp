@@ -4,7 +4,7 @@ import {prepareIntent,uploadWithDigest} from './media_intents.mjs';
 import {maxImageBytes,imageTypes} from './images.mjs';
 import {maxAudioBytes,maxAudioDurationMs} from './audio.mjs';
 import {maxVideoBytes} from './video.mjs';
-export const stickerIds=['hello','love','laugh','thanks','wow','sad','sleep','party','angry','cool','coffee','hug'];
+export const stickerIds=['hello','love','laugh','thanks','wow','sad','sleep','party','angry','cool','coffee','hug','gif_heart','gif_wave','gif_party'];
 export const documentExtensions=['pdf','txt','csv','json','md','doc','docx','xls','xlsx','ppt','pptx','zip','rar','7z'];
 export const maxDocumentBytes=25*1024*1024;
 const stamp=()=>new Date().toISOString();

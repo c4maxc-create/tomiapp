@@ -1,44 +1,54 @@
 @implements IDisposable
 @inject NativeSession Session
+@inject Microsoft.JSInterop.IJSRuntime JS
 <PageTitle>TOMI PLAY — ألعاب TOMI</PageTitle>
-<div class="shell @(Reduced?"reduce-motion":"") @(Focused?"table-focused":"")">
-<header><a class="brand" href="?native=1" aria-label="TOMI PLAY الرئيسية"><span class="brand-mark">T</span>TOMI <span>PLAY</span></a><div class="header-divider"></div><span class="header-title">نادي الألعاب</span><button class="motion" @onclick="()=>Reduced=!Reduced" aria-pressed="@Reduced">@(Reduced?"الحركة مخففة":"تقليل الحركة")</button></header>
+<div class="shell @(Reduced?"reduce-motion":"") @(Focused?"table-focused":"") @(InGame?"game-route":"")">
+<header><a class="brand" href="#" @onclick="GoBack" @onclick:preventDefault="true" aria-label="TOMI PLAY الرئيسية"><span class="brand-mark">T</span>TOMI <span>PLAY</span></a><div class="header-divider"></div><span class="header-title">نادي الألعاب</span><button class="motion" @onclick="()=>Reduced=!Reduced" aria-pressed="@Reduced">@(Reduced?"الحركة مخففة":"تقليل الحركة")</button></header>
 <main>
+@if(!InGame){
 <section class="intro"><div class="hero-copy"><div class="eyebrow"><span></span> TOMI GAMES COLLECTION</div><h1>طاولتك جاهزة.<br/>الباقي <em>على مزاجك.</em></h1><p>خمس ألعاب، تفاصيل أغنى، وحركة تحت سيطرتك.<br/>اختار لعبتك من المجموعة وابدأ التجربة.</p><div class="hero-chips"><span>05 ألعاب</span><span>رسومات متجهية</span><span>تحكم تفاعلي</span></div></div><div class="hero-art" aria-hidden="true"><div class="hero-orbit"></div><div class="hero-feature"><GameArt Kind="uno"/></div><div class="hero-mini first"><GameArt Kind="jackaroo"/></div><div class="hero-mini second"><GameArt Kind="wheel"/></div><div class="hero-art-label">THE NEXT MOVE IS YOURS</div></div></section>
 <div class="collection-heading"><div><small>THE COLLECTION</small><h2>اختار لعبتك</h2></div><span>كل الألعاب أمامك</span></div>
 <nav class="games" aria-label="اختيار اللعبة">@foreach(var game in Games){<button data-game="@game.Id" class="game-tile @(Active==game.Id?"active":"")" @onclick="()=>SelectGame(game.Id)" aria-pressed="@(Active==game.Id)"><span class="tile-index">0@(Array.FindIndex(Games,g=>g.Id==game.Id)+1)</span><GameArt Kind="@game.Id"/><div class="tile-copy"><b>@game.Name</b><small>@game.Caption</small></div><span class="tile-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16" fill="none"><path d="M12 12 4 4m0 0v8m0-8h8" stroke="currentColor" stroke-width="1.5"/></svg></span><span class="selected-label">@(Active==game.Id?"على الطاولة":"اكتشف اللعبة")</span></button>}</nav>
-<div class="table-breadcrumb"><span>نادي الألعاب</span><span>/</span><b>@Games.First(g=>g.Id==Active).Name</b><button data-action="focus-toggle" aria-pressed="@Focused" @onclick="()=>Focused=!Focused">@(Focused?"إظهار المجموعة":"تركيز على الطاولة")</button></div>
-<div class="session-bar"><div><span class="live-dot"></span><b>TOMI PLAY</b><small>متصل بالتطبيق</small></div><button class="secondary" data-action="help-toggle" aria-expanded="@Help" @onclick="()=>Help=!Help">؟ طريقة التحكم</button><label>سرعة الحركة <select aria-label="سرعة الحركة" @bind="Speed"><option value="1">طبيعية</option><option value="1.6">سريعة</option><option value="0.75">هادئة</option></select></label></div>
+}else{
+<div class="game-route-heading"><button class="route-back" data-live="collection" @onclick="GoBack">رجوع للألعاب</button><GameArt Kind="@Active"/><h1>@Games.First(g=>g.Id==Active).Name</h1><button class="route-back route-settings" aria-expanded="@ShowSettings" @onclick="()=>ShowSettings=!ShowSettings">التحكم</button></div>
+@if(ShowSettings){<div class="session-bar"><div><span class="live-dot"></span><b>TOMI PLAY</b><small>متصل بالتطبيق</small></div><button class="secondary" data-action="help-toggle" aria-expanded="@Help" @onclick="()=>Help=!Help">؟ طريقة التحكم</button><label>سرعة الحركة <select aria-label="سرعة الحركة" @bind="Speed"><option value="1">طبيعية</option><option value="1.6">سريعة</option><option value="0.75">هادئة</option></select></label></div>
+}
 @if(Help){<aside class="control-guide" role="region" aria-label="دليل التحكم"><b>@GuideTitle</b><p>@Guide</p><small>حركات المباراة ونتائجها من الخادم.</small></aside>}
 <section class="preview" style="@($"--motion-speed:{(1/Speed).ToString(System.Globalization.CultureInfo.InvariantCulture)}")">
 @if(!Session.Connected){<div class="connection-panel"><h2>نتصل بحسابك…</h2><p>إذا انتهت الجلسة، ارجع وسجّل الدخول من التطبيق.</p></div>}
-else if(Active=="wheel"){<NativeWheel Session="Session" Reduced="Reduced"/>}
+else if(Active=="wheel"&&Coins){<NativeWheel Session="Session" Reduced="Reduced"/>}
 else if(Session.Match.Exists()&&Session.Match.Text("kind")==Active){
 <div class="live-match-toolbar"><span>طاولة @(Session.Match.Text("mode")=="practice"?"الكمبيوتر":"الأصدقاء")</span><button class="secondary" @onclick="()=>LeaveConfirm=!LeaveConfirm">مغادرة الطاولة</button></div>
 @if(LeaveConfirm){<div class="control-guide"><b>مغادرة المباراة؟</b><p>المغادرة ترسل طلبًا للخادم؛ لإبقاء جولتك استخدم الرجوع العادي.</p><button class="secondary" @onclick="()=>LeaveConfirm=false">أبقى</button><button class="secondary" disabled="@(!Session.CanAct)" @onclick="Leave">غادر المباراة</button></div>}
 <NativeMatch Session="Session" ReducedMotion="Reduced" AnimationSpeed="Speed" @key='Session.Match.Text("id")'/>
+}else if(Search.Text("status")=="searching"&&Search.Text("kind")==Active){
+<div class="match-search"><div class="search-pulse"></div><h2>نبحث عن لاعب لنفس اللعبة</h2><p>تبقى بالبحث لحد ما ينضم لاعب. ما نبدّلك بكمبيوتر بدون اختيارك.</p><button class="secondary" data-live="cancel-search" disabled="@(Session.Waiting)" @onclick='()=>Session.Send("cancelSearch",new{kind=Active})'>إلغاء البحث</button></div>
 }else{
-<div class="live-start"><GameArt Kind="@Active"/><div><small class="mini-label">YOUR NEXT REAL MATCH</small><h2>@Games.First(g=>g.Id==Active).Name</h2><p>ابدأ ضد الكمبيوتر، أو اجمع أصحابك بكود الطاولة.</p><div class="live-start-actions"><button class="primary" data-live="practice" disabled="@(!CanCreate)" @onclick='()=>Create("practice")'>العب ضد الكمبيوتر</button><button class="secondary" disabled="@(!CanCreate)" @onclick='()=>Create("friends")'>طاولة أصدقاء</button></div>@if(!Available){<p>حدّث الخادم لتفعيل هذه اللعبة.</p>}</div></div>
+<div class="live-start"><GameArt Kind="@Active"/><div><small class="mini-label">YOUR NEXT REAL MATCH</small><h2>@Games.First(g=>g.Id==Active).Name</h2><p>@(Active=="wheel"?"دولاب مجاني بالنقاط • ثلاث لفات لكل لاعب • بدون خصم كوينز":"ابدأ ضد الكمبيوتر، أو اجمع أصحابك بكود الطاولة.")</p><div class="live-start-actions"><button class="primary" data-live="practice" disabled="@(!CanCreate)" @onclick='()=>Create("practice")'>العب ضد الكمبيوتر</button><button class="secondary" data-live="search" disabled="@(!CanCreate)" @onclick='()=>Session.Send("search",new{kind=Active})'>ابحث عن لاعب</button><button class="secondary" disabled="@(!CanCreate)" @onclick='()=>Create("friends")'>طاولة أصدقاء</button></div>@if(Active=="wheel"){<button class="secondary coins-entry" data-live="coins" @onclick="OpenCoins">جولة الكوينز العامة • تعرض تأكيد الخصم</button>}@if(!Available){<p>حدّث الخادم لتفعيل هذه اللعبة.</p>}</div></div>
 <div class="join-table"><label for="join-code">عندك كود طاولة؟</label><input id="join-code" @bind="JoinCode" maxlength="8" placeholder="A1B2C3D4" dir="ltr"/><button class="secondary" data-live="join" disabled="@(!Session.CanAct||!ValidCode)" @onclick="Join">انضم</button></div>
 @foreach(var table in Session.State.Get("summary").Get("activeMatches").Items()){<button class="secondary resume-table" disabled="@(!Session.CanAct)" @onclick='()=>Session.Send("open",new{id=table.Text("id")})'>ارجع لطاولتك • @table.Text("kind")</button>}
 }
 @if(Session.State.Yes("pending")){<div class="control-guide"><b>محاولتك محفوظة ولم يتأكد ردها</b><p>استعد نفس المحاولة، لا تبدأ حركة ثانية.</p><button class="primary" data-live="recover" disabled="@(Session.Waiting||Session.State.Yes("busy"))" @onclick='()=>Session.Send("recover")'>استعادة نفس المحاولة</button></div>}
 @if(Session.State.Text("error")!=""||Session.TransportError is not null){<div class="status-line live-error" role="alert">@(Session.TransportError??Session.State.Text("error"))</div>}
 </section>
+}
 <footer><div class="footer-brand">TOMI <small>PLAY</small></div><span>أونو والسلم وجاكارو والجمل بدون رسوم دخول</span><span>واجهة C# / Blazor داخل TOMI</span></footer></main>
 </div>
 
 @code {
-    async Task SelectGame(string id){Active=id;Help=false;LeaveConfirm=false;await Session.Send("select",new{kind=id});}
-    bool LeaveConfirm;string JoinCode="",lastMatch="";
+    async Task SelectGame(string id){ResetScroll=true;InGame=true;Coins=false;Active=id;Help=false;LeaveConfirm=false;await Session.Send("select",new{kind=id});}
+    async Task OpenCoins(){Coins=true;await Session.Send("select",new{kind="coins"});}
+    async Task GoBack(){if(Search.Text("status")=="searching")await Session.Send("cancelSearch",new{kind=Search.Text("kind")});ResetScroll=true;InGame=false;Help=false;Focused=false;await Session.Send("select",new{kind=""});}
+    bool InGame,LeaveConfirm,Coins,ShowSettings,ResetScroll;string JoinCode="",lastMatch="";
     bool Available=>Session.State.Get("summary").Get("availableGames").Items().Any(x=>x.GetString()==Active);
+    System.Text.Json.JsonElement Search=>Session.State.Get("summary").Get("search");
     bool CanCreate=>Session.CanAct&&Available;
     bool ValidCode=>System.Text.RegularExpressions.Regex.IsMatch(JoinCode,"^[a-fA-F0-9]{8}$");
     Task Create(string mode)=>Session.Send("create",new{kind=Active,mode});
     Task Join()=>Session.Send("join",new{code=JoinCode});
     async Task Leave(){LeaveConfirm=false;await Session.Send("action",new{type="leave"});}
-    protected override async Task OnAfterRenderAsync(bool first){if(first){Session.Changed+=OnState;await Session.Connect();}}
-    void OnState(){var id=Session.Match.Text("id");if(id!=""&&id!=lastMatch){lastMatch=id;Active=Session.Match.Text("kind");}if(id=="")lastMatch="";_ = InvokeAsync(StateHasChanged);}
+    protected override async Task OnAfterRenderAsync(bool first){if(first){Session.Changed+=OnState;await Session.Connect();}if(ResetScroll){ResetScroll=false;await Microsoft.JSInterop.JSRuntimeExtensions.InvokeVoidAsync(JS,"tomiNative.resetScroll");}}
+    void OnState(){var id=Session.Match.Text("id");if(id!=""&&id!=lastMatch){lastMatch=id;ResetScroll=true;InGame=true;Active=Session.Match.Text("kind");}if(id=="")lastMatch="";_ = InvokeAsync(StateHasChanged);}
     public void Dispose(){Session.Changed-=OnState;}
     bool Reduced,Help,Focused;double Speed=1;string Active="uno";
     string GuideTitle=>Active switch{"uno"=>"أوراقك تحت سيطرتك","jackaroo"=>"اختار ورقتك ثم الحركة","camel"=>"راقب الطبقات والخانات","snakes"=>"رحلتك إلى الخانة 100",_=>"دوران ونتيجة واضحة"};

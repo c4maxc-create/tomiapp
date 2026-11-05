@@ -1,3 +1,4 @@
+import {newFreeWheel,spinFreeWheel,publicFreeWheel} from './free_wheel.mjs';
 import {newBoardGame,performBoardAction,automaticBoardAction,publicBoardState} from './board_games.mjs';
 import {randomInt} from 'node:crypto';
 import {ApiError} from './security.mjs';
@@ -55,6 +56,7 @@ export function canPlayCard(s, player, card) {
 }
 
 export function newGame(kind, players, {draw=randomInt, now=Date.now()}={}) {
+  if(kind==='wheel'){if(players.length<2||players.length>4||new Set(players.map(p=>p.seat)).size!==players.length)throw Error('Invalid wheel setup');return newFreeWheel(players,now);}
   if (['jackaroo','camel'].includes(kind)) return newBoardGame(kind,players,{draw,now});
   if (!['uno','snakes'].includes(kind) || players.length<2 || players.length>4 || new Set(players.map(p=>p.seat)).size!==players.length) throw Error('Invalid game setup');
   const s={kind,status:'playing',players:players.map(p=>({seat:p.seat,bot:!!p.bot,hand:[],position:0,moves:0,humanMoves:0})),turn:players[0].seat,direction:1,sequence:0,startedAt:now,updatedAt:now,deadlineAt:now+30000,drawnId:null,history:[],result:null};
@@ -75,6 +77,7 @@ function finish(s, player, now) {
 
 export function automaticAction(s) {
   if (['jackaroo','camel'].includes(s.kind)) return automaticBoardAction(s);
+  if(s.kind==='wheel')return {type:'spin'};
   if (s.kind==='snakes') return {type:'roll'};
   const player=s.players.find(p=>p.seat===s.turn);
   const card=player.hand.find(c=>canPlayCard(s,player,c));
@@ -84,6 +87,7 @@ export function automaticAction(s) {
 }
 
 export function performGameAction(original, seat, action, {draw=randomInt,now=Date.now(),automatic=false}={}) {
+  if(original.kind==='wheel')return spinFreeWheel(original,seat,action,{draw,now,automatic});
   if (['jackaroo','camel'].includes(original.kind)) return performBoardAction(original,seat,action,{draw,now,automatic});
   const s=copy(original),player=s.players.find(p=>p.seat===seat);
   if (s.status!=='playing') fail('GAME_ENDED','انتهت هذه الجولة.');
@@ -133,14 +137,16 @@ export function performGameAction(original, seat, action, {draw=randomInt,now=Da
   } else fail('GAME_ACTION','الخطوة غير متاحة في هذه اللعبة.');
   player.moves++;
   if (!automatic && !player.bot) player.humanMoves++;
+  event.sequence=s.sequence+1;
   s.sequence++;s.updatedAt=now;
-  s.history=[event,...s.history].slice(0,8);
+  s.history=[event,...s.history].slice(0,32);
   const active=s.players.find(p=>p.seat===s.turn);
-  s.deadlineAt=now+(active?.bot?850:30000);
+  s.deadlineAt=now+(active?.bot?(s.kind==='snakes'?1800:1200):30000);
   return s;
 }
 
 export function publicGameState(s, seat) {
+  if(s.kind==='wheel')return publicFreeWheel(s);
   if (['jackaroo','camel'].includes(s.kind)) return publicBoardState(s,seat);
   const me=s.players.find(p=>p.seat===seat);
   return {

@@ -1,0 +1,34 @@
+✔ board-game SQLite upgrade retains existing matches, membership and receipt across repeated migration (63.695964ms)
+✔ jackaroo HTTP plays one persisted choice on duplicate requests and restores private cards after restart (3813.779425ms)
+✔ camel friends share orders while rejecting forged tiles and a fourth member (3678.17745ms)
+✔ database reopening upgrades the old PostgreSQL kind constraint and preserves pre-upgrade UNO retry fingerprints (2020.121999ms)
+✔ 1.7 game progress is separate from gifts and suspended accounts cannot earn new XP (2507.232507ms)
+✔ 1.7 authenticated practice deals a real private hand and rejects client XP or dice (2026.664049ms)
+✔ 1.7 duplicate creation is one persisted match and changed retries are rejected (2190.546727ms)
+✔ 1.7 a repeated roll cannot advance twice and stale revisions cannot play another turn (2016.104333ms)
+✔ 1.7 friend codes have membership boundaries and only the host starts a full table (2884.223069ms)
+✔ 1.7 blocked accounts and fifth players cannot enter a waiting table (5850.38941ms)
+✔ 1.7 reconnect and server restart restore the same cards, code and revision (3020.907577ms)
+✔ 1.7 committed completion grants XP once without changing charisma or coins (2795.696968ms)
+✔ 1.7 XP ledger caps rewarded rounds per Baghdad day and deduplicates sources (2236.955901ms)
+✔ 1.7 timeout advances a real turn without crediting unattended play (2592.529614ms)
+✔ 1.7 leaving replaces a friend with a bot and erasure removes game identifiers and private cards (3003.691978ms)
+✔ 1.7 games roulette works without a voice join and settles one source of XP (2661.841938ms)
+✔ 1.7 expiring a card match never reveals private hands in a cancelled snapshot (1957.045966ms)
+✔ 1.7 voice and games roulette share the round, stake receipt and wallet after leaving voice (3215.08908ms)
+✔ 1.7 concurrent roulette settlement and erasure cannot recreate game XP records (3394.461513ms)
+✔ public search pairs same-game humans for all five games and keeps hands private (4373.014622ms)
+✔ concurrent public searches assign each account to one pair and survive restart (4071.164425ms)
+✔ search excludes blocks/private matches and cancellation does not silently leave a matched table (2283.184912ms)
+✔ expired searches are not paired and changing games requires cancelling the old queue (1931.853409ms)
+✔ new GIF chat messages arrive as scoped realtime payloads without exposing sender nonces to peers (2769.529104ms)
+✔ motion events are sequenced and expose the complete authoritative dice path (1.585039ms)
+✔ free wheel private play is authoritative and cannot debit or credit account coins (2065.053589ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 70396.753971

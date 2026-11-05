@@ -16,6 +16,9 @@ export async function openDatabase({ connectionString, sqliteFile, production = 
     const pool = new Pool({
       connectionString: url.toString(),
       ssl: localTest ? false : { rejectUnauthorized: true },
+      // This service runs short OLTP queries. PostgreSQL JIT can spend over
+      // a second compiling the rich profile joins on every live table refresh.
+      options: '-c jit=off',
       max: 5,
       connectionTimeoutMillis: 10000,
       statement_timeout: 10000,

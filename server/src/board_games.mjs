@@ -128,12 +128,13 @@ export function performBoardAction(original,seat,action,{draw=randomInt,now=Date
   if(s.status==='playing'&&s.players.every(x=>!x.hand.length))dealJack(s,draw);
  }else pickCamel(s,p,choice,draw);
  p.moves++;if(!automatic&&!p.bot)p.humanMoves++;
- s.sequence++;s.history=[{seat,type:'choose',at:now,automatic,...(s.kind==='jackaroo'?{card:s.discard.at(-1),label:choice.label}:{kind:choice.kind??null,tool:choice.type})},...s.history].slice(0,8);
+ const movements=s.kind==='jackaroo'?s.players.flatMap(a=>a.pawns.flatMap((to,pawn)=>{const from=original.players.find(b=>b.seat===a.seat).pawns[pawn];return from===to?[]:[{seat:a.seat,pawn,from,to,delta:choice.steps?.filter(x=>x.pawn===pawn).reduce((n,x)=>n+x.steps,0)??null}];})):[];
+ s.sequence++;s.history=[{sequence:s.sequence,movements,seat,type:'choose',at:now,automatic,...(s.kind==='jackaroo'?{card:s.discard.at(-1),label:choice.label}:{kind:choice.kind??null,tool:choice.type})},...s.history].slice(0,32);
  // Skip exhausted hands/boards. The co-op game accepts human actions independently of this sweep cursor.
  const active=s.players.filter(x=>s.kind==='jackaroo'?x.hand.length:x.tiles.length||x.tray.length||x.side.length);
  if(active.length){const seats=s.players.map(x=>x.seat),index=seats.indexOf(seat);for(let n=1;n<=seats.length;n++){const next=seats[(index+n)%seats.length];if(active.some(x=>x.seat===next)){s.turn=next;break;}}}
  if(s.kind==='camel'&&!automatic&&original.turn!==seat&&active.some(x=>x.seat===original.turn)){s.turn=original.turn;s.deadlineAt=original.deadlineAt;}
- else s.deadlineAt=now+(s.players.find(x=>x.seat===s.turn)?.bot?850:30000);return s;
+ else s.deadlineAt=now+(s.players.find(x=>x.seat===s.turn)?.bot?(s.kind==='jackaroo'?1600:1200):30000);return s;
 }
 export function automaticBoardAction(s){
  const options=s.kind==='jackaroo'?jackChoices(s,s.turn):camelChoices(s,s.turn);
