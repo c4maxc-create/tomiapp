@@ -3,6 +3,7 @@ import 'social/activity_screen.dart';
 import 'messaging/chat_screens.dart';
 import 'messaging/chat_models.dart';
 import 'calling/call_models.dart';
+import 'live/live_pages.dart';
 import 'calling/call_screens.dart';
 import 'voice_rooms/room_screens.dart';
 
@@ -306,36 +307,45 @@ class _TomiAppState extends State<TomiApp> {
                 elevation: 12,
                 color: TomiColors.surface,
                 borderRadius: BorderRadius.circular(20),
-                child: ListTile(
-                  dense: true,
-                  leading: const Icon(
-                    Icons.graphic_eq,
-                    color: TomiColors.accent,
-                  ),
-                  title: Text(
-                    c.active!.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    c.microphoneOn
-                        ? 'متصل • المايك مفتوح'
-                        : 'متصل • المايك مغلق',
-                  ),
-                  onTap: () {
-                    c.expand();
-                    navigator.currentState?.push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => VoiceRoomPage(controller: c),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          c.expand();
+                          navigator.currentState?.push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => VoiceRoomPage(controller: c),
+                            ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Text(
+                            c.active!.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
                       ),
-                    );
-                  },
-                  trailing: IconButton(
-                    key: const Key('mini-room-leave'),
-                    tooltip: 'مغادرة الغرفة نهائيًا',
-                    onPressed: () => c.leave(),
-                    icon: const Icon(Icons.call_end, color: Colors.redAccent),
-                  ),
+                    ),
+                    Semantics(
+                      label: 'مغادرة الغرفة نهائيًا',
+                      button: true,
+                      child: IconButton(
+                        key: const Key('mini-room-leave'),
+                        onPressed: () => c.leave(),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -431,7 +441,11 @@ class _TomiShellState extends State<TomiShell> {
     builder: (context, _) => Scaffold(
       appBar:
           widget.accounts != null &&
-              (selected == 0 || selected == 1 || selected == 3 || selected == 4)
+              (selected == 0 ||
+                  selected == 1 ||
+                  selected == 3 ||
+                  selected == 4 ||
+                  selected == 5)
           ? null
           : AppBar(
               titleSpacing: 18,
@@ -528,6 +542,8 @@ class _TomiShellState extends State<TomiShell> {
                           accounts: widget.accounts!,
                           visible: selected == 4,
                         ),
+                  if (widget.accounts != null)
+                    LiveHub(accounts: widget.accounts!, visible: selected == 5),
                 ],
               ),
             ),
@@ -576,6 +592,12 @@ class _TomiShellState extends State<TomiShell> {
             selectedIcon: Icon(Icons.person_rounded),
             label: 'حسابي',
           ),
+          if (widget.accounts != null)
+            const NavigationDestination(
+              key: Key('nav-live'),
+              icon: Icon(Icons.sensors),
+              label: 'مباشر',
+            ),
         ],
       ),
     ),

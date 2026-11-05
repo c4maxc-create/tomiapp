@@ -778,3 +778,18 @@ CREATE TABLE IF NOT EXISTS tomi_call_cross_requests (
  request_id TEXT NOT NULL, call_id TEXT NOT NULL REFERENCES tomi_calls(id) ON DELETE CASCADE,
  PRIMARY KEY(user_id,request_id)
 );
+
+CREATE TABLE IF NOT EXISTS tomi_post_options(post_id TEXT PRIMARY KEY REFERENCES tomi_posts(id) ON DELETE CASCADE,audience TEXT NOT NULL DEFAULT 'public' CHECK(audience IN('public','followers')),revision BIGINT NOT NULL DEFAULT 0,edited_at TEXT);
+CREATE TABLE IF NOT EXISTS tomi_comment_replies(comment_id TEXT PRIMARY KEY REFERENCES tomi_comments(id) ON DELETE CASCADE,parent_id TEXT NOT NULL REFERENCES tomi_comments(id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS tomi_message_edits(message_id TEXT PRIMARY KEY,edited_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS tomi_message_receipts(message_id TEXT NOT NULL,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,delivered_at TEXT,read_at TEXT,PRIMARY KEY(message_id,user_id));
+CREATE TABLE IF NOT EXISTS tomi_lives(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,session_hash TEXT NOT NULL,title TEXT NOT NULL,status TEXT NOT NULL,request_id TEXT NOT NULL,created_at BIGINT NOT NULL,seen_at BIGINT NOT NULL,UNIQUE(user_id,request_id));
+CREATE INDEX IF NOT EXISTS tomi_lives_active ON tomi_lives(status,seen_at);
+CREATE TABLE IF NOT EXISTS tomi_live_battles(id TEXT PRIMARY KEY,a_id TEXT NOT NULL REFERENCES tomi_lives(id) ON DELETE CASCADE,b_id TEXT NOT NULL REFERENCES tomi_lives(id) ON DELETE CASCADE,mode TEXT NOT NULL CHECK(mode IN('taps','gifts','combined')),state TEXT NOT NULL,created_at BIGINT NOT NULL,ends_at BIGINT NOT NULL,a_score BIGINT NOT NULL DEFAULT 0,b_score BIGINT NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS tomi_live_actions(user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,request_id TEXT NOT NULL,battle_id TEXT NOT NULL REFERENCES tomi_live_battles(id) ON DELETE CASCADE,target_id TEXT NOT NULL,kind TEXT NOT NULL,points BIGINT NOT NULL,created_at BIGINT NOT NULL,PRIMARY KEY(user_id,request_id));
+CREATE TABLE IF NOT EXISTS tomi_live_cleanup(room TEXT PRIMARY KEY,created_at BIGINT NOT NULL);
+
+CREATE TABLE IF NOT EXISTS tomi_live_revoke(room TEXT NOT NULL,identity TEXT NOT NULL,created_at BIGINT NOT NULL,PRIMARY KEY(room,identity));
+
+CREATE TABLE IF NOT EXISTS tomi_story_options(story_id TEXT PRIMARY KEY REFERENCES tomi_stories(id) ON DELETE CASCADE,audience TEXT NOT NULL CHECK(audience IN('public','followers')));
+CREATE TABLE IF NOT EXISTS tomi_live_watchers(user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,live_id TEXT NOT NULL REFERENCES tomi_lives(id) ON DELETE CASCADE,session_hash TEXT NOT NULL,seen_at BIGINT NOT NULL,PRIMARY KEY(user_id,live_id));

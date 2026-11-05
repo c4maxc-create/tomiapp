@@ -12,6 +12,8 @@ import {createPrivacy,policyVersion} from './privacy.mjs';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { createSocial } from './social.mjs';
+import {createLives} from './lives.mjs';
+import {createContentTools} from './content_tools.mjs';
 import { createChat } from './chat.mjs';
 import {createGroups} from './groups.mjs';
 import {createPrivateMedia} from './chat_extras.mjs';
@@ -74,7 +76,7 @@ function publicUser(row,storage) {
   };
 }
 
-export async function createApp({ database, trustProxy = false, origins = [], rateLimitMultiplier = 1, storage = null, chatStorage = storage, pushSender=null, pushAutoFlush=true, iceProvider=null, callAutoSweep=true, roomProvider=null, roomAutoSweep=true,ownerUserId=null,deletionAutoSweep=true,deletionClock,privacyConfig,liveRouletteClock,liveRouletteAutoTick=true,gamesClock,gamesAutoTick=true }) {
+export async function createApp({ database, trustProxy = false, origins = [], rateLimitMultiplier = 1, storage = null, chatStorage = storage, pushSender=null, pushAutoFlush=true, iceProvider=null, callAutoSweep=true, roomProvider=null, liveProvider=null, liveClock, liveAutoTick=true, roomAutoSweep=true,ownerUserId=null,deletionAutoSweep=true,deletionClock,privacyConfig,liveRouletteClock,liveRouletteAutoTick=true,gamesClock,gamesAutoTick=true }) {
   const requestGuard=createAccountGuard(database);database=requestGuard.database;
   if(ownerUserId){
     if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(ownerUserId))throw Error('Invalid TOMI_OWNER_USER_ID');
@@ -140,6 +142,8 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   const chat=createChat({groups,privateMedia,database,storage:chatStorage,avatarStorage:storage,readJson,respond:json,limit,userById,enqueuePush:push.enqueue,accountGate:requestGuard.gate,shareRequestCount:uid=>postShares.pendingCount(uid)});
   const postShares=createPostShares({database,readJson,respond:json,limit,userById,usersByIds,accountGate:requestGuard.gate,chat,social});
   const rooms=createVoiceRooms({database,provider:roomProvider,storage,readJson,respond:json,limit,usersByIds,autoSweep:roomAutoSweep,emit:chat.emit});
+  const lives=createLives({database,provider:liveProvider,readJson,respond:json,limit,usersByIds,clock:liveClock,autoTick:liveAutoTick,emit:chat.emit});
+  const contentTools=createContentTools({database,readJson,respond:json,limit,social,emit:chat.emit});
   const calls=createCalls({database,iceProvider,readJson,respond:json,limit,userById,emit:chat.emit,enqueuePush:push.enqueueCall,autoSweep:callAutoSweep});
   const operations=createOperations();
   const moderation=createModeration({database,ownerUserId,storage,readJson,respond:json,limit,userById,usersByIds,rooms,calls,chat,operations,accountGate:requestGuard.gate});
@@ -176,7 +180,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       if(privacy.handle(request,response,url))return;
       if (method === 'GET' && (path === '/health' || path === '/')) {
         await database.query('SELECT 1 AS ready');
-        json(response, 200, { status: 'ok', service: 'TOMI API', version: '1.7.0-beta.1', features: { phoneNotifications: push.configured, voiceRooms: !!roomProvider } });
+        json(response, 200, { status: 'ok', service: 'TOMI API', version: '1.7.0-beta.1', features: { phoneNotifications: push.configured, voiceRooms: !!roomProvider, phoneCalls: !!iceProvider, liveBroadcasts: !!liveProvider, realPayments: false } });
         return;
       }
 
@@ -272,6 +276,8 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       if (await push.handle(request,response,url,current)) return;
       if (await groups.handle(request,response,url,current)) return;
       if(await postShares.handle(request,response,url,current))return;
+      if (await lives.handle(request,response,url,current)) return;
+      if (await contentTools.handle(request,response,url,current)) return;
       if (await chat.handle(request,response,url,current)) return;
       if (await home.handle(request,response,url,current)) return;
       if (await social.handle(request,response,url,current)) return;
@@ -400,7 +406,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   server.sweepDeletions=deletion.sweep;
   server.sweepCalls=calls.sweep;
   server.sweepRooms=rooms.sweep;server.flushRooms=rooms.flush;
-  server.on('close',()=>{games.close();liveRoulette.close();push.close();calls.close();rooms.close();operations.close();deletion.close();});
+  server.on('close',()=>{lives.close();games.close();liveRoulette.close();push.close();calls.close();rooms.close();operations.close();deletion.close();});
   chat.attach(server,{origins,authenticate:token=>session({headers:{authorization:'Bearer '+token}}),validSessions:async hashes=>{
     if(!hashes.length)return new Set();
     const{rows}=await database.query(`SELECT s.token_hash FROM tomi_sessions s JOIN tomi_users u ON u.id=s.user_id AND u.auth_version=s.auth_version WHERE s.expires_at>? AND s.token_hash IN (${hashes.map(()=>'?').join(',')})`,[nowText(),...hashes]);return new Set(rows.map(r=>r.token_hash));

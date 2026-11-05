@@ -25,6 +25,17 @@ class VoicePlayback extends ChangeNotifier with WidgetsBindingObserver {
   String? activeId, error;
   int positionMs = 0, durationMs = 0, generation = 0;
   bool playing = false, busy = false, disposed = false;
+  double speed = 1;
+  Future<void> cycleSpeed() async {
+    speed = speed == 1
+        ? 2
+        : speed == 2
+        ? 3
+        : 1;
+    await player?.setSpeed(speed);
+    notify();
+  }
+
   void notify() {
     if (!disposed) notifyListeners();
   }
@@ -67,6 +78,7 @@ class VoicePlayback extends ChangeNotifier with WidgetsBindingObserver {
       positionMs = 0;
       durationMs = duration;
       final actual = await player!.setAudioSource(AudioSource.uri(uri));
+      await player!.setSpeed(speed);
       if (disposed || gen != generation) return;
       durationMs = actual?.inMilliseconds ?? duration;
       if (previous > 0 && previous < durationMs)
@@ -149,6 +161,11 @@ class VoicePlayer extends StatelessWidget {
         children: [
           Row(
             children: [
+              TextButton(
+                key: ValueKey('voice-speed-$id'),
+                onPressed: playback.cycleSpeed,
+                child: Text('${playback.speed.toInt()}×'),
+              ),
               IconButton(
                 key: ValueKey('voice-play-$id'),
                 tooltip: active && playback.playing

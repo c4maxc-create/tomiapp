@@ -43,7 +43,11 @@ class SocialProfileView extends StatefulWidget {
 
 class _SocialProfileViewState extends State<SocialProfileView> {
   late AccountUser user = widget.initialUser;
-  late final feed = FeedController(accounts: widget.accounts, userId: user.id);
+  late final feed = FeedController(
+    accounts: widget.accounts,
+    userId: user.id,
+    scope: widget.own ? 'mine' : 'all',
+  );
   bool busy = false;
   String? error;
   @override
@@ -51,6 +55,12 @@ class _SocialProfileViewState extends State<SocialProfileView> {
     super.initState();
     widget.accounts.addListener(changed);
     unawaited(refresh());
+  }
+
+  @override
+  void didUpdateWidget(covariant SocialProfileView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.visible && !oldWidget.visible) unawaited(refresh());
   }
 
   void changed() {
@@ -207,7 +217,10 @@ class _SocialProfileViewState extends State<SocialProfileView> {
         color: Colors.white,
       ),
     );
-    final name = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [nameText, CharismaBadge(user.identity)]);
+    final name = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [nameText, CharismaBadge(user.identity)],
+    );
     final stats = Row(
       children: [
         count(
@@ -382,7 +395,9 @@ class _SocialProfileViewState extends State<SocialProfileView> {
                                 backgroundColor: widget.own || user.isFollowing
                                     ? socialSurface
                                     : TomiColors.accent,
-                                foregroundColor: widget.own || user.isFollowing ? TomiColors.text : TomiColors.background,
+                                foregroundColor: widget.own || user.isFollowing
+                                    ? TomiColors.text
+                                    : TomiColors.background,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(9),
                                 ),
@@ -725,6 +740,19 @@ class AccountSettingsPage extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12),
       children: [
         ListTile(
+          key: const Key('saved-posts-settings'),
+          leading: const Icon(Icons.bookmarks_outlined),
+          title: const Text('المنشورات المحفوظة'),
+          onTap: () => page(
+            context,
+            SocialFeedScreen(
+              accounts: accounts,
+              initialScope: 'saved',
+              title: 'المحفوظات',
+            ),
+          ),
+        ),
+        ListTile(
           leading: const Icon(Icons.badge_outlined),
           title: const Text('تغيير الاسم واليوزر والبايو'),
           onTap: () => page(context, EditAccountPage(accounts: accounts)),
@@ -750,6 +778,14 @@ class AccountSettingsPage extends StatelessWidget {
           ),
         ),
         const Divider(),
+        ListTile(
+          leading: const Icon(Icons.bookmarks_outlined),
+          title: const Text('المنشورات المحفوظة'),
+          onTap: () => page(
+            context,
+            SocialFeedScreen(accounts: accounts, initialScope: 'saved'),
+          ),
+        ),
         ListTile(
           leading: const Icon(Icons.auto_awesome_outlined),
           title: const Text('الهوية والمظهر'),

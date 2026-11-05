@@ -6,6 +6,7 @@ import {moderationOwner} from './moderation.mjs';
 import {privacyEnvironment} from './privacy.mjs';
 import {fcmFromEnvironment} from './push.mjs';
 import {iceFromEnvironment} from './ice.mjs';
+import {liveProviderFromEnvironment} from './live_provider.mjs';
 import {roomProviderFromEnvironment} from './room_provider.mjs';
 import { r2FromEnvironment, chatR2FromEnvironment } from './r2.mjs';
 
@@ -19,6 +20,7 @@ const server = await createApp({
   pushSender:fcmFromEnvironment(),
   iceProvider:iceFromEnvironment(),
   roomProvider:roomProviderFromEnvironment(),
+  liveProvider:liveProviderFromEnvironment(),
   chatStorage:chatR2FromEnvironment(process.env,storage),
   database,
   ownerUserId:moderationOwner(),

@@ -1,4 +1,5 @@
 import 'social_profile.dart';
+import 'avatar_editor.dart';
 import '../social/story_screens.dart' show socialBackground;
 
 import 'package:flutter/material.dart';
@@ -87,12 +88,35 @@ class _EditAccountPageState extends State<EditAccountPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('تعديل البروفايل')),
+    appBar: AppBar(title: const Text('تعديل الملف الشخصي')),
     body: Form(
       key: form,
       child: ListView(
         padding: const EdgeInsets.all(22),
         children: [
+          if (widget.accounts.user != null)
+            Center(child: AccountAvatar(widget.accounts.user!, size: 96)),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            key: const Key('edit-photo-gallery'),
+            onPressed: busy
+                ? null
+                : () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            AvatarEditorPage(accounts: widget.accounts),
+                      ),
+                    );
+                    if (mounted && widget.accounts.user != null)
+                      setState(() {
+                        avatar = widget.accounts.user!.avatarPreset;
+                      });
+                  },
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            label: const Text('اختيار صورة من الاستوديو'),
+          ),
           const Text(
             'اختَر صورتك',
             style: TextStyle(fontWeight: FontWeight.bold),

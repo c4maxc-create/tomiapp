@@ -66,6 +66,7 @@ class AccountController extends ChangeNotifier {
     audioFactory: roomAudioFactory,
     autoPoll: realtimeEnabled,
   );
+  Object? liveMediaLease;
   bool get voiceRoomActive => _voiceRooms?.inRoom ?? false;
   Future<void> get roomAudioReleased =>
       _voiceRooms?.releaseTail ?? Future.value();
@@ -76,7 +77,9 @@ class AccountController extends ChangeNotifier {
     autoPoll: realtimeEnabled,
   );
   bool get liveAudioBusy =>
-      _calls?.active?.ended == false || _voiceRooms?.active != null;
+      _calls?.active?.ended == false ||
+      _voiceRooms?.active != null ||
+      liveMediaLease != null;
   HomeController? _home;
   HomeController get home =>
       _home ??= HomeController(this, autoPoll: realtimeEnabled);
@@ -127,8 +130,15 @@ class AccountController extends ChangeNotifier {
     _notify();
   }
 
-  void applyGameProgress(GameProgress value, {required String accountId, required int session}) {
-    if (_user?.id != accountId || _revision != session || value.xp <= _user!.gameProgress.xp) return;
+  void applyGameProgress(
+    GameProgress value, {
+    required String accountId,
+    required int session,
+  }) {
+    if (_user?.id != accountId ||
+        _revision != session ||
+        value.xp <= _user!.gameProgress.xp)
+      return;
     _user = _user!.withGameProgress(value);
     _notify();
   }
@@ -250,7 +260,8 @@ class AccountController extends ChangeNotifier {
     try {
       await _mutateVault(() => _vault.write(grant.token));
     } catch (_) {
-      storageWarning = 'دخلت لحسابك، لكن تعذّر حفظ الجلسة على الجهاز؛ قد تحتاج تسجّل دخولك لاحقًا.';
+      storageWarning =
+          'دخلت لحسابك، لكن تعذّر حفظ الجلسة على الجهاز؛ قد تحتاج تسجّل دخولك لاحقًا.';
     }
     if (revision != _revision || _disposed)
       throw const AccountFailure('SESSION_CHANGED', 'جلسة الدخول تغيّرت.');
@@ -362,6 +373,7 @@ class AccountController extends ChangeNotifier {
     String? uploadId,
     videoUploadId,
     attachmentSha256,
+    String audience = 'public',
   }) async {
     final r = await _authenticated(
       (token) => api.publishPost(
@@ -371,6 +383,7 @@ class AccountController extends ChangeNotifier {
         uploadId: uploadId,
         videoUploadId: videoUploadId,
         attachmentSha256: attachmentSha256,
+        audience: audience,
       ),
     );
     _user = r.user;
@@ -387,8 +400,14 @@ class AccountController extends ChangeNotifier {
 
   Future<CommentPage> comments(String id, {String? cursor}) =>
       _authenticated((token) => api.comments(token, id, cursor: cursor));
-  Future<CommentResult> addComment(String id, String text, String requestId) =>
-      _authenticated((token) => api.addComment(token, id, text, requestId));
+  Future<CommentResult> addComment(
+    String id,
+    String text,
+    String requestId, {
+    String? parentId,
+  }) => _authenticated(
+    (token) => api.addComment(token, id, text, requestId, parentId: parentId),
+  );
   Future<SocialPost> deleteComment(String id) =>
       _authenticated((token) => api.deleteComment(token, id));
   Future<ImageUpload> preparePostMedia(

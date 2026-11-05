@@ -62,7 +62,7 @@ export function createCalls({database,iceProvider,readJson,respond,limit,userByI
   async function handle(request,response,url,current) {
     const path=url.pathname,method=request.method;
     if(!path.startsWith('/v1/calls'))return false;
-    if(path==='/v1/calls/settings'&&method==='GET'){respond(response,200,{configured:!!iceProvider,mediaSwitch:true,ringTimeoutSeconds:35,maxDurationSeconds:7200});return true;}
+    if(path==='/v1/calls/settings'&&method==='GET'){respond(response,200,{configured:!!iceProvider,mediaSwitch:true,setupRequired:iceProvider?null:'turn',ringTimeoutSeconds:35,maxDurationSeconds:7200});return true;}
     if(path==='/v1/calls/active'&&method==='GET') {
       const active=(await database.query('SELECT call_id FROM tomi_active_calls WHERE user_id=?',[current.id])).rows[0];
       let r=null;if(active){r=await database.transaction(async db=>expire(db,await row(db,current.id,active.call_id,true)));if(r.state==='ended'){notify(r);r=null;}}
@@ -106,8 +106,9 @@ export function createCalls({database,iceProvider,readJson,respond,limit,userByI
           return {r:await row(db,current.id,cross.id),replay:false};
         }
         if((await db.query('SELECT 1 FROM tomi_active_calls WHERE user_id=?',[current.id])).rows.length)fail(409,'CALL_BUSY','عندك مكالمة جارية؛ أنهِها أولًا.');
+        if((await db.query("SELECT 1 FROM tomi_lives WHERE user_id=? AND status='live'",[current.id])).rows.length)fail(409,'LIVE_BUSY','أنه البث قبل الاتصال.');
         if((await db.query('SELECT 1 FROM tomi_voice_presence WHERE user_id=?',[current.id])).rows.length)fail(409,'ROOM_BUSY','غادر الغرفة الصوتية قبل بدء المكالمة.');
-        const busy=(await db.query('SELECT 1 FROM tomi_active_calls WHERE user_id=?',[callee])).rows.length>0||(await db.query('SELECT 1 FROM tomi_voice_presence WHERE user_id=?',[callee])).rows.length>0;
+        const busy=(await db.query('SELECT 1 FROM tomi_active_calls WHERE user_id=?',[callee])).rows.length>0||(await db.query('SELECT 1 FROM tomi_voice_presence WHERE user_id=?',[callee])).rows.length>0||(await db.query("SELECT 1 FROM tomi_lives WHERE user_id=? AND status='live'",[callee])).rows.length>0;
         const callId=randomUUID(),time=stamp(),ring=stamp(35000);
         await db.query(`INSERT INTO tomi_calls(id,thread_id,caller_id,callee_id,caller_session,request_id,kind,state,reason,created_at,updated_at,ring_deadline,caller_seen,ended_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,[callId,t.id,current.id,callee,current.tokenHash,d.requestId,d.kind,busy?'ended':'ringing',busy?'busy':null,time,time,ring,time,busy?time:null]);
         if(!busy){for(const user of [current.id,callee])await db.query('INSERT INTO tomi_active_calls(user_id,call_id) VALUES(?,?)',[user,callId]);await enqueuePush(db,{callId,recipientId:callee,threadId:t.id});}

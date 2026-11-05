@@ -534,6 +534,11 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<bool> join(String roomId, {String? password}) async {
+    if (accounts.liveMediaLease != null) {
+      error = 'أغلق البث قبل دخول الروم.';
+      notify();
+      return false;
+    }
     if (disposed || busy || inRoom || sessionKey == null || !foreground)
       return false;
     if (accounts.calls.busy || accounts.calls.active?.ended == false) {

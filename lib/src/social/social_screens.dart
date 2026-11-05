@@ -1,6 +1,6 @@
+import '../accounts/account_search.dart';
 import 'post_share_screens.dart';
 import '../identity/charisma_badge.dart';
-import '../accounts/account_search.dart';
 import '../messaging/voice_note.dart' show voiceTime;
 import 'story_screens.dart';
 import 'social_media.dart';
@@ -44,6 +44,10 @@ String? imageContentType(Uint8List b) {
     return 'image/webp';
   return null;
 }
+
+bool pickedVideo(XFile file) =>
+    (file.mimeType?.startsWith('video/') ?? false) ||
+    ['.mp4', '.m4v', '.mov', '.webm'].any(file.name.toLowerCase().endsWith);
 
 Future<ImageDraft> readPickedImage(XFile file) async {
   if (await file.length() > maximumImageBytes)
@@ -99,10 +103,12 @@ class SocialFeedScreen extends StatefulWidget {
     this.userId,
     this.title,
     this.visible = true,
+    this.initialScope = 'explore',
   });
   final AccountController accounts;
   final String? userId, title;
   final bool visible;
+  final String initialScope;
   @override
   State<SocialFeedScreen> createState() => _SocialFeedScreenState();
 }
@@ -111,6 +117,7 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
   late final feed = FeedController(
     accounts: widget.accounts,
     userId: widget.userId,
+    scope: widget.initialScope,
   );
   final scroll = ScrollController();
   @override
@@ -162,7 +169,12 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                 conversation: DirectConversation.fromJson(
                   d['conversation'] as Map<String, dynamic>,
                 ),
-                initialImage: destination['purpose'] == 'chat-video'
+                initialWallpaper: destination['purpose'] == 'chat-wallpaper'
+                    ? lost.files!.first
+                    : null,
+                initialImage:
+                    destination['purpose'] == 'chat-video' ||
+                        destination['purpose'] == 'chat-wallpaper'
                     ? null
                     : lost.files!.first,
                 initialVideo: destination['purpose'] == 'chat-video'
@@ -172,14 +184,21 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
             ),
           );
       } else if (destination['purpose'] == 'story' ||
-          destination['purpose'] == 'story-video') {
+          destination['purpose'] == 'story-video' ||
+          destination['purpose'] == 'story-media') {
         await composeStory(
           context,
           widget.accounts,
-          initialImage: destination['purpose'] == 'story'
+          initialImage:
+              destination['purpose'] == 'story' ||
+                  destination['purpose'] == 'story-media' &&
+                      !pickedVideo(lost.files!.first)
               ? lost.files!.first
               : null,
-          initialVideo: destination['purpose'] == 'story-video'
+          initialVideo:
+              destination['purpose'] == 'story-video' ||
+                  destination['purpose'] == 'story-media' &&
+                      pickedVideo(lost.files!.first)
               ? lost.files!.first
               : null,
         );
@@ -196,12 +215,19 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
           );
       } else if (destination['purpose'] == null ||
           destination['purpose'] == 'feed' ||
-          destination['purpose'] == 'feed-video') {
+          destination['purpose'] == 'feed-video' ||
+          destination['purpose'] == 'feed-media') {
         await compose(
-          initialImage: destination['purpose'] == 'feed-video'
+          initialImage:
+              destination['purpose'] == 'feed-video' ||
+                  destination['purpose'] == 'feed-media' &&
+                      pickedVideo(lost.files!.first)
               ? null
               : lost.files!.first,
-          initialVideo: destination['purpose'] == 'feed-video'
+          initialVideo:
+              destination['purpose'] == 'feed-video' ||
+                  destination['purpose'] == 'feed-media' &&
+                      pickedVideo(lost.files!.first)
               ? lost.files!.first
               : null,
         );
@@ -212,6 +238,32 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
   }
 
   Future<void> compose({XFile? initialImage, XFile? initialVideo}) async {
+    if (initialImage == null && initialVideo == null) {
+      try {
+        await GalleryIntent.remember(
+          widget.accounts.api.baseUrl,
+          widget.accounts.user!.id,
+          purpose: 'feed-media',
+        );
+        final file = await ImagePicker().pickMedia();
+        await GalleryIntent.clear();
+        if (!mounted) return;
+        if (file != null) {
+          final name = file.name.toLowerCase();
+          if (['.mp4', '.mov', '.m4v', '.webm'].any(name.endsWith)) {
+            initialVideo = file;
+          } else {
+            initialImage = file;
+          }
+        }
+      } catch (_) {
+        if (mounted)
+          showNote(
+            context,
+            'تعذّر فتح الاستوديو؛ تگدر تختار الملف من نافذة النشر.',
+          );
+      }
+    }
     final p = await showModalBottomSheet<SocialPost>(
       context: context,
       isScrollControlled: true,
@@ -276,11 +328,7 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                             IconButton(
                               key: const Key('compose-post'),
                               tooltip: 'إضافة',
-                              onPressed: () => showCreateMenu(
-                                context,
-                                widget.accounts,
-                                onPost: compose,
-                              ),
+                              onPressed: () => compose(),
                               icon: const Icon(
                                 Icons.add,
                                 size: 30,
@@ -300,41 +348,17 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                                 ),
                               ),
                             ),
-                            PopupMenuButton<String>(
-                              key: const Key('feed-filters'),
-                              icon: const Icon(
-                                Icons.tune_rounded,
-                                color: TomiColors.accent,
-                              ),
-                              tooltip: 'قائمة المنشورات',
-                              onSelected: (value) async {
-                                if (value == 'search') {
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute<void>(
-                                      builder: (_) => AccountSearchPage(
-                                        accounts: widget.accounts,
-                                      ),
-                                    ),
-                                  );
-                                } else {
-                                  await feed.select(value);
-                                }
-                              },
-                              itemBuilder: (_) => [
-                                for (final e in {
-                                  'explore': 'استكشاف',
-                                  'all': 'كل المنشورات',
-                                  'following': 'متابعاتي',
-                                  'mine': 'منشوراتي',
-                                  'saved': 'المحفوظات',
-                                  'search': 'البحث عن حساب',
-                                }.entries)
-                                  PopupMenuItem(
-                                    value: e.key,
-                                    child: Text(e.value),
+                            IconButton(
+                              tooltip: 'البحث',
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => AccountSearchPage(
+                                    accounts: widget.accounts,
                                   ),
-                              ],
+                                ),
+                              ),
+                              icon: const Icon(Icons.search_rounded),
                             ),
                             IconButton(
                               tooltip: 'الإشعارات',
@@ -585,6 +609,72 @@ class RealPostCard extends StatelessWidget {
     if (ok == true && c.mounted) onDelete();
   }
 
+  Future<void> editPost(BuildContext c) async {
+    final input = TextEditingController(text: post.text);
+    String audience = post.audience;
+    final yes = await showDialog<bool>(
+      context: c,
+      builder: (d) => StatefulBuilder(
+        builder: (d, set) => AlertDialog(
+          title: const Text('تعديل المنشور'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: input,
+                  minLines: 2,
+                  maxLines: 6,
+                  maxLength: 2000,
+                  decoration: const InputDecoration(labelText: 'الوصف'),
+                ),
+                DropdownButton<String>(
+                  isExpanded: true,
+                  value: audience,
+                  items: const [
+                    DropdownMenuItem(value: 'public', child: Text('عام')),
+                    DropdownMenuItem(
+                      value: 'followers',
+                      child: Text('للمتابعين بالرئيسية'),
+                    ),
+                  ],
+                  onChanged: (v) => set(() => audience = v!),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(d, false),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(d, true),
+              child: const Text('حفظ'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (yes == true) {
+      try {
+        final d = await accounts.chatRequest(
+          'PUT',
+          '/v1/posts/${post.id}',
+          body: {
+            'text': input.text,
+            'audience': audience,
+            'expectedRevision': post.revision,
+          },
+        );
+        onUpdated(SocialPost.fromJson(d['post'] as Map<String, dynamic>));
+      } on AccountFailure catch (e) {
+        if (c.mounted) showNote(c, e.message);
+      }
+    }
+    input.dispose();
+  }
+
   Future<void> save(BuildContext c) async {
     try {
       final d = await accounts.chatRequest(
@@ -820,6 +910,13 @@ class RealPostCard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
+                  if (post.isMine)
+                    IconButton(
+                      key: Key('edit-post-${post.id}'),
+                      tooltip: 'تعديل المنشور',
+                      onPressed: busy ? null : () => editPost(c),
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
                   IconButton(
                     key: Key('save-${post.id}'),
                     tooltip: post.saved ? 'إلغاء الحفظ' : 'حفظ المنشور',
@@ -980,7 +1077,7 @@ class _SocialComposerState extends State<SocialComposer> {
   final text = TextEditingController();
   late final draft = PostDraftController(widget.accounts);
   bool picking = false, closing = false;
-  String? pickerError;
+  String? pickerError, videoPath;
   @override
   void initState() {
     super.initState();
@@ -1014,6 +1111,7 @@ class _SocialComposerState extends State<SocialComposer> {
           : await readPickedImage(file);
       if (!mounted || !draft.current) return;
       await draft.attachment(media);
+      videoPath = video ? file.path : null;
       pickerError = null;
     } on AccountFailure catch (e) {
       pickerError = e.message;
@@ -1170,14 +1268,28 @@ class _SocialComposerState extends State<SocialComposer> {
                   maxLines: 6,
                   maxLength: 2000,
                   onChanged: draft.editText,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
+                    labelText: media is VideoDraft
+                        ? 'وصف الفيديو'
+                        : 'وصف المنشور',
                     hintText: 'شنو تحب تشارك اليوم؟',
                   ),
                 ),
                 if (media is VideoDraft)
                   Padding(
                     padding: const EdgeInsets.all(20),
-                    child: Text('🎬 فيديو • ${voiceTime(media.durationMs)}'),
+                    child: videoPath == null
+                        ? Text('🎬 فيديو • ${voiceTime(media.durationMs)}')
+                        : InlineSocialVideo(
+                            key: ValueKey(videoPath),
+                            video: PostVideo({
+                              'width': media.width,
+                              'height': media.height,
+                              'durationMs': media.durationMs,
+                            }),
+                            source: () async => Uri.file(videoPath!),
+                            preview: true,
+                          ),
                   )
                 else if (media != null)
                   ClipRRect(
@@ -1230,6 +1342,39 @@ class _SocialComposerState extends State<SocialComposer> {
                   ),
                 ],
                 const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  initialValue: draft.audience,
+                  decoration: const InputDecoration(labelText: 'جمهور المنشور'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'public',
+                      child: Text(
+                        'عام • للجميع',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'followers',
+                      child: Text(
+                        'للمتابعين',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                  onChanged: draft.locked
+                      ? null
+                      : (v) => draft.selectAudience(v!),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  child: Text(
+                    'اختيار المتابعين يحدد ظهوره بالرئيسية، وليس خصوصية الحساب الشخصي.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
                 FilledButton.icon(
                   key: const Key('publish-post'),
                   onPressed:
@@ -1279,6 +1424,7 @@ class RealCommentsSheet extends StatefulWidget {
 class _RealCommentsSheetState extends State<RealCommentsSheet> {
   final text = TextEditingController();
   List<SocialComment> comments = [];
+  SocialComment? replying;
   String? cursor, error;
   String requestId = newRequestId();
   bool loading = false, sending = false;
@@ -1329,6 +1475,7 @@ class _RealCommentsSheetState extends State<RealCommentsSheet> {
         widget.post.id,
         text.text,
         requestId,
+        parentId: replying?.id,
       );
       if (mounted) {
         setState(
@@ -1338,6 +1485,7 @@ class _RealCommentsSheetState extends State<RealCommentsSheet> {
           ],
         );
         text.clear();
+        replying = null;
         requestId = newRequestId();
         widget.onUpdated(r.post);
       }
@@ -1411,6 +1559,21 @@ class _RealCommentsSheetState extends State<RealCommentsSheet> {
                       ),
                     ],
                   ),
+                  if (replying != null)
+                    ListTile(
+                      dense: true,
+                      title: Text(
+                        'رد على ${replying!.author.displayName}',
+                        maxLines: 1,
+                      ),
+                      trailing: IconButton(
+                        onPressed: () => setState(() {
+                          replying = null;
+                          requestId = newRequestId();
+                        }),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ),
                   if (loading || sending)
                     const LinearProgressIndicator(minHeight: 2),
                   Expanded(
@@ -1438,6 +1601,23 @@ class _RealCommentsSheetState extends State<RealCommentsSheet> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
+                                      if (v.parentId != null)
+                                        const Text(
+                                          '↳ رد على تعليق',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: TomiColors.accent,
+                                          ),
+                                        ),
+                                      TextButton(
+                                        onPressed: sending
+                                            ? null
+                                            : () => setState(() {
+                                                replying = v;
+                                                requestId = newRequestId();
+                                              }),
+                                        child: const Text('رد'),
+                                      ),
                                       Text(
                                         v.author.displayName,
                                         style: const TextStyle(

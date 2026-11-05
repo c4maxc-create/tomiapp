@@ -532,6 +532,14 @@ class ChatThreadController extends ChangeNotifier {
         }
       }
       wallpaper = ((d['wallpaper'] as num?)?.toInt() ?? 0).clamp(0, 5);
+      final wall = d['wallpaperImage'];
+      if (wall is Map) {
+        final bytes = await chats.accounts.draftStore.bytes(
+          savedOwner!,
+          wall['mediaKey'] as String,
+        );
+        wallpaperImage = ImageDraft(bytes, wall['type'] as String);
+      }
       final matching = d['sessionFence'] == chats.accounts.draftSessionFence;
       for (final row in d['pending'] as List? ?? []) {
         final p = PendingChatMessage.restore(
@@ -566,6 +574,11 @@ class ChatThreadController extends ChangeNotifier {
       'conversation': conversation.data,
       'draft': draft,
       'wallpaper': wallpaper,
+      if (wallpaperImage != null)
+        'wallpaperImage': {
+          'mediaKey': wallpaperImage!.contentSha256,
+          'type': wallpaperImage!.contentType,
+        },
       'replyToId': replyToId,
       'attachment': draftAttachment?.toJson(),
       'sessionFence': chats.accounts.draftSessionFence,
@@ -578,6 +591,9 @@ class ChatThreadController extends ChangeNotifier {
           .toList(),
     };
     final blobs = <String, Uint8List>{
+      if (wallpaperImage != null &&
+          !committedMediaKeys.contains(wallpaperImage!.contentSha256))
+        wallpaperImage!.contentSha256: wallpaperImage!.bytes,
       for (final p in [
         ...pending,
         if (draftAttachment != null) draftAttachment!,
@@ -720,11 +736,21 @@ class ChatThreadController extends ChangeNotifier {
       peerTyping = false,
       reading = false,
       syncAgain = false;
+  ImageDraft? wallpaperImage;
+  Future<void> setWallpaperImage(ImageDraft image) async {
+    await restored;
+    if (!current) return;
+    wallpaperImage = image;
+    notify();
+    await persist();
+  }
+
   int wallpaper = 0;
   Future<void> setWallpaper(int value) async {
     await restored;
     if (!current || value < 0 || value > 5) return;
     wallpaper = value;
+    wallpaperImage = null;
     notify();
     await persist();
   }
@@ -848,6 +874,42 @@ class ChatThreadController extends ChangeNotifier {
     chats.update(conversation);
   }
 
+  final deliveredReceipts = <String>{}, readReceipts = <String>{};
+  bool receiptsBusy = false, readReceiptQueued = false;
+  Future<void> acknowledge({bool read = false}) async {
+    if (!current || !chats.foreground) return;
+    if (receiptsBusy) {
+      if (read) readReceiptQueued = true;
+      return;
+    }
+    final seen = read ? readReceipts : deliveredReceipts;
+    final ids = messages
+        .where((m) => !m.isMine && !seen.contains(m.id))
+        .take(80)
+        .map((m) => m.id)
+        .toList();
+    if (ids.isEmpty) return;
+    receiptsBusy = true;
+    try {
+      await request(
+        'PUT',
+        '/receipts',
+        body: {'ids': ids, 'event': read ? 'read' : 'delivered'},
+      );
+      if (current) {
+        seen.addAll(ids);
+        if (read) deliveredReceipts.addAll(ids);
+      }
+    } catch (_) {
+    } finally {
+      receiptsBusy = false;
+      if (readReceiptQueued) {
+        readReceiptQueued = false;
+        unawaited(acknowledge(read: true));
+      }
+    }
+  }
+
   void merge(Iterable<dynamic> rows, {bool refreshImages = false}) {
     for (final row in rows) {
       var m = ChatMessage.fromJson(row as Map<String, dynamic>);
@@ -908,6 +970,7 @@ class ChatThreadController extends ChangeNotifier {
       cache.remove(oldest.id);
       imageUpdatedAt.remove(oldest.id);
     }
+    unawaited(acknowledge());
   }
 
   Future<void> sync({bool reconcile = false}) async {
@@ -1146,6 +1209,7 @@ class ChatThreadController extends ChangeNotifier {
     reading = true;
     try {
       final p = await request('PUT', '/read', body: {'sequence': seq});
+      unawaited(acknowledge(read: true));
       if (disposed) return;
       apply(p, epoch);
       notify();

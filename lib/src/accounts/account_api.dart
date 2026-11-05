@@ -266,6 +266,7 @@ class AccountApi {
     String? uploadId,
     videoUploadId,
     attachmentSha256,
+    String audience = 'public',
   }) async {
     final d = await _request(
       'POST',
@@ -274,6 +275,7 @@ class AccountApi {
       body: {
         'text': text.trim(),
         'requestId': requestId,
+        'audience': audience,
         if (uploadId != null) 'imageUploadId': uploadId,
         if (videoUploadId != null) 'videoUploadId': videoUploadId,
         if (attachmentSha256 != null) 'attachmentSha256': attachmentSha256,
@@ -320,13 +322,18 @@ class AccountApi {
     String token,
     String id,
     String text,
-    String requestId,
-  ) async {
+    String requestId, {
+    String? parentId,
+  }) async {
     final d = await _request(
       'POST',
       '/v1/posts/' + Uri.encodeComponent(id) + '/comments',
       token: token,
-      body: {'text': text.trim(), 'requestId': requestId},
+      body: {
+        'text': text.trim(),
+        'requestId': requestId,
+        if (parentId != null) 'parentId': parentId,
+      },
     );
     return CommentResult(
       comment: SocialComment.fromJson(d['comment'] as Map<String, dynamic>),

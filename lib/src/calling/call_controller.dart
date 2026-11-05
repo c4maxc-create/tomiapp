@@ -303,8 +303,8 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
         busy ||
         active?.ended == false)
       return;
-    if (accounts.voiceRoomActive) {
-      error = 'غادر الغرفة الصوتية قبل بدء المكالمة.';
+    if (accounts.voiceRoomActive || accounts.liveMediaLease != null) {
+      error = 'غادر الغرفة أو البث قبل بدء المكالمة.';
       notify();
       return;
     }
@@ -323,7 +323,7 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
       if (!configured)
         throw const AccountFailure(
           'CALLS_DISABLED',
-          'المكالمات غير متاحة حاليًا؛ جرّب لاحقًا.',
+          'خدمة المكالمات غير مفعّلة حاليًا؛ تواصل مع إدارة التطبيق.',
         );
       await releaseTail;
       await accounts.roomAudioReleased;
@@ -376,8 +376,8 @@ class CallController extends ChangeNotifier with WidgetsBindingObserver {
         !call.incoming ||
         !call.canControl)
       return;
-    if (accounts.voiceRoomActive) {
-      error = 'غادر الغرفة الصوتية قبل قبول المكالمة.';
+    if (accounts.voiceRoomActive || accounts.liveMediaLease != null) {
+      error = 'غادر الغرفة أو البث قبل قبول المكالمة.';
       notify();
       return;
     }

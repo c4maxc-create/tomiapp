@@ -698,10 +698,11 @@ class PrivateChatPage extends StatefulWidget {
     required this.conversation,
     this.initialImage,
     this.initialVideo,
+    this.initialWallpaper,
   });
   final ChatController chats;
   final DirectConversation conversation;
-  final XFile? initialImage, initialVideo;
+  final XFile? initialImage, initialVideo, initialWallpaper;
   @override
   State<PrivateChatPage> createState() => _PrivateChatPageState();
 }
@@ -727,6 +728,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
     focus.addListener(() {
       if (focus.hasFocus && pane != 0 && mounted) setState(() => pane = 0);
     });
+    if (widget.initialWallpaper != null)
+      unawaited(
+        readPickedImage(
+          widget.initialWallpaper!,
+        ).then(thread.setWallpaperImage),
+      );
     unawaited(restoreDraft());
     unawaited(thread.sync(reconcile: true));
     if (widget.initialVideo != null) unawaited(loadVideo(widget.initialVideo!));
@@ -811,6 +818,14 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
     }
     if (action == 'delete') {
       await delete(m);
+      return;
+    }
+    if (action == 'edit') {
+      await editMessage(m);
+      return;
+    }
+    if (action == 'info') {
+      await messageInfo(m);
       return;
     }
     if (action == 'reply') {
@@ -1058,6 +1073,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('صورة من الاستوديو'),
+                onTap: () => Navigator.pop(context, -1),
+              ),
               const ListTile(
                 title: Text('خلفية هذه المحادثة'),
                 subtitle: Text('محفوظة على جهازك لهذا الحساب فقط'),
@@ -1083,7 +1103,24 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
         ),
       ),
     );
-    if (chosen != null && mounted) await thread.setWallpaper(chosen);
+    if (chosen == -1 && mounted) {
+      await GalleryIntent.remember(
+        widget.chats.accounts.api.baseUrl,
+        widget.chats.accounts.user!.id,
+        conversationId: thread.conversation.id,
+        purpose: 'chat-wallpaper',
+      );
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        maxHeight: 2400,
+        imageQuality: 80,
+      );
+      await GalleryIntent.clear();
+      if (file != null && mounted)
+        await thread.setWallpaperImage(await readPickedImage(file));
+    } else if (chosen != null && mounted)
+      await thread.setWallpaper(chosen);
   }
 
   Future<void> toggleBlock() async {
@@ -1475,6 +1512,90 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
     }
   }
 
+  Future<void> editMessage(ChatMessage m) async {
+    final input = TextEditingController(text: m.text);
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: const Text('تعديل الرسالة'),
+        content: TextField(
+          controller: input,
+          minLines: 1,
+          maxLines: 6,
+          maxLength: 2000,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(d, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(d, true),
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+    if (yes == true) {
+      try {
+        await thread.request(
+          'PUT',
+          '/messages/${m.id}/edit',
+          body: {'text': input.text, 'expectedRevision': m.revision},
+        );
+        await thread.refreshMessage(m.id);
+      } on AccountFailure catch (e) {
+        if (mounted) showNote(context, e.message);
+      }
+    }
+    input.dispose();
+  }
+
+  Future<void> messageInfo(ChatMessage m) async {
+    try {
+      final d = await thread.request('GET', '/messages/${m.id}/info');
+      if (!mounted) return;
+      String time(Object? value) {
+        final date = DateTime.tryParse(value as String? ?? '');
+        return date == null
+            ? 'غير مسجّل بعد'
+            : date.toLocal().toString().split('.').first;
+      }
+
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (_) => SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'تفاصيل الرسالة',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                Text('أُرسلت: ${time(d['sentAt'])}'),
+                if (d['editedAt'] != null)
+                  Text('عُدّلت: ${time(d['editedAt'])}'),
+                if ((d['receipts'] as List? ?? []).isEmpty)
+                  const Text('وقت الوصول والمشاهدة غير مسجّل بعد.'),
+                for (final r in d['receipts'] as List? ?? []) ...[
+                  const Divider(),
+                  Text('وصلت: ${time(r['deliveredAt'])}'),
+                  Text('شُوهدت: ${time(r['readAt'])}'),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    } on AccountFailure catch (e) {
+      if (mounted) showNote(context, e.message);
+    }
+  }
+
   Future<void> messageActions(ChatMessage m) async {
     if (m.deleted) return;
     final c = thread.conversation;
@@ -1504,6 +1625,17 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                           ),
                       ],
                     ),
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text('تفاصيل الرسالة'),
+                  onTap: () => Navigator.pop(context, 'info'),
+                ),
+                if (m.isMine && m.text.isNotEmpty && c.canSend)
+                  ListTile(
+                    leading: const Icon(Icons.edit_outlined),
+                    title: const Text('تعديل الرسالة'),
+                    onTap: () => Navigator.pop(context, 'edit'),
                   ),
                 if (c.canSend)
                   ListTile(
@@ -1756,6 +1888,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
       alignment: m.isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
         onLongPress: () => messageActions(m),
+        onTap: () => messageActions(m),
         child: Container(
           margin: const EdgeInsets.only(bottom: 5),
           padding: EdgeInsets.fromLTRB(
@@ -2412,7 +2545,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                     minHeight: 32,
                   ),
                   padding: EdgeInsets.zero,
-                  icon: const Icon(Icons.reply_all_rounded, size: 19),
+                  icon: const Icon(Icons.close_rounded, size: 19),
                 ),
               if (attachment.isNotEmpty)
                 IconButton(
@@ -2762,6 +2895,16 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                       ),
                     ),
                   ),
+                  if (thread.wallpaperImage != null)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Image.memory(
+                          thread.wallpaperImage!.bytes,
+                          fit: BoxFit.cover,
+                          gaplessPlayback: true,
+                        ),
+                      ),
+                    ),
                   Column(
                     children: [
                       if (thread.pinnedMessageId != null && h >= 360)

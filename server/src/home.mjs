@@ -39,16 +39,17 @@ export function createHome({database,storage,readJson,respond,limit,userById}) {
  if(method==='GET'&&path==='/v1/stories'){
   const userId=url.searchParams.get('userId');if(userId&&!validUuid(userId))throw new ApiError(400,'VALIDATION','الحساب غير صحيح.');
   const users=userId?[{user_id:userId}]:(await database.query(`SELECT s.user_id,MAX(s.created_at) latest FROM tomi_stories s WHERE s.expires_at>? AND ${visible}
-   AND (s.user_id=? OR EXISTS(SELECT 1 FROM tomi_follows f WHERE f.follower_id=? AND f.following_id=s.user_id)) GROUP BY s.user_id ORDER BY latest DESC,s.user_id LIMIT 100`,[stamp(),viewer,viewer,viewer,viewer])).rows;
-  const groups=[];for(const u of users){const rows=(await database.query(select+' WHERE s.user_id=? AND s.expires_at>? AND '+visible+' ORDER BY s.created_at,s.id LIMIT 50',[viewer,u.user_id,stamp(),viewer,viewer])).rows;if(rows.length)groups.push({author:story(rows[0],viewer).author,stories:rows.map(r=>story(r,viewer))});}
+   AND (EXISTS(SELECT 1 FROM tomi_story_options o WHERE o.story_id=s.id AND o.audience='public') OR s.user_id=? OR EXISTS(SELECT 1 FROM tomi_follows f WHERE f.follower_id=? AND f.following_id=s.user_id)) GROUP BY s.user_id ORDER BY latest DESC,s.user_id LIMIT 100`,[stamp(),viewer,viewer,viewer,viewer])).rows;
+  const groups=[];for(const u of users){const rows=(await database.query(select+' WHERE s.user_id=? AND s.expires_at>? AND '+visible+(userId?'':" AND (EXISTS(SELECT 1 FROM tomi_story_options o WHERE o.story_id=s.id AND o.audience='public') OR s.user_id=? OR EXISTS(SELECT 1 FROM tomi_follows f WHERE f.follower_id=? AND f.following_id=s.user_id))")+' ORDER BY s.created_at,s.id LIMIT 50',[viewer,u.user_id,stamp(),viewer,viewer,...(userId?[]:[viewer,viewer])])).rows;if(rows.length)groups.push({author:story(rows[0],viewer).author,stories:rows.map(r=>story(r,viewer))});}
   groups.sort((a,b)=>Number(b.author.id===viewer)-Number(a.author.id===viewer)||Number(a.stories.every(s=>s.seen))-Number(b.stories.every(s=>s.seen)));
   respond(response,200,{groups,imageUploadEnabled:!!storage,videoUploadEnabled:!!storage});return true;
  }
  if(method==='POST'&&path==='/v1/stories'){
-  await limit('stories:'+viewer,30);const d=await readJson(request);fields(d,['requestId','text','imageUploadId','videoUploadId','attachmentSha256']);
+  await limit('stories:'+viewer,30);const d=await readJson(request);fields(d,['requestId','text','imageUploadId','videoUploadId','attachmentSha256','audience']);
+  const audience=d.audience??'followers';if(!['public','followers'].includes(audience))throw new ApiError(400,'VALIDATION','الجمهور غير صحيح.');
   const text=(typeof d.text==='string'?d.text:'').trim(),image=d.imageUploadId??null,video=d.videoUploadId??null,sha=d.attachmentSha256??null;
   if(!validUuid(d.requestId)||d.text!==undefined&&typeof d.text!=='string'||[...text].length>500||image!==null&&!validUuid(image)||video!==null&&!validUuid(video)||image&&video||!text&&!image&&!video||!!(image||video)!==!!sha||sha&&!/^[a-f0-9]{64}$/.test(sha))throw new ApiError(400,'VALIDATION','اختَر صورة أو فيديو أو نصًا حتى500 حرف.');
-  const hash=digest(JSON.stringify([text,image,video,sha]));
+  const hash=digest(JSON.stringify([text,image,video,sha,...(audience==='public'?['public']:[])]));
   async function prior(db=database){const r=(await db.query('SELECT * FROM tomi_story_receipts WHERE user_id=? AND request_id=?',[viewer,d.requestId])).rows[0];if(!r)return null;if(r.payload_hash!==hash)throw new ApiError(409,'REQUEST_CHANGED','تغيّر محتوى الطلب؛ استخدم طلبًا جديدًا.');return one(r.story_id,viewer,db);}
   const old=await prior();if(old){respond(response,200,{story:old});return true;}
   const media=image||video,table=video?'tomi_video_uploads':'tomi_image_uploads';let dimensions;
@@ -65,6 +66,7 @@ export function createHome({database,storage,readJson,respond,limit,userById}) {
    if(media){const changed=await db.query("UPDATE "+table+" SET state='attached',width=?,height=?"+(video?',duration_ms=?':'')+" WHERE id=? AND user_id=? AND state='pending' AND expires_at>? RETURNING id",[dimensions.width,dimensions.height,...(video?[dimensions.durationMs]:[]),media,viewer,stamp()]);if(!changed.rows.length)throw new ApiError(409,'UPLOAD_INVALID','الملف سبق استعماله.');}
    const createdAt=stamp(),expiresAt=new Date(Date.parse(createdAt)+86400000).toISOString();
    await db.query('INSERT INTO tomi_stories(id,user_id,request_id,body,image_upload_id,video_upload_id,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?)',[id,viewer,d.requestId,text,image,video,createdAt,expiresAt]);
+   await db.query('INSERT INTO tomi_story_options(story_id,audience) VALUES(?,?)',[id,audience]);
    await db.query('INSERT INTO tomi_story_receipts(user_id,request_id,story_id,payload_hash,created_at) VALUES(?,?,?,?,?)',[viewer,d.requestId,id,hash,stamp()]);
   });}catch(e){if(!isUniqueConflict(e)&&e.code!=='UPLOAD_INVALID')throw e;const replay=await prior();if(!replay)throw e;id=replay.id;}
   respond(response,201,{story:await one(id,viewer)});return true;

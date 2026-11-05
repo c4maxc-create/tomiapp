@@ -1,0 +1,6 @@
+00:00 +0: loading /workspace/tomiapp/test/red_room30_test.dart
+00:00 +0: /workspace/tomiapp/test/red_room30_test.dart: minimized room renders in the real app builder without a red error overlay
+00:04 +1: /workspace/tomiapp/test/navigation29_test.dart: room minimize keeps its audio session alive across navigation; explicit exit releases it
+00:05 +2: /workspace/tomiapp/test/navigation29_test.dart: wallpaper selection survives reopening the same account conversation
+00:08 +3: /workspace/tomiapp/test/navigation29_test.dart: recording and video delivery activity appear then expire rather than sticking online
+00:08 +4: All tests passed!

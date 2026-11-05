@@ -1,0 +1,36 @@
+00:00 +0: loading /workspace/tomiapp/test/accounts_widget_test.dart
+00:00 +0: /workspace/tomiapp/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:02 +1: /workspace/tomiapp/test/social_test.dart: comment errors and keyboard remain scrollable on Size(320.0, 640.0)
+00:03 +2: /workspace/tomiapp/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:03 +3: /workspace/tomiapp/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:05 +4: /workspace/tomiapp/test/social_test.dart: real publication keeps draft and request ID after a failed response
+00:07 +5: /workspace/tomiapp/test/accounts_widget_test.dart: profile edit waits for server success and keeps text when username is taken
+00:08 +6: /workspace/tomiapp/test/social_test.dart: real feed, likes and comments fit enlarged text on Size(320.0, 640.0)
+00:08 +7: /workspace/tomiapp/test/social_test.dart: real feed, likes and comments fit enlarged text on Size(320.0, 640.0)
+00:09 +8: /workspace/tomiapp/test/accounts_widget_test.dart: expired session removes pushed account pages and returns to login
+00:10 +9: /workspace/tomiapp/test/social_test.dart: real feed, likes and comments fit enlarged text on Size(800.0, 420.0)
+00:10 +10: /workspace/tomiapp/test/social_test.dart: R2 receives exact bytes and checksum without the account token
+00:10 +11: /workspace/tomiapp/test/social_test.dart: late feed responses cannot replace a newly selected scope
+00:12 +12: /workspace/tomiapp/test/content30_test.dart: gallery wallpaper is durable and account scoped without copying the blob on each draft edit
+00:12 +13: /workspace/tomiapp/test/content30_test.dart: publishing audience persists with the saved draft and cannot change an uncertain committed request
+00:12 +14: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:13 +15: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:13 +16: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:13 +17: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.5
+00:14 +18: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 2.0
+00:14 +19: /workspace/tomiapp/test/home11_test.dart: story labels fit at 800.0x420.0 with text scale 1.0
+00:14 +20: /workspace/tomiapp/test/home11_test.dart: story labels fit at 800.0x420.0 with text scale 1.5
+00:14 +21: /workspace/tomiapp/test/home11_test.dart: story labels fit at 800.0x420.0 with text scale 2.0
+00:14 +22: /workspace/tomiapp/test/home11_test.dart: disabled realtime keeps manual story refresh available
+00:14 +23: /workspace/tomiapp/test/home11_test.dart: live home polling refreshes and stops on logout
+00:14 +24: /workspace/tomiapp/test/home11_test.dart: old story/activity responses after logout cannot restore another session
+00:14 +25: /workspace/tomiapp/test/home11_test.dart: view receipts update the shared ring and expired items do not count
+00:14 +26: /workspace/tomiapp/test/home11_test.dart: story metadata stays compatible with older users and posts
+00:14 +27: /workspace/tomiapp/test/home11_test.dart: social push opening is bound to the signed-in account
+00:14 +28: /workspace/tomiapp/test/home11_test.dart: avatar opens an active story and no-story avatar opens its full picture
+00:15 +29: /workspace/tomiapp/test/red_room30_test.dart: minimized room renders in the real app builder without a red error overlay
+00:15 +30: /workspace/tomiapp/test/red_room30_test.dart: minimized room renders in the real app builder without a red error overlay
+00:16 +31: /workspace/tomiapp/test/red_room30_test.dart: minimized room renders in the real app builder without a red error overlay
+00:16 +32: /workspace/tomiapp/test/red_room30_test.dart: minimized room renders in the real app builder without a red error overlay
+00:18 +33: /workspace/tomiapp/test/red_room30_test.dart: minimized room renders in the real app builder without a red error overlay
+00:19 +34: All tests passed!

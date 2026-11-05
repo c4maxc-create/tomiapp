@@ -1,0 +1,76 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID,randomBytes} from 'node:crypto';
+import {TokenVerifier} from 'livekit-server-sdk';
+import {liveProviderFromEnvironment} from '../src/live_provider.mjs';
+import {fixture,password} from './fixtures/platform-api.mjs';
+const post=(f,u,audience='public')=>f.req(u,'POST','/v1/posts',{requestId:randomUUID(),text:'وصف للفيديو',audience});
+test('audience affects discovery while profile remains public; edits and comment replies preserve ownership and request identity',async t=>{
+ const f=await fixture(t),a=await f.register('content30_a'),b=await f.register('content30_b'),c=await f.register('content30_c');
+ const publicStory=(await f.req(a,'POST','/v1/stories',{requestId:randomUUID(),text:'عام',audience:'public'})).data.story;assert.ok(publicStory);assert.equal((await f.req(b,'GET','/v1/stories')).data.groups.length,1);
+ const nonce=randomUUID(),body={requestId:nonce,text:'للمتابعين في الرئيسية',audience:'followers'},r=await f.req(a,'POST','/v1/posts',body);assert.equal(r.status,201,JSON.stringify(r));const p=r.data.post;
+ assert.equal((await f.req(b,'GET','/v1/posts?scope=explore')).data.posts.length,0);
+ assert.equal((await f.req(b,'GET','/v1/posts?scope=explore&userId='+a.user.id)).data.posts.length,1);
+ assert.equal((await f.req(a,'GET','/v1/posts?scope=mine')).data.posts.length,1);
+ await f.req(b,'PUT','/v1/users/'+a.user.id+'/follow',{follow:true});assert.equal((await f.req(b,'GET','/v1/posts?scope=following')).data.posts.length,1);
+ assert.equal((await f.req(a,'POST','/v1/posts',{...body,audience:'public'})).status,409);
+ assert.equal((await f.req(b,'PUT','/v1/posts/'+p.id,{text:'سرقة',audience:'public',expectedRevision:0})).status,403);
+ const updated=await f.req(a,'PUT','/v1/posts/'+p.id,{text:'وصف معدل',audience:'public',expectedRevision:0});assert.equal(updated.status,200,JSON.stringify(updated));assert.equal(updated.data.post.revision,1);
+ assert.equal((await f.req(a,'PUT','/v1/posts/'+p.id,{text:'قديم',audience:'public',expectedRevision:0})).status,409);
+ const parent=(await f.req(b,'POST',`/v1/posts/${p.id}/comments`,{text:'تعليق',requestId:randomUUID()})).data.comment;
+ const replyBody={text:'رد',requestId:randomUUID(),parentId:parent.id};const reply=await f.req(c,'POST',`/v1/posts/${p.id}/comments`,replyBody);assert.equal(reply.status,201,JSON.stringify(reply));assert.equal(reply.data.comment.parentId,parent.id);
+ const another=(await post(f,a)).data.post;assert.equal((await f.req(c,'POST',`/v1/posts/${another.id}/comments`,{...replyBody,requestId:randomUUID()})).status,404);
+ assert.equal((await f.req(c,'POST',`/v1/posts/${p.id}/comments`,{...replyBody,parentId:null})).status,409);
+});
+test('message edits are owner-only and revision fenced; delivery/read times come only from authorized recipients and never move on retries',async t=>{
+ const f=await fixture(t),a=await f.register('message30_a'),b=await f.register('message30_b'),c=await f.register('message30_c');
+ const thread=(await f.req(a,'POST','/v1/chats',{userId:b.user.id})).data.conversation;
+ const m=(await f.req(a,'POST',`/v1/chats/${thread.id}/messages`,{text:'قبل',requestId:randomUUID()})).data.message,path=`/v1/chats/${thread.id}/messages/${m.id}`;
+ assert.equal((await f.req(c,'GET',path+'/info')).status,404);
+ assert.equal((await f.req(b,'PUT',path+'/edit',{text:'سرقة',expectedRevision:0})).status,403);
+ assert.equal((await f.req(a,'PUT',path+'/edit',{text:'بعد',expectedRevision:0})).status,200);
+ assert.equal((await f.req(a,'PUT',path+'/edit',{text:'قديم',expectedRevision:0})).status,409);
+ const fresh=(await f.req(b,'GET',path)).data.message;assert.equal(fresh.text,'بعد');assert.ok(fresh.editedAt);
+ assert.equal((await f.req(c,'PUT',`/v1/chats/${thread.id}/receipts`,{ids:[m.id],event:'read'})).status,404);
+ await f.req(b,'PUT',`/v1/chats/${thread.id}/receipts`,{ids:[m.id],event:'delivered'});
+ const first=(await f.req(a,'GET',path+'/info')).data;assert.equal(first.receipts.length,1);assert.ok(first.receipts[0].deliveredAt);assert.equal(first.receipts[0].readAt,null);
+ await f.req(b,'PUT',`/v1/chats/${thread.id}/receipts`,{ids:[m.id],event:'read'});await f.req(b,'PUT',`/v1/chats/${thread.id}/receipts`,{ids:[m.id],event:'read'});
+ const second=(await f.req(a,'GET',path+'/info')).data;assert.equal(second.receipts[0].deliveredAt,first.receipts[0].deliveredAt);assert.ok(second.receipts[0].readAt);
+ const group=(await f.req(a,'POST','/v1/groups',{title:'مجموعة',memberIds:[b.user.id,c.user.id],requestId:randomUUID()})).data.conversation;
+ const gm=(await f.req(a,'POST',`/v1/groups/${group.id}/messages`,{text:'قديم',requestId:randomUUID()})).data.message;
+ assert.equal((await f.req(a,'PUT',`/v1/groups/${group.id}/messages/${gm.id}/edit`,{text:'جديد',expectedRevision:0})).status,200);
+ assert.equal((await f.req(b,'GET',`/v1/groups/${group.id}/messages/${gm.id}`)).data.message.text,'جديد');
+});
+test('live PK publishes only hosts, needs invitation acceptance, scores on server and settles at five minutes without duplicate support',async t=>{
+ let now=Date.now();const grants=[],closed=[];const provider={async grant(room,identity,publish){grants.push({room,identity,publish});return{url:'wss://test.livekit.cloud',room,identity,publish,token:'test-only'};},async close(room){closed.push(room);},async remove(room,identity){grants.push({revoked:identity,room});}};
+ const f=await fixture(t,{liveProvider:provider,liveClock:()=>now,liveAutoTick:false}),a=await f.register('live30_a'),b=await f.register('live30_b'),c=await f.register('live30_c');
+ const create=async(u,title)=>(await f.req(u,'POST','/v1/lives',{title,requestId:randomUUID()})).data.live;
+ const la=await create(a,'أول بث'),lb=await create(b,'ثاني بث');assert.equal(la.host.id,a.user.id);
+ const thread=(await f.req(c,'POST','/v1/chats',{userId:a.user.id})).data.conversation,call=await f.req(c,'POST','/v1/calls',{conversationId:thread.id,kind:'audio',requestId:randomUUID()});assert.equal(call.data.call.reason,'busy');
+ assert.equal((await f.req(c,'POST',`/v1/lives/${la.id}/join`,{})).data.connection.publish,false);
+ assert.equal((await f.req(a,'POST',`/v1/lives/${la.id}/join`,{})).data.connection.publish,true);
+ const invited=await f.req(a,'POST',`/v1/lives/${la.id}/invite`,{targetId:lb.id,mode:'taps'});assert.equal(invited.status,201,JSON.stringify(invited));const id=invited.data.battleId;
+ assert.equal((await f.req(c,'POST',`/v1/lives/battles/${id}/accept`,{})).status,403);
+ assert.equal((await f.req(b,'POST',`/v1/lives/battles/${id}/accept`,{})).status,200);
+ const pair=(await f.req(b,'POST',`/v1/lives/${lb.id}/join`,{})).data.connection;assert.equal(pair.room,'tomi-live-'+la.id);assert.equal(pair.publish,true);
+ const support={targetId:la.id,requestId:randomUUID()};for(let i=0;i<2;i++)assert.equal((await f.req(c,'POST',`/v1/lives/battles/${id}/support`,support)).status,200);
+ assert.equal((await f.req(c,'POST',`/v1/lives/battles/${id}/support`,{...support,targetId:lb.id})).status,409);
+ assert.equal((await f.req(a,'POST',`/v1/lives/battles/${id}/support`,{...support,requestId:randomUUID()})).status,403);
+ now+=300001;await f.db.query('UPDATE tomi_lives SET seen_at=?',[now]);const list=(await f.req(c,'GET','/v1/lives')).data;const result=list.lives.find(x=>x.id===la.id).battle;assert.equal(result.state,'finished');assert.equal(result.aScore,1);assert.equal(result.winner,la.id);
+ assert.equal(list.payments.configured,false);assert.equal(grants.filter(x=>x.revoked&&x.room==='tomi-live-'+la.id).length,2);
+ const env={ROOM_LIVEKIT_URL:'wss://fixture.livekit.cloud',ROOM_LIVEKIT_API_KEY:'test-key',ROOM_LIVEKIT_API_SECRET:'test-only-secret-for-signing-jwt-30'};const jwtProvider=liveProviderFromEnvironment(env,{client:{removeParticipant:async()=>{},deleteRoom:async()=>{}}});for(const publish of [false,true]){const grant=await jwtProvider.grant('tomi-live-test','fixture-user',publish),claims=await new TokenVerifier(env.ROOM_LIVEKIT_API_KEY,env.ROOM_LIVEKIT_API_SECRET).verify(grant.token);assert.equal(claims.video.canPublish,publish);assert.deepEqual(claims.video.canPublishSources,['camera','microphone']);assert.equal(claims.video.canPublishData,false);assert.ok(claims.exp-Math.floor(Date.now()/1000)<=60);}
+
+ await f.req(a,'POST',`/v1/lives/${la.id}/end`,{});assert.ok(closed.includes('tomi-live-'+la.id));assert.equal((await f.req(c,'POST',`/v1/lives/${la.id}/join`,{})).status,409);
+});
+test('live gift support debits trial coins once, rejects changed or unfunded retries, and missing video service stays visibly disabled',async t=>{
+ const provider={async grant(){return{};},async close(){}};const f=await fixture(t,{liveProvider:provider,liveAutoTick:false}),a=await f.register('gifts30_a'),b=await f.register('gifts30_b'),c=await f.register('gifts30_c');
+ const start=async u=>(await f.req(u,'POST','/v1/lives',{title:'تجربة',requestId:randomUUID()})).data.live;
+ const x=await start(a),y=await start(b),bid=(await f.req(a,'POST',`/v1/lives/${x.id}/invite`,{targetId:y.id,mode:'gifts'})).data.battleId;await f.req(b,'POST',`/v1/lives/battles/${bid}/accept`,{});
+ await f.req(c,'GET','/v1/rooms/wallet');const body={targetId:y.id,requestId:randomUUID(),gift:1000};
+ assert.equal((await f.req(c,'POST',`/v1/lives/battles/${bid}/support`,body)).status,200);
+ assert.equal((await f.req(c,'POST',`/v1/lives/battles/${bid}/support`,body)).status,200);
+ assert.equal(Number((await f.db.query('SELECT coins FROM tomi_room_wallets WHERE user_id=?',[c.user.id])).rows[0].coins),0);
+ assert.equal((await f.req(c,'POST',`/v1/lives/battles/${bid}/support`,{...body,requestId:randomUUID()})).status,409);
+ assert.equal((await f.req(c,'POST',`/v1/lives/battles/${bid}/support`,{targetId:y.id,requestId:randomUUID(),count:7})).status,200);const combined=(await f.req(c,'GET','/v1/lives')).data.lives.find(l=>l.id===y.id).battle;assert.equal(combined.bScore,1007);assert.equal(combined.mode,'combined');
+ const erased=await f.req(a,'POST','/v1/account/deletion',{requestId:randomUUID(),receiptToken:randomBytes(32).toString('base64url'),password,confirmation:'حذف حسابي'});assert.equal(erased.status,202,JSON.stringify(erased));assert.equal((await f.req(c,'POST',`/v1/lives/${x.id}/join`,{})).status,409);assert.equal((await f.req(c,'GET','/v1/lives')).data.lives.some(l=>l.id===x.id),false);
+});

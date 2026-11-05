@@ -1,0 +1,12 @@
+✔ audience affects discovery while profile remains public; edits and comment replies preserve ownership and request identity (4256.024247ms)
+✔ message edits are owner-only and revision fenced; delivery/read times come only from authorized recipients and never move on retries (3707.551387ms)
+✔ live PK publishes only hosts, needs invitation acceptance, scores on server and settles at five minutes without duplicate support (3852.902634ms)
+✔ live gift support debits trial coins once, rejects changed or unfunded retries, and missing video service stays visibly disabled (3736.256259ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15922.83646

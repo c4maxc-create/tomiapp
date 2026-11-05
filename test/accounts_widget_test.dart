@@ -330,9 +330,8 @@ void main() {
       await accounts.restore();
       await tester.pumpWidget(TomiApp(accounts: accounts));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('قائمة المنشورات'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('البحث عن حساب'));
+      await tester.tap(find.byTooltip('البحث'));
+
       await tester.pumpAndSettle();
       expired = true;
       await tester.enterText(

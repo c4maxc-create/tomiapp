@@ -254,6 +254,7 @@ export function createVoiceRooms({database,provider,readJson,respond,limit,users
         if(previous?.state==='kicked')fail(403,'ROOM_KICKED','أُزيل حسابك من هذه الغرفة.');
         const presence=(await db.query('SELECT room_id FROM tomi_voice_presence WHERE user_id=?',[current.id])).rows[0];
         if(presence&&presence.room_id!==r.id)fail(409,'ROOM_BUSY','غادر غرفتك الحالية أولًا.');
+        if((await db.query("SELECT 1 FROM tomi_lives WHERE user_id=? AND status='live'",[current.id])).rows.length)fail(409,'LIVE_BUSY','أنه البث قبل دخول الغرفة.');
         if((await db.query('SELECT 1 FROM tomi_active_calls WHERE user_id=?',[current.id])).rows.length)fail(409,'CALL_BUSY','أنه المكالمة الخاصة قبل دخول الغرفة.');
         const blocked=(await db.query(`SELECT 1 FROM tomi_user_blocks b WHERE
           (b.blocker_id=? AND (b.blocked_id=? OR b.blocked_id IN(SELECT user_id FROM tomi_voice_members WHERE room_id=? AND state='active'))) OR

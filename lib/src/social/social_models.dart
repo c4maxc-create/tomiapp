@@ -85,6 +85,8 @@ class SocialPost {
     this.image,
     this.video,
     this.saved = false,
+    this.audience = 'public',
+    this.revision = 0,
     required this.likesCount,
     required this.commentsCount,
     required this.liked,
@@ -97,6 +99,8 @@ class SocialPost {
   final PostVideo? video;
   final int likesCount, commentsCount;
   final bool liked, isMine, saved;
+  final String audience;
+  final int revision;
   factory SocialPost.fromJson(Map<String, dynamic> d) => SocialPost(
     id: d['id'] as String,
     text: d['text'] as String,
@@ -111,6 +115,8 @@ class SocialPost {
     likesCount: (d['likesCount'] as num).toInt(),
     commentsCount: (d['commentsCount'] as num).toInt(),
     saved: d['saved'] == true,
+    audience: d['audience'] as String? ?? 'public',
+    revision: (d['revision'] as num?)?.toInt() ?? 0,
     liked: d['liked'] as bool,
     isMine: d['isMine'] as bool,
   );
@@ -118,6 +124,7 @@ class SocialPost {
 
 class SocialComment {
   const SocialComment({
+    this.parentId,
     required this.id,
     required this.text,
     required this.createdAt,
@@ -125,10 +132,12 @@ class SocialComment {
     required this.isMine,
   });
   final String id, text;
+  final String? parentId;
   final DateTime createdAt;
   final PostAuthor author;
   final bool isMine;
   factory SocialComment.fromJson(Map<String, dynamic> d) => SocialComment(
+    parentId: d['parentId'] as String?,
     id: d['id'] as String,
     text: d['text'] as String,
     createdAt: DateTime.parse(d['createdAt'] as String),

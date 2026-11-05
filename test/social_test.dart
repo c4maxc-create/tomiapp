@@ -1,3 +1,5 @@
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -53,6 +55,11 @@ void screen(WidgetTester t, Size size) {
   t.view.physicalSize = size;
   addTearDown(t.view.resetPhysicalSize);
   addTearDown(t.view.resetDevicePixelRatio);
+}
+
+class TestGallery extends ImagePickerPlatform {
+  @override
+  Future<List<XFile>> getMedia({required MediaOptions options}) async => [];
 }
 
 void main() {
@@ -155,8 +162,11 @@ void main() {
         TomiApp(accounts: a, textScaler: const TextScaler.linear(1.5)),
       );
       await t.pumpAndSettle();
+      final previousPicker = ImagePickerPlatform.instance;
+      ImagePickerPlatform.instance = TestGallery();
+      addTearDown(() => ImagePickerPlatform.instance = previousPicker);
+      FlutterSecureStorage.setMockInitialValues({});
       await tapVisible(t, find.byKey(const Key('compose-post')));
-      await tapVisible(t, find.text('منشور جديد'));
       await t.enterText(find.byKey(const Key('post-input')), 'لحظتي الحلوة');
       t.binding.focusManager.primaryFocus?.unfocus();
       await t.pumpAndSettle();

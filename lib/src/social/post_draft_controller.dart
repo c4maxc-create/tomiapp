@@ -19,6 +19,15 @@ class PostDraftController extends ChangeNotifier {
   PendingChatMessage item = PendingChatMessage('', null);
   bool disposed = false, loading = true, busy = false, storageReady = true;
   String? error;
+  String audience = 'public';
+  void selectAudience(String value) {
+    if (locked || !['public', 'followers'].contains(value)) return;
+    audience = value;
+    item = PendingChatMessage(item.text, item.image, video: item.video);
+    unawaited(persist());
+    notify();
+  }
+
   Timer? debounce;
   bool get current =>
       !disposed &&
@@ -36,6 +45,7 @@ class PostDraftController extends ChangeNotifier {
           : await accounts.draftStore.read(owner!, 'post');
       if (!current || d == null) return;
       item = PendingChatMessage.restore(d);
+      audience = d['audience'] == 'followers' ? 'followers' : 'public';
       await loadMedia();
       if (current && item.commitAttempted)
         error =
@@ -77,7 +87,7 @@ class PostDraftController extends ChangeNotifier {
     return accounts.draftStore.write(
       owner!,
       'post',
-      item.toJson(),
+      {...item.toJson(), 'audience': audience},
       blobs: <String, Uint8List>{
         if (item.media != null) item.mediaKey!: item.media!.bytes,
       },
@@ -193,6 +203,7 @@ class PostDraftController extends ChangeNotifier {
         post = await accounts.publishPost(
           item.text,
           item.requestId,
+          audience: audience,
           uploadId: item.hasImage ? item.upload?.id : null,
           videoUploadId: item.hasVideo ? item.upload?.id : null,
           attachmentSha256: item.mediaKey,

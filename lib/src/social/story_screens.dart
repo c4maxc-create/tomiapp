@@ -19,6 +19,7 @@ import '../messaging/chat_screens.dart';
 import '../widgets.dart';
 import 'home_controller.dart';
 import 'social_models.dart';
+import 'social_media.dart';
 import 'social_screens.dart' show openAuthor, readPickedImage, relativeTime;
 
 const socialBackground = TomiColors.background;
@@ -215,6 +216,38 @@ Future<void> composeStory(
   XFile? initialImage,
   XFile? initialVideo,
 }) async {
+  if (initialImage == null && initialVideo == null) {
+    try {
+      await GalleryIntent.remember(
+        accounts.api.baseUrl,
+        accounts.user!.id,
+        purpose: 'story-media',
+      );
+      final file = await ImagePicker().pickMedia();
+      await GalleryIntent.clear();
+      if (!context.mounted) return;
+      if (file != null) {
+        final video =
+            (file.mimeType?.startsWith('video/') ?? false) ||
+            [
+              '.mp4',
+              '.mov',
+              '.m4v',
+              '.webm',
+            ].any(file.name.toLowerCase().endsWith);
+        if (video) {
+          initialVideo = file;
+        } else {
+          initialImage = file;
+        }
+      } else {
+        return;
+      }
+    } catch (_) {
+      if (context.mounted) showNote(context, 'تعذّر فتح الاستوديو.');
+      return;
+    }
+  }
   final result = await Navigator.push<bool>(
     context,
     MaterialPageRoute<bool>(
@@ -266,7 +299,27 @@ class StoriesStrip extends StatelessWidget {
       if (me == null) return const SizedBox.shrink();
       return Column(
         children: [
-          const Padding(padding:EdgeInsets.fromLTRB(18,8,18,0),child:Row(children:[Icon(Icons.auto_awesome_outlined,color:TomiColors.accent,size:17),SizedBox(width:7),Text('لحظات تومي',style:TextStyle(fontSize:12,fontWeight:FontWeight.w800,color:TomiColors.muted))])),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(18, 8, 18, 0),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.auto_awesome_outlined,
+                  color: TomiColors.accent,
+                  size: 17,
+                ),
+                SizedBox(width: 7),
+                Text(
+                  'لحظات تومي',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: TomiColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
           SizedBox(
             key: const Key('story-strip'),
             height: stripHeight(c, [
@@ -308,25 +361,90 @@ class StoriesStrip extends StatelessWidget {
     padding: const EdgeInsets.only(right: 10),
     child: SizedBox(
       width: 104,
-      child: Material(color:TomiColors.surface,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(TomiRadius.card),side:BorderSide(color:accounts.home.hasStory(u.id)&&accounts.home.unseen(u.id)?TomiColors.accent:TomiColors.border,width:1.4)),
-       child:InkWell(borderRadius:BorderRadius.circular(TomiRadius.card),onTap:()=>own&&!accounts.home.hasStory(u.id)?composeStory(c,accounts):openStoryAvatar(c,accounts,u),
-        child:Padding(padding:const EdgeInsets.all(10),child:Column(mainAxisAlignment:MainAxisAlignment.center,
-        children: [
-          SizedBox(height:66,child:Stack(alignment:Alignment.center,children:[
-            Transform.rotate(angle:-.10,child:Container(width:54,height:59,decoration:BoxDecoration(borderRadius:BorderRadius.circular(16),gradient:LinearGradient(colors:[TomiColors.accent.withValues(alpha:.18),TomiColors.raised]),border:Border.all(color:TomiColors.border)))),
-            AccountAvatar(u,size:43),
-            Positioned(right:1,bottom:0,child:Material(color:TomiColors.raised,shape:const CircleBorder(),child:InkWell(customBorder:const CircleBorder(),onTap:own?()=>composeStory(c,accounts):()=>openStoryAvatar(c,accounts,u),child:Padding(padding:const EdgeInsets.all(4),child:Icon(own?Icons.add_rounded:Icons.play_arrow_rounded,size:15,color:TomiColors.accent))))),
-          ])),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            key: ValueKey('story-label-${u.id}'),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: labelStyle,
+      child: Material(
+        color: TomiColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(TomiRadius.card),
+          side: BorderSide(
+            color: accounts.home.hasStory(u.id) && accounts.home.unseen(u.id)
+                ? TomiColors.accent
+                : TomiColors.border,
+            width: 1.4,
           ),
-        ],
-      )))),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(TomiRadius.card),
+          onTap: () => own && !accounts.home.hasStory(u.id)
+              ? composeStory(c, accounts)
+              : openStoryAvatar(c, accounts, u),
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  height: 66,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Transform.rotate(
+                        angle: -.10,
+                        child: Container(
+                          width: 54,
+                          height: 59,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            gradient: LinearGradient(
+                              colors: [
+                                TomiColors.accent.withValues(alpha: .18),
+                                TomiColors.raised,
+                              ],
+                            ),
+                            border: Border.all(color: TomiColors.border),
+                          ),
+                        ),
+                      ),
+                      AccountAvatar(u, size: 43),
+                      Positioned(
+                        right: 1,
+                        bottom: 0,
+                        child: Material(
+                          color: TomiColors.raised,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: own
+                                ? () => composeStory(c, accounts)
+                                : () => openStoryAvatar(c, accounts, u),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(
+                                own
+                                    ? Icons.add_rounded
+                                    : Icons.play_arrow_rounded,
+                                size: 15,
+                                color: TomiColors.accent,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  key: ValueKey('story-label-${u.id}'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: labelStyle,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     ),
   );
 }
@@ -1003,7 +1121,8 @@ class _StoryComposerPageState extends State<StoryComposerPage> {
   ImageUpload? upload;
   String requestId = newRequestId();
   bool busy = false, picking = false;
-  String? error;
+  String? error, videoPath;
+  String audience = 'public';
   late final accountId = widget.accounts.user?.id;
   @override
   void initState() {
@@ -1028,6 +1147,7 @@ class _StoryComposerPageState extends State<StoryComposerPage> {
       if (mounted)
         setState(() {
           media = next;
+          videoPath = video ? file.path : null;
           upload = null;
           requestId = newRequestId();
           error = null;
@@ -1105,6 +1225,7 @@ class _StoryComposerPageState extends State<StoryComposerPage> {
         '/v1/stories',
         body: {
           'requestId': requestId,
+          'audience': audience,
           'text': text.text.trim(),
           if (media != null && upload != null)
             (media is VideoDraft ? 'videoUploadId' : 'imageUploadId'):
@@ -1166,7 +1287,18 @@ class _StoryComposerPageState extends State<StoryComposerPage> {
               child: media != null && media is! VideoDraft
                   ? Image.memory(media!.bytes, fit: BoxFit.contain)
                   : Center(
-                      child: media is VideoDraft
+                      child: media is VideoDraft && videoPath != null
+                          ? InlineSocialVideo(
+                              key: ValueKey(videoPath),
+                              video: PostVideo({
+                                'width': (media! as VideoDraft).width,
+                                'height': (media! as VideoDraft).height,
+                                'durationMs': (media! as VideoDraft).durationMs,
+                              }),
+                              source: () async => Uri.file(videoPath!),
+                              preview: true,
+                            )
+                          : media is VideoDraft
                           ? const Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -1192,6 +1324,36 @@ class _StoryComposerPageState extends State<StoryComposerPage> {
             ),
           ),
           const SizedBox(height: 14),
+          DropdownButtonFormField<String>(
+            isExpanded: true,
+            initialValue: audience,
+            decoration: const InputDecoration(labelText: 'جمهور الستوري'),
+            items: const [
+              DropdownMenuItem(
+                value: 'public',
+                child: Text(
+                  'عام • للجميع',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              DropdownMenuItem(
+                value: 'followers',
+                child: Text(
+                  'للمتابعين',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+            onChanged: busy
+                ? null
+                : (v) => setState(() {
+                    audience = v!;
+                    requestId = newRequestId();
+                  }),
+          ),
+          const SizedBox(height: 12),
           TextField(
             key: const Key('story-text'),
             controller: text,
