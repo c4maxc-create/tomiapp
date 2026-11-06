@@ -204,7 +204,9 @@ class VideoDraft extends ImageDraft {
     required this.durationMs,
     required this.width,
     required this.height,
+    this.poster,
   }) : super(bytes, 'video/mp4');
+  final String? poster;
   final int durationMs, width, height;
 }
 
@@ -212,6 +214,21 @@ class PostVideo {
   PostVideo(this.data);
   final Map<String, dynamic> data;
   String? get url => data['url'] as String?;
+  String? get poster => data['poster'] as String?;
+  static final decodedPosters = Expando<Uint8List>();
+  Uint8List? get posterBytes {
+    final raw = poster;
+    if (raw == null ||
+        raw.length > 44000 ||
+        !raw.startsWith('data:image/png;base64,'))
+      return null;
+    try {
+      return decodedPosters[data] ??= base64Decode(raw.substring(22));
+    } catch (_) {
+      return null;
+    }
+  }
+
   int get width => (data['width'] as num).toInt();
   int get height => (data['height'] as num).toInt();
   int get durationMs => (data['durationMs'] as num).toInt();

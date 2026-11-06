@@ -31,6 +31,18 @@ public class MainActivity extends FlutterActivity {
             try {
                 String id = call.argument("id");
                 switch (call.method) {
+                    case "prepareVoiceAudio":
+                        boolean recordingVoice=Boolean.TRUE.equals(call.argument("recording"));
+                        if(TomiAudioService.active()) { if(recordingVoice) result.error("AUDIO_BUSY","أنه المكالمة أو غادر الغرفة قبل التسجيل.",null);else result.success(false);break; }
+                        android.media.AudioManager voiceAudio=(android.media.AudioManager)getSystemService(AUDIO_SERVICE);
+                        voiceAudio.setMode(android.media.AudioManager.MODE_NORMAL);
+                        if(android.os.Build.VERSION.SDK_INT>=31) voiceAudio.clearCommunicationDevice();
+                        voiceAudio.setSpeakerphoneOn(false);
+                        if(recordingVoice) {
+                            voiceAudio.setMicrophoneMute(false);
+                            if(voiceAudio.isMicrophoneMute()){result.error("MIC_MUTED","الميكروفون مكتوم من إعدادات الهاتف.",null);break;}
+                        }
+                        result.success(true);break;
                     case "shareText":
                         String sharedText=call.argument("text");
                         if(sharedText==null || sharedText.length()>10000){result.error("INVALID_SHARE","تعذّر المشاركة.",null);break;}

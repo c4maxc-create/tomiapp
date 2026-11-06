@@ -46,8 +46,9 @@ class GamesController extends ChangeNotifier with WidgetsBindingObserver {
       poll = Timer.periodic(const Duration(seconds: 2), (_) {
         if (foreground) unawaited(load());
       });
-    unawaited(restore());
+    unawaited(ready);
   }
+  late final Future<void> ready = restore();
   final AccountController accounts;
   final GameIntentStore intents;
   final bool autoPoll;

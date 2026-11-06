@@ -1,3 +1,4 @@
+import {requireContact} from './contact_preferences.mjs';
 import {randomUUID} from 'node:crypto';
 import {ApiError,digest,isUniqueConflict} from './security.mjs';
 import {imageTypes,maxImageBytes} from './images.mjs';
@@ -23,7 +24,7 @@ const threads=`SELECT t.*,(SELECT p.message_id FROM tomi_chat_pins p WHERE p.thr
  FROM tomi_chat_threads t JOIN tomi_chat_members self ON self.thread_id=t.id AND self.user_id=?
  JOIN tomi_chat_members pm ON pm.thread_id=t.id AND pm.user_id<>self.user_id JOIN tomi_users u ON u.id=pm.user_id
  ${avatarJoins} LEFT JOIN tomi_chat_messages lm ON lm.thread_id=t.id AND lm.sequence=t.next_seq `;
-const messages=`SELECT shared_link.message_id AS shared_message_id,shared_link.post_id AS shared_post_id,sp.id AS shared_available_id,sp.body AS shared_body,m.*,COALESCE(meta.revision,0) AS meta_revision,u.username,u.display_name,u.avatar_preset,doc.file_name AS document_name,doc.byte_length AS document_bytes,doc.object_key AS document_key,sticker.sticker_id,media.object_key,media.width,media.height,audio.object_key AS audio_key,audio.duration_ms,video.object_key AS video_key,video.width AS video_width,video.height AS video_height,video.duration_ms AS video_duration${avatarColumns}
+const messages=`SELECT shared_link.message_id AS shared_message_id,shared_link.post_id AS shared_post_id,sp.id AS shared_available_id,sp.body AS shared_body,m.*,COALESCE(meta.revision,0) AS meta_revision,u.username,u.display_name,u.avatar_preset,doc.file_name AS document_name,doc.byte_length AS document_bytes,doc.object_key AS document_key,sticker.sticker_id,media.object_key,media.width,media.height,audio.object_key AS audio_key,audio.duration_ms,video.object_key AS video_key,(SELECT poster FROM tomi_video_posters vp WHERE vp.upload_id=video.id) AS video_poster,video.width AS video_width,video.height AS video_height,video.duration_ms AS video_duration${avatarColumns}
  FROM tomi_chat_messages m JOIN tomi_users u ON u.id=m.sender_id LEFT JOIN tomi_chat_documents cd ON cd.message_id=m.id LEFT JOIN tomi_private_uploads doc ON doc.id=cd.upload_id LEFT JOIN tomi_chat_stickers sticker ON sticker.message_id=m.id LEFT JOIN tomi_chat_message_meta meta ON meta.message_id=m.id LEFT JOIN tomi_image_uploads media ON media.id=m.image_upload_id LEFT JOIN tomi_chat_audio ca ON ca.message_id=m.id LEFT JOIN tomi_audio_uploads audio ON audio.id=ca.upload_id LEFT JOIN tomi_chat_video cv ON cv.message_id=m.id LEFT JOIN tomi_video_uploads video ON video.id=cv.upload_id LEFT JOIN tomi_post_shares shared_link ON shared_link.message_id=m.id LEFT JOIN tomi_posts sp ON sp.id=shared_link.post_id AND NOT EXISTS(SELECT 1 FROM tomi_content_moderation x WHERE x.target_type='post' AND x.target_id=sp.id AND x.hidden=1) AND NOT EXISTS(SELECT 1 FROM tomi_account_restrictions x WHERE x.user_id=sp.user_id AND x.suspended=1) ${avatarJoins} `;
 export function createChat({database,storage,avatarStorage=storage,readJson,respond,limit,userById,enqueuePush=async()=>{},accountGate=async()=>{},groups,privateMedia,shareRequestCount=async()=>0}){
  let realtime;
@@ -34,7 +35,7 @@ export function createChat({database,storage,avatarStorage=storage,readJson,resp
  const messageJson=(r,viewer)=>({id:r.id,conversationId:r.thread_id,sequence:Number(r.sequence),requestId:r.sender_id===viewer?r.request_id:null,
   ...r.extra,sharedPost:!r.deleted_at&&r.shared_message_id?{id:r.shared_post_id??null,available:!!r.shared_available_id,text:r.shared_available_id?r.shared_body:''}:null,stickerId:r.deleted_at?null:r.sticker_id??null,file:!r.deleted_at&&r.document_key?{url:storage?.privateReadUrl(r.document_key)??null,name:r.document_name,byteLength:Number(r.document_bytes)}:null,text:r.deleted_at?'':r.body,createdAt:r.created_at,deleted:!!r.deleted_at,isMine:r.sender_id===viewer,
   author:{id:r.sender_id,username:r.username,displayName:r.display_name,avatarPreset:r.avatar_preset,...avatarFields(r,avatarStorage)},
-  video:!r.deleted_at&&r.video_key?{url:storage?.privateReadUrl(r.video_key)??null,width:Number(r.video_width),height:Number(r.video_height),durationMs:Number(r.video_duration)}:null,
+  video:!r.deleted_at&&r.video_key?{poster:r.video_poster??null,url:storage?.privateReadUrl(r.video_key)??null,width:Number(r.video_width),height:Number(r.video_height),durationMs:Number(r.video_duration)}:null,
   audio:!r.deleted_at&&r.audio_key?{url:storage?.privateReadUrl(r.audio_key)??null,durationMs:Number(r.duration_ms)}:null,
   image:!r.deleted_at&&r.object_key?{url:storage?.privateReadUrl(r.object_key)??null,width:Number(r.width),height:Number(r.height)}:null});
  async function thread(viewer,threadId,db=database){const{rows}=await db.query(threads+'WHERE t.id=?',[viewer,threadId]);if(!rows[0])fail(404,'CHAT_NOT_FOUND','المحادثة غير موجودة.');return rows[0];}
@@ -49,6 +50,8 @@ export function createChat({database,storage,avatarStorage=storage,readJson,resp
  const tools=createChatTools({database,thread,lock,sending,notify,id,fields,message,messageJson,messagesSql:messages,threadJson,respond,readJson,limit});
  async function handle(request,response,url,current){const path=url.pathname,method=request.method,viewer=current.id;
   if(await tools.handle(request,response,url,current))return true;
+  const muteRoute=path.match(/^\/v1\/chats\/([a-f0-9-]{36})\/mute$/);
+  if(muteRoute&&(method==='GET'||method==='PUT')){const tid=id(muteRoute[1]);await thread(viewer,tid);if(method==='PUT'){await limit('chat-mute:'+viewer,30);const d=await readJson(request);fields(d,['muted']);if(typeof d.muted!=='boolean')fail(400,'VALIDATION','قيمة الكتم غير صحيحة.');if(d.muted)await database.query('INSERT INTO tomi_muted_chats(user_id,thread_id) VALUES(?,?) ON CONFLICT(user_id,thread_id) DO NOTHING',[viewer,tid]);else await database.query('DELETE FROM tomi_muted_chats WHERE user_id=? AND thread_id=?',[viewer,tid]);}respond(response,200,{muted:!!(await database.query('SELECT 1 FROM tomi_muted_chats WHERE user_id=? AND thread_id=?',[viewer,tid])).rows.length});return true;}
   if(method==='GET'&&path==='/v1/chats'){
    const size=pageNumber(url,'limit',30,50);if(!size)fail(400,'VALIDATION','حجم الصفحة غير صحيح.');
    const values=[viewer],conditions=['self.visible=1'],raw=url.searchParams.get('cursor');
@@ -61,7 +64,7 @@ export function createChat({database,storage,avatarStorage=storage,readJson,resp
   }
   if(method==='POST'&&path==='/v1/chats'){
    await limit('chat-open:'+viewer,30);const d=await readJson(request);fields(d,['userId']);const target=id(d.userId);if(target===viewer)fail(400,'SELF_CHAT','اختَر حسابًا آخر.');await userById(target,viewer);
-   const threadId=await database.transaction(async db=>{const tid=await pair(db,viewer,target);sending(await thread(viewer,tid,db));await db.query('UPDATE tomi_chat_members SET visible=1 WHERE thread_id=? AND user_id=?',[tid,viewer]);return tid;});
+   const threadId=await database.transaction(async db=>{await requireContact(db,target,viewer,'messages');const tid=await pair(db,viewer,target);sending(await thread(viewer,tid,db));await db.query('UPDATE tomi_chat_members SET visible=1 WHERE thread_id=? AND user_id=?',[tid,viewer]);return tid;});
    respond(response,200,{conversation:threadJson(await thread(viewer,threadId),viewer)});return true;
   }
   if(method==='GET'&&path==='/v1/chat/blocks'){
@@ -123,7 +126,7 @@ export function createChat({database,storage,avatarStorage=storage,readJson,resp
      // Reconcile only this actor's matching nonce; all other errors stay errors.
      previous=await existing(database,viewer,requestId,hash);if(!previous)throw error;
     }
-    let saved;try{saved=await database.transaction(async db=>{const locked=await lock(db,viewer,tid);previous=await existing(db,viewer,requestId,hash);if(previous)return{id:previous,repeated:true,row:locked};sending(locked);
+    let saved;try{saved=await database.transaction(async db=>{const locked=await lock(db,viewer,tid);previous=await existing(db,viewer,requestId,hash);if(previous)return{id:previous,repeated:true,row:locked};await requireContact(db,locked.low_user_id===viewer?locked.high_user_id:locked.low_user_id,viewer,'messages');sending(locked);
      await tools.validateReply(db,tid,replyId);
      const stamp=now(),mid=randomUUID(),changed=await db.query('UPDATE tomi_chat_threads SET next_seq=next_seq+1,updated_at=? WHERE id=? RETURNING next_seq',[stamp,tid]);
      await db.query('INSERT INTO tomi_chat_messages(id,thread_id,sender_id,sequence,request_id,payload_hash,body,image_upload_id,created_at) VALUES(?,?,?,?,?,?,?,?,?)',[mid,tid,viewer,integer(Number(changed.rows[0].next_seq)),requestId,hash,text,uploadId,stamp]);
@@ -133,7 +136,7 @@ export function createChat({database,storage,avatarStorage=storage,readJson,resp
      if(audioId){const result=await db.query("UPDATE tomi_audio_uploads SET state='attached',duration_ms=? WHERE id=? AND user_id=? AND thread_id=? AND state='pending' AND expires_at>?",[audioInfo.durationMs,audioId,viewer,tid,now()]);if(result.changes!==1)fail(409,'UPLOAD_INVALID','التسجيل انتهى أو استُخدم.');await db.query('INSERT INTO tomi_chat_audio(message_id,upload_id) VALUES(?,?)',[mid,audioId]);}
      if(videoId){const changed=await db.query("UPDATE tomi_video_uploads SET state='attached',width=?,height=?,duration_ms=? WHERE id=? AND user_id=? AND thread_id=? AND state='pending' AND expires_at>?",[videoInfo.width,videoInfo.height,videoInfo.durationMs,videoId,viewer,tid,now()]);if(changed.changes!==1)fail(409,'UPLOAD_INVALID','الفيديو انتهى أو استُخدم.');await db.query('INSERT INTO tomi_chat_video(message_id,upload_id) VALUES(?,?)',[mid,videoId]);}
      await db.query('INSERT INTO tomi_chat_message_meta(message_id,reply_to_id,media_sha256) VALUES(?,?,?)',[mid,replyId,sha]);
-     await enqueuePush(db,{messageId:mid,recipientId:locked.low_user_id===viewer?locked.high_user_id:locked.low_user_id,threadId:tid});
+     if(!(await db.query('SELECT 1 FROM tomi_muted_chats WHERE user_id=? AND thread_id=?',[locked.low_user_id===viewer?locked.high_user_id:locked.low_user_id,tid])).rows.length)await enqueuePush(db,{messageId:mid,recipientId:locked.low_user_id===viewer?locked.high_user_id:locked.low_user_id,threadId:tid});
      await db.query('UPDATE tomi_chat_members SET visible=1 WHERE thread_id=?',[tid]);return{id:mid,repeated:false,row:locked};
     });}catch(error){if(!isUniqueConflict(error))throw error;const mid=await existing(database,viewer,requestId,hash);if(!mid)fail(409,'UPLOAD_INVALID','الصورة استُخدمت.');saved={id:mid,repeated:true,row};}
     const delivered=await message(viewer,tid,saved.id);
@@ -163,7 +166,7 @@ export function createChat({database,storage,avatarStorage=storage,readJson,resp
   }
   return false;
  }
- async function prepareShared(db,sender,target){const tid=await pair(db,sender,target),r=await lock(db,sender,tid);sending(r);return tid;}
+ async function prepareShared(db,sender,target){await requireContact(db,target,sender,'messages');const tid=await pair(db,sender,target),r=await lock(db,sender,tid);sending(r);return tid;}
  async function deliverShared(db,sender,target,postId,nonce){
   const tid=await prepareShared(db,sender,target),hash=digest(JSON.stringify(['shared-post',postId,target])),old=await existing(db,sender,nonce,hash);if(old)return{threadId:tid,messageId:old,replayed:true};
   const stamp=now(),mid=randomUUID(),r=(await db.query('UPDATE tomi_chat_threads SET next_seq=next_seq+1,updated_at=? WHERE id=? RETURNING next_seq',[stamp,tid])).rows[0];
@@ -171,7 +174,7 @@ export function createChat({database,storage,avatarStorage=storage,readJson,resp
   await db.query('INSERT INTO tomi_chat_message_meta(message_id) VALUES(?)',[mid]);
   await db.query('INSERT INTO tomi_post_shares(message_id,post_id) VALUES(?,?)',[mid,postId]);
   await db.query('UPDATE tomi_chat_members SET visible=1 WHERE thread_id=?',[tid]);
-  await enqueuePush(db,{messageId:mid,recipientId:target,threadId:tid});return{threadId:tid,messageId:mid};
+  if(!(await db.query('SELECT 1 FROM tomi_muted_chats WHERE user_id=? AND thread_id=?',[target,tid])).rows.length)await enqueuePush(db,{messageId:mid,recipientId:target,threadId:tid});return{threadId:tid,messageId:mid};
  }
  async function blockShared(db,viewer,target){const tid=await pair(db,viewer,target);await lock(db,viewer,tid);await db.query('INSERT INTO tomi_user_blocks(blocker_id,blocked_id,created_at) VALUES(?,?,?) ON CONFLICT(blocker_id,blocked_id) DO NOTHING',[viewer,target,now()]);return tid;}
  function attach(server,options){realtime=createRealtime({...options,server,limit,typing:async(viewer,tid,active,activity='typing')=>{if(await groups.typing(viewer,tid,active,activity))return;const r=await thread(viewer,id(tid));sending(r);realtime.emit([r.low_user_id===viewer?r.high_user_id:r.low_user_id],{type:'chat.typing',conversationId:tid,active,activity,userId:viewer,expiresAt:Date.now()+5000});}});}

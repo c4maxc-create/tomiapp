@@ -1,0 +1,40 @@
+✔ calls enforce participant access, stable start and single active call per user (3107.870333ms)
+✔ accept binds one receiving session; another device cannot read ICE or signal (2306.785709ms)
+✔ offer answer and ICE persist in order, are private and delete on end (2196.209162ms)
+✔ missed, declined, cancelled and stale sessions release both participants (2160.384149ms)
+✔ blocks and logout terminate calls; fresh calls with blocked peer are rejected (1517.611658ms)
+✔ TURN remains disabled without complete configuration and secrets never become client config (1389.452229ms)
+✔ signals reject oversized descriptions, mismatched media and arbitrary payloads (1427.269843ms)
+✔ incoming call push is durable, deduplicated and suppressed after acceptance (2031.33306ms)
+✔ video changes require peer consent and both ready cameras before SDP (2171.162472ms)
+✔ the callee can request video and owns that SDP offer round after a restart (2722.410479ms)
+✔ refusal, cancellation, timeout and denied camera preserve the audio call (1956.907759ms)
+✔ returning to audio stops video and a fresh upgrade needs consent again (1897.163745ms)
+✔ SDP rounds reject unbounded revisions and media commands reject unknown fields (1923.055814ms)
+✔ 0.6 is an additive migration of the verified 0.5 schema (1.991656ms)
+✔ 0.9 call devices negotiate session bindings and cancel every ringing device durably (2208.549051ms)
+✔ 0.9 a cancelled unsent call sends no stale ring and logout detaches cancellation (1393.382304ms)
+✔ 0.9 migration appends to the exact verified 0.8 database schema (2.576587ms)
+✔ crossed calls merge one table, retry after restart, and bind the receiving device (2684.872483ms)
+✔ 32 contact preferences persist per account, validate all fields and require authentication (1553.148171ms)
+✔ 32 existing direct threads cannot bypass contact policy and accepted messages keep their receipt (1862.483636ms)
+✔ 32 call and room microphone invitations respect recipient choices (1815.658865ms)
+✔ 32 muted chats still deliver messages, suppress new push jobs and cannot be changed by outsiders (3177.48878ms)
+✔ 32 real video preview is account-owned, immutable and returned with public video metadata (2016.645054ms)
+✔ text posts and profile counts survive restart; text works without R2 (2600.330374ms)
+✔ simultaneous and repeated requests cannot duplicate posts or comments (975.377297ms)
+✔ likes are idempotent; author and comment ownership are enforced (1777.505513ms)
+✔ following and own feeds paginate without duplicates at equal timestamps (1769.087466ms)
+✔ unauthenticated, empty, oversized and forged content is refused (868.416883ms)
+✔ image publication checks bytes and ownership; deleting queues safe cleanup (1792.110521ms)
+✔ missing, checksum-mismatched and fake image files are never published (983.700222ms)
+✔ R2 signing matches the published AWS Signature V4 test vector (2.337393ms)
+✔ explore includes every public post including own and followed accounts but excludes follower-only distribution (1890.206104ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 57010.91695

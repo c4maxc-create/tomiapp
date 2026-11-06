@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:ui' as ui;
+import 'package:video_compress/video_compress.dart';
+import '../preferences/media_preferences.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
@@ -50,7 +54,45 @@ Future<VideoDraft> readPickedVideo(XFile original) async {
         'INVALID_VIDEO',
         'اختَر MP4 بترميز H.264 وصوت AAC.',
       );
-    return VideoDraft(b, durationMs: ms, width: w, height: h);
+    String? poster;
+    if (Platform.isAndroid || Platform.isIOS) {
+      try {
+        final bytes = await VideoCompress.getByteThumbnail(
+          file.path,
+          quality: 40,
+          position: 0,
+        );
+        if (bytes != null) {
+          for (final side in [160, 96]) {
+            final codec = await ui.instantiateImageCodec(
+              bytes,
+              targetWidth: (w >= h ? side : side * w / h).round().clamp(
+                1,
+                side,
+              ),
+              targetHeight: (h >= w ? side : side * h / w).round().clamp(
+                1,
+                side,
+              ),
+            );
+            final frame = await codec.getNextFrame();
+            final png = await frame.image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            frame.image.dispose();
+            codec.dispose();
+            if (png != null && png.lengthInBytes <= 32768) {
+              poster =
+                  'data:image/png;base64,${base64Encode(png.buffer.asUint8List(png.offsetInBytes, png.lengthInBytes))}';
+              break;
+            }
+          }
+        }
+      } catch (_) {
+        /* Preview is optional; video remains usable. */
+      }
+    }
+    return VideoDraft(b, durationMs: ms, width: w, height: h, poster: poster);
   } finally {
     await player.dispose();
     if (file.path != original.path)
@@ -106,15 +148,24 @@ class VideoTile extends StatelessWidget {
             ),
             child: Stack(
               children: [
-                const Positioned.fill(
-                  child: Center(
-                    child: Icon(
-                      Icons.movie_outlined,
-                      size: 100,
-                      color: Color(0x155fffff),
+                if (video.posterBytes != null)
+                  Positioned.fill(
+                    child: Image.memory(
+                      video.posterBytes!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const SizedBox(),
                     ),
                   ),
-                ),
+                if (video.poster == null)
+                  const Positioned.fill(
+                    child: Center(
+                      child: Icon(
+                        Icons.movie_outlined,
+                        size: 100,
+                        color: Color(0x155fffff),
+                      ),
+                    ),
+                  ),
                 const Center(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
@@ -224,6 +275,16 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
       player = next;
       next = null;
       player!.addListener(changed);
+      final preferences = MediaPreferences.instance;
+      try {
+        await preferences.restore();
+      } catch (_) {}
+      if (mounted &&
+          e == epoch &&
+          foreground &&
+          preferences.autoplay &&
+          !preferences.dataSaver)
+        await toggle();
     } catch (_) {
       await next?.dispose();
       if (mounted && e == epoch)

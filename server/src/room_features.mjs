@@ -1,3 +1,4 @@
+import {requireContact} from './contact_preferences.mjs';
 import {decorateRoomUsers,roomCosmetics} from './room_policy.mjs';
 import {giftProgress} from './identity_catalog.mjs';
 import {randomUUID} from 'node:crypto';
@@ -205,6 +206,7 @@ export function createRoomFeatures({database,storage,usersByIds,job,bump,remove}
   }
   if(name==='invite'){
    fields(d,['targetId','seat']);if(!uuid(d.targetId)||d.targetId===r.owner_id)fail(403,'ROOM_RESERVED_SEAT','مقعد المالك ثابت.');
+   await requireContact(db,d.targetId,current.id,'roomInvites');
    await validateSeat(db,r,d.seat);
    const target=(await db.query("SELECT * FROM tomi_voice_members WHERE room_id=? AND user_id=? AND state='active'",[r.id,d.targetId])).rows[0];
    if(!target||target.seat!==null)fail(409,'ROOM_NO_LISTENER','اختَر عضوًا من المستمعين.');

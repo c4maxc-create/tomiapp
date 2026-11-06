@@ -1,3 +1,4 @@
+import 'upload_transfer.dart';
 import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
@@ -700,6 +701,7 @@ class ChatThreadController extends ChangeNotifier {
         durationMs: (d['durationMs'] as num).toInt(),
         width: (d['width'] as num).toInt(),
         height: (d['height'] as num).toInt(),
+        poster: d['poster'] as String?,
       );
     else if (d['kind'] == 'file')
       p.document = DocumentDraft(b, d['fileName'] as String);
@@ -1310,8 +1312,13 @@ class ChatThreadController extends ChangeNotifier {
     VideoDraft? video,
     DocumentDraft? document,
     String? stickerId,
+    String? requestId,
   }) {
     if (disposed || !conversation.canSend) return;
+    if (requestId != null &&
+        (pending.any((p) => p.requestId == requestId) ||
+            cache.values.any((m) => m.requestId == requestId)))
+      return;
     if (restoring)
       throw const AccountFailure(
         'DRAFT_RESTORE',
@@ -1346,6 +1353,7 @@ class ChatThreadController extends ChangeNotifier {
       throw const AccountFailure('MEDIA_TYPE', 'اختَر صورة أو تسجيلًا صوتيًا.');
     final p = PendingChatMessage(
       text.trim(),
+      requestId: requestId,
       image,
       audio: audio,
       video: video,
@@ -1434,7 +1442,21 @@ class ChatThreadController extends ChangeNotifier {
           p.preparedAt = DateTime.now();
           if (!await persist()) return;
         }
-        await chats.accounts.uploadImage(p.upload!, p.media!);
+        p.transfer = UploadTransfer()..addListener(notify);
+        p.transfer!.active = true;
+        UploadTransfer.owners[p.media!] = p.transfer;
+        try {
+          await chats.accounts.uploadImage(p.upload!, p.media!);
+        } finally {
+          UploadTransfer.owners[p.media!] = null;
+          p.transfer!.active = false;
+          p.transfer!.removeListener(notify);
+        }
+        if (p.transfer!.cancelled)
+          throw const AccountFailure(
+            'UPLOAD_CANCELLED',
+            'توقف الرفع؛ أعد المحاولة عندما تريد.',
+          );
         if (disposed) return;
         p.uploaded = true;
         if (!await persist()) return;
@@ -1538,6 +1560,9 @@ class ChatThreadController extends ChangeNotifier {
 
   @override
   void dispose() {
+    for (final p in pending) {
+      p.transfer?.cancel();
+    }
     disposed = true;
     draftTimer?.cancel();
     sendRetry?.cancel();

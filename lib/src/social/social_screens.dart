@@ -1324,7 +1324,19 @@ class _SocialComposerState extends State<SocialComposer> {
                 if (pickerError ?? draft.error case final String error)
                   AccountErrorMessage(error),
                 if (draft.busy) ...[
-                  const LinearProgressIndicator(),
+                  LinearProgressIndicator(
+                    value: draft.transfer?.active == true
+                        ? draft.transfer?.progress
+                        : null,
+                  ),
+                  if (draft.transfer?.active == true)
+                    TextButton.icon(
+                      onPressed: draft.cancelUpload,
+                      icon: const Icon(Icons.close),
+                      label: Text(
+                        'إيقاف الرفع • ${((draft.transfer?.progress ?? 0) * 100).round()}%',
+                      ),
+                    ),
                   const Text(
                     'جارٍ التحقق والرفع والنشر…',
                     textAlign: TextAlign.center,

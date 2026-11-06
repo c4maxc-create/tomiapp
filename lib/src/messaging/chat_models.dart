@@ -1,3 +1,4 @@
+import 'upload_transfer.dart';
 import '../identity/identity_models.dart';
 import '../social/social_models.dart';
 
@@ -82,6 +83,7 @@ class ChatMessage {
 }
 
 class PendingChatMessage {
+  UploadTransfer? transfer;
   PendingChatMessage(
     this.text,
     this.image, {
@@ -147,6 +149,7 @@ class PendingChatMessage {
               if (audio != null) 'durationMs': audio!.durationMs,
               if (video != null) ...{
                 'durationMs': video!.durationMs,
+                if (video!.poster != null) 'poster': video!.poster,
                 'width': video!.width,
                 'height': video!.height,
               },

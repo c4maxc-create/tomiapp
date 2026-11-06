@@ -793,3 +793,24 @@ CREATE TABLE IF NOT EXISTS tomi_live_revoke(room TEXT NOT NULL,identity TEXT NOT
 
 CREATE TABLE IF NOT EXISTS tomi_story_options(story_id TEXT PRIMARY KEY REFERENCES tomi_stories(id) ON DELETE CASCADE,audience TEXT NOT NULL CHECK(audience IN('public','followers')));
 CREATE TABLE IF NOT EXISTS tomi_live_watchers(user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,live_id TEXT NOT NULL REFERENCES tomi_lives(id) ON DELETE CASCADE,session_hash TEXT NOT NULL,seen_at BIGINT NOT NULL,PRIMARY KEY(user_id,live_id));
+
+CREATE TABLE IF NOT EXISTS tomi_contact_preferences (
+ user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,
+ messages TEXT NOT NULL DEFAULT 'everyone' CHECK(messages IN('everyone','following','nobody')),
+ calls TEXT NOT NULL DEFAULT 'everyone' CHECK(calls IN('everyone','following','nobody')),
+ room_invites TEXT NOT NULL DEFAULT 'everyone' CHECK(room_invites IN('everyone','following','nobody'))
+);
+CREATE TABLE IF NOT EXISTS tomi_muted_chats (
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,
+ thread_id TEXT NOT NULL REFERENCES tomi_chat_threads(id) ON DELETE CASCADE,
+ PRIMARY KEY(user_id,thread_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_video_posters (
+ upload_id TEXT PRIMARY KEY REFERENCES tomi_video_uploads(id) ON DELETE CASCADE,
+ poster TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tomi_private_video_posters (
+ upload_id TEXT PRIMARY KEY REFERENCES tomi_private_uploads(id) ON DELETE CASCADE,
+ poster TEXT NOT NULL
+);

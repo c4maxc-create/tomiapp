@@ -1,3 +1,5 @@
+import {createVideoPosters} from './video_posters.mjs';
+import {createContactPreferences} from './contact_preferences.mjs';
 import {createPostShares} from './post_shares.mjs';
 import {createGames} from './games.mjs';
 import {createLiveRoulette} from './live_roulette.mjs';
@@ -130,6 +132,8 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
     return { token, expiresAt: expires };
   }
 
+  const videoPosters=createVideoPosters({database,readJson,respond:json,limit});
+  const contactPreferences=createContactPreferences({database,readJson,respond:json,limit});
   const identity=createIdentity({database,readJson,respond:json,limit,userById,usersByIds});
   const home=createHome({database,storage,readJson,respond:json,limit,userById});
   const social = createSocial({database, storage, readJson, respond: json, limit, userById, cleanupPrefix:chatStorage===storage?'tomi/':'tomi/posts/',accountGate:requestGuard.gate});
@@ -264,6 +268,8 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       if(await deletion.handle(request,response,url,{ip}))return;
       const current = await session(request);
       await requestGuard.run(current,async()=>{
+      if(await videoPosters.handle(request,response,url,current))return;
+      if(await contactPreferences.handle(request,response,url,current))return;
       if(await moderation.handle(request,response,url,current))return;
       await limit(`requests:user:${current.id}`, 300);
       if(await liveRoulette.handle(request,response,url,current))return;

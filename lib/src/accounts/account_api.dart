@@ -1,3 +1,4 @@
+import '../messaging/upload_transfer.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../messaging/chat_connection.dart';
@@ -376,14 +377,17 @@ class AccountApi {
       );
     try {
       // Do not forward the account Bearer token to R2.
-      final request = http.Request('PUT', upload.url)
+      final transfer = UploadTransfer.owners[image];
+      final request = transfer == null
+          ? (http.Request('PUT', upload.url)..bodyBytes = image.bytes)
+          : ProgressUploadRequest('PUT', upload.url, image.bytes, transfer);
+      request
         ..followRedirects = false
         ..headers.addAll({
           'content-type': image.contentType,
           'content-md5': image.contentMd5,
           'if-none-match': '*',
-        })
-        ..bodyBytes = image.bytes;
+        });
       final r = await _client
           .send(request)
           .then(http.Response.fromStream)
@@ -394,7 +398,13 @@ class AccountApi {
           'IMAGE_UPLOAD',
           'تعذّر رفع الصورة؛ جرّب النشر مرة ثانية.',
         );
+    } on http.RequestAbortedException {
+      throw const AccountFailure(
+        'UPLOAD_CANCELLED',
+        'توقف الرفع؛ الملف محفوظ وتگدر تعيد المحاولة.',
+      );
     } on TimeoutException {
+      UploadTransfer.owners[image]?.cancel();
       throw const AccountFailure(
         'IMAGE_NETWORK',
         'رفع الصورة أخذ وقتًا طويلًا؛ جرّب النشر مرة ثانية.',

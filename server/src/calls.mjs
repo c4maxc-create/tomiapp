@@ -1,3 +1,4 @@
+import {requireContact} from './contact_preferences.mjs';
 import {randomUUID} from 'node:crypto';
 import {ApiError,digest} from './security.mjs';
 import {mediaChangeSnapshot,expireMediaChange,endMediaChanges,changeCallMedia,signalMediaPolicy} from './call_media.mjs';
@@ -95,6 +96,7 @@ export function createCalls({database,iceProvider,readJson,respond,limit,userByI
         if(alias){const prior=await row(db,current.id,alias.call_id);if(prior.thread_id!==d.conversationId||prior.kind!==d.kind)fail(409,'REQUEST_CHANGED','طلب المكالمة تغيّر.');if(!owner(prior,current))fail(409,'CALL_OTHER_DEVICE','تم الاتصال من جهاز آخر.');return {r:prior,replay:true};}
         const callee=t.low_user_id===current.id?t.high_user_id:t.low_user_id;
         if((await db.query('SELECT 1 FROM tomi_user_blocks WHERE (blocker_id=? AND blocked_id=?) OR (blocker_id=? AND blocked_id=?)',[current.id,callee,callee,current.id])).rows.length)fail(403,'CHAT_BLOCKED','الاتصال غير متاح مع هذا المستخدم.');
+        await requireContact(db,callee,current.id,'calls');
         // A stable call-lock order also covers two busy users calling across pairs.
         const activeRows=(await db.query('SELECT user_id,call_id FROM tomi_active_calls WHERE user_id IN (?,?)',[current.id,callee])).rows;
         const activeById=new Map(activeRows.map(v=>[v.call_id,v.user_id]));

@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -7,6 +8,17 @@ import 'package:record/record.dart';
 import '../widgets.dart';
 import 'chat_models.dart';
 import 'audio_focus.dart';
+
+Future<void> prepareVoiceAudio({required bool recording}) async {
+  if (!Platform.isAndroid) return;
+  try {
+    await const MethodChannel(
+      'tomi/mobile',
+    ).invokeMethod('prepareVoiceAudio', {'recording': recording});
+  } on MissingPluginException {
+    /* Older APKs have no route repair bridge. */
+  }
+}
 
 String voiceTime(int ms) {
   final seconds = ms ~/ 1000;
@@ -32,7 +44,12 @@ class VoicePlayback extends ChangeNotifier with WidgetsBindingObserver {
         : speed == 2
         ? 3
         : 1;
-    await player?.setSpeed(speed);
+    try {
+      await player?.setSpeed(speed);
+    } catch (_) {
+      speed = 1;
+      error = 'تعذّر تغيير السرعة؛ أعد تشغيل التسجيل وحاول مجددًا.';
+    }
     notify();
   }
 
@@ -61,6 +78,7 @@ class VoicePlayback extends ChangeNotifier with WidgetsBindingObserver {
       if (disposed || gen != generation) return;
       if (uri == null) throw StateError('Unavailable voice');
       final previous = activeId == id ? positionMs : 0;
+      await prepareVoiceAudio(recording: false);
       player ??= AudioPlayer();
       stateSub ??= player!.playerStateStream.listen((s) {
         playing = s.playing && s.processingState != ProcessingState.completed;
@@ -78,6 +96,7 @@ class VoicePlayback extends ChangeNotifier with WidgetsBindingObserver {
       positionMs = 0;
       durationMs = duration;
       final actual = await player!.setAudioSource(AudioSource.uri(uri));
+      await player!.setVolume(1);
       await player!.setSpeed(speed);
       if (disposed || gen != generation) return;
       durationMs = actual?.inMilliseconds ?? duration;
@@ -236,6 +255,10 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
       playback = VoicePlayback(),
       clock = Stopwatch();
   Timer? timer;
+  StreamSubscription<Amplitude>? amplitudes;
+  double peakDb = -160, levelDb = -160;
+  int amplitudeSamples = 0;
+  bool silent = false, allowSilent = false;
   String? path, error;
   bool recording = false, busy = false;
   int durationMs = 0, generation = 0;
@@ -308,7 +331,13 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
         return;
       }
       if (!mounted || gen != generation) return;
+      await prepareVoiceAudio(recording: true);
       await removeFile();
+      peakDb = -160;
+      levelDb = -160;
+      amplitudeSamples = 0;
+      silent = false;
+      allowSilent = false;
       final directory = await getTemporaryDirectory();
       if (!mounted || gen != generation) return;
       path =
@@ -319,6 +348,10 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
           bitRate: 160000,
           sampleRate: 44100,
           numChannels: 1,
+          androidConfig: AndroidRecordConfig(
+            audioSource: AndroidAudioSource.mic,
+            audioManagerMode: AudioManagerMode.modeNormal,
+          ),
         ),
         path: path!,
       );
@@ -326,6 +359,15 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
         await recorder.cancel();
         return;
       }
+      await amplitudes?.cancel();
+      amplitudes = recorder
+          .onAmplitudeChanged(const Duration(milliseconds: 150))
+          .listen((value) {
+            if (!mounted || !recording || !value.current.isFinite) return;
+            amplitudeSamples++;
+            if (value.current > peakDb) peakDb = value.current;
+            setState(() => levelDb = value.current);
+          }, onError: (Object _) {});
       clock.reset();
       clock.start();
       setState(() => recording = true);
@@ -335,6 +377,13 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
         setState(() => durationMs = clock.elapsedMilliseconds);
         if (durationMs >= 300000) unawaited(stop());
       });
+    } on PlatformException catch (e) {
+      if (mounted)
+        setState(
+          () => error = ['MIC_MUTED', 'AUDIO_BUSY'].contains(e.code)
+              ? e.message
+              : 'تعذّر بدء التسجيل؛ تأكد من صلاحية المايك.',
+        );
     } catch (_) {
       if (mounted)
         setState(() => error = 'تعذّر بدء التسجيل؛ تأكد من صلاحية المايك.');
@@ -350,7 +399,10 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
     timer?.cancel();
     clock.stop();
     try {
+      await amplitudes?.cancel();
+      amplitudes = null;
       path = await recorder.stop();
+      silent = amplitudeSamples >= 3 && peakDb < -80;
       durationMs = clock.elapsedMilliseconds.clamp(100, 300000);
       if (mounted) setState(() => recording = false);
       widget.onRecording?.call(false);
@@ -379,7 +431,7 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
   }
 
   Future<void> confirm() async {
-    if (path == null || recording || busy) return;
+    if (path == null || recording || busy || (silent && !allowSilent)) return;
     setState(() => busy = true);
     try {
       await playback.stop();
@@ -414,6 +466,7 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
     clock.stop();
     WidgetsBinding.instance.removeObserver(this);
     playback.dispose();
+    unawaited(amplitudes?.cancel());
     unawaited(recorder.dispose());
     unawaited(removeFile());
     super.dispose();
@@ -469,6 +522,20 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
                 style: const TextStyle(fontSize: 26),
               ),
             ),
+          if (recording)
+            LinearProgressIndicator(
+              value: ((levelDb + 80) / 80).clamp(0.0, 1.0),
+            ),
+          if (silent && !recording)
+            CheckboxListTile(
+              value: allowSilent,
+              onChanged: (v) => setState(() => allowSilent = v == true),
+              title: const Text(
+                'لم نرصد صوتًا واضحًا. راجع المايك أو أعد التسجيل.',
+              ),
+              subtitle: const Text('إرسال رغم التنبيه'),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
           if (path != null && !recording && durationMs >= 500)
             VoicePlayer(
               playback: playback,
@@ -498,7 +565,7 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
               if (path != null && !recording && durationMs >= 500)
                 FilledButton.icon(
                   key: const Key('voice-confirm'),
-                  onPressed: busy ? null : confirm,
+                  onPressed: busy || (silent && !allowSilent) ? null : confirm,
                   icon: const Icon(Icons.send),
                   label: const Text('إرسال التسجيل'),
                 ),

@@ -1,3 +1,5 @@
+import 'package:flutter/widgets.dart';
+import '../messaging/upload_transfer.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../accounts/account_api.dart';
@@ -6,10 +8,11 @@ import '../messaging/chat_models.dart';
 import '../messaging/draft_store.dart';
 import 'social_models.dart';
 
-class PostDraftController extends ChangeNotifier {
+class PostDraftController extends ChangeNotifier with WidgetsBindingObserver {
   PostDraftController(this.accounts)
     : owner = accounts.draftOwnerId,
       session = accounts.sessionRevision {
+    WidgetsBinding.instance.addObserver(this);
     restored = restore();
   }
   final AccountController accounts;
@@ -19,6 +22,8 @@ class PostDraftController extends ChangeNotifier {
   PendingChatMessage item = PendingChatMessage('', null);
   bool disposed = false, loading = true, busy = false, storageReady = true;
   String? error;
+  UploadTransfer? transfer;
+  void cancelUpload() => transfer?.cancel();
   String audience = 'public';
   void selectAudience(String value) {
     if (locked || !['public', 'followers'].contains(value)) return;
@@ -74,6 +79,7 @@ class PostDraftController extends ChangeNotifier {
         durationMs: (d['durationMs'] as num).toInt(),
         width: (d['width'] as num).toInt(),
         height: (d['height'] as num).toInt(),
+        poster: d['poster'] as String?,
       );
     else
       item.image = ImageDraft(b, d['type'] as String);
@@ -193,7 +199,21 @@ class PostDraftController extends ChangeNotifier {
             item.preparedAt = DateTime.now();
             if (!await persist()) return null;
           }
-          await accounts.uploadImage(item.upload!, item.media!);
+          transfer = UploadTransfer()..addListener(notify);
+          transfer!.active = true;
+          UploadTransfer.owners[item.media!] = transfer;
+          try {
+            await accounts.uploadImage(item.upload!, item.media!);
+          } finally {
+            UploadTransfer.owners[item.media!] = null;
+            transfer!.active = false;
+            transfer!.removeListener(notify);
+          }
+          if (transfer!.cancelled)
+            throw const AccountFailure(
+              'UPLOAD_CANCELLED',
+              'توقف الرفع؛ المسودة محفوظة.',
+            );
           if (!current) return null;
           item.uploaded = true;
           if (!await persist()) return null;
@@ -255,7 +275,25 @@ class PostDraftController extends ChangeNotifier {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed && current && !busy) {
+      debounce?.cancel();
+      unawaited(
+        persist().catchError((Object _) {
+          if (current) {
+            error = 'تعذّر حفظ المسودة على الجهاز.';
+            notify();
+          }
+          return false;
+        }),
+      );
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    transfer?.cancel();
     disposed = true;
     debounce?.cancel();
     super.dispose();

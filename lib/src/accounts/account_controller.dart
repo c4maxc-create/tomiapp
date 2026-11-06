@@ -428,8 +428,20 @@ class AccountController extends ChangeNotifier {
   );
   Future<ImageUpload> prepareImage(ImageDraft image) =>
       _authenticated((token) => api.prepareImage(token, image));
-  Future<void> uploadImage(ImageUpload upload, ImageDraft image) =>
-      _authenticated((_) => api.uploadImage(upload, image));
+  Future<void> uploadImage(ImageUpload upload, ImageDraft image) async {
+    if (image is VideoDraft && image.poster != null) {
+      try {
+        await chatRequest(
+          'PUT',
+          '/v1/media/videos/${upload.id}/poster',
+          body: {'poster': image.poster},
+        );
+      } on AccountFailure catch (e) {
+        if (e.status != 404 && e.status != 409) rethrow;
+      }
+    }
+    await _authenticated((_) => api.uploadImage(upload, image));
+  }
 
   Future<void> logout() async {
     final token = _token;

@@ -13,6 +13,7 @@ public class TomiAudioService extends Service {
     private long renewed;
     private PowerManager.WakeLock wake;
     private static final java.util.Map<String,io.flutter.plugin.common.MethodChannel.Result> pending=new java.util.HashMap<>();
+    public static boolean active() { return running != null || !pending.isEmpty(); }
     public static void start(Context context,Intent intent,io.flutter.plugin.common.MethodChannel.Result callback) {
         String key=intent.getStringExtra("id");
         if (pending.containsKey(key)) { callback.success(false);return; }

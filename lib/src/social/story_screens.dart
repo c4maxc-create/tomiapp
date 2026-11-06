@@ -1,3 +1,5 @@
+import '../messaging/chat_models.dart' show PendingChatMessage;
+import '../messaging/upload_transfer.dart';
 import '../identity/identity_avatar.dart';
 import '../identity/identity_models.dart';
 
@@ -1117,7 +1119,8 @@ class StoryComposerPage extends StatefulWidget {
   State<StoryComposerPage> createState() => _StoryComposerPageState();
 }
 
-class _StoryComposerPageState extends State<StoryComposerPage> {
+class _StoryComposerPageState extends State<StoryComposerPage>
+    with WidgetsBindingObserver {
   final text = TextEditingController();
   ImageDraft? media;
   ImageUpload? upload;
@@ -1126,16 +1129,130 @@ class _StoryComposerPageState extends State<StoryComposerPage> {
   String? error, videoPath;
   String audience = 'public';
   late final accountId = widget.accounts.user?.id;
+  late final owner = widget.accounts.draftOwnerId;
+  late final session = widget.accounts.sessionRevision;
+  bool restoring = true,
+      committed = false,
+      uploaded = false,
+      closed = false,
+      storageReady = true;
+  UploadTransfer? transfer;
+  bool get current =>
+      !closed &&
+      widget.accounts.user?.id == accountId &&
+      widget.accounts.sessionRevision == session;
+  bool get locked => committed || restoring;
   @override
   void initState() {
     super.initState();
-    if (widget.initialImage != null)
-      unawaited(load(widget.initialImage!, false));
-    if (widget.initialVideo != null)
-      unawaited(load(widget.initialVideo!, true));
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(restoreDraft());
+  }
+
+  Future<void> saveDraft() async {
+    if (!current || restoring || !storageReady || owner == null) return;
+    final item =
+        PendingChatMessage(
+            text.text,
+            media is VideoDraft ? null : media,
+            video: media is VideoDraft ? media as VideoDraft : null,
+            requestId: requestId,
+          )
+          ..upload = upload
+          ..uploaded = uploaded
+          ..commitAttempted = committed;
+    await widget.accounts.draftStore.write(
+      owner!,
+      'story',
+      {...item.toJson(), 'audience': audience},
+      blobs: {if (media != null) media!.contentSha256: media!.bytes},
+      valid: () => current,
+    );
+  }
+
+  Future<void> saveSafely() async {
+    try {
+      await saveDraft();
+    } catch (_) {
+      if (mounted)
+        setState(
+          () =>
+              error = 'تعذّر حفظ مسودة الستوري على الجهاز؛ أبقِ الصفحة مفتوحة.',
+        );
+    }
+  }
+
+  Future<void> restoreDraft() async {
+    try {
+      final data = owner == null
+          ? null
+          : await widget.accounts.draftStore.read(owner!, 'story');
+      if (!current || !mounted) return;
+      if (data != null) {
+        final item = PendingChatMessage.restore(data);
+        text.text = item.text;
+        requestId = item.requestId;
+        upload = item.upload;
+        committed = item.commitAttempted;
+        uploaded = item.uploaded;
+        audience = data['audience'] == 'followers' ? 'followers' : 'public';
+        if (item.savedMedia != null) {
+          final d = item.savedMedia!,
+              bytes = await widget.accounts.draftStore.bytes(
+                owner!,
+                d['mediaKey'] as String,
+              );
+          if (!current || !mounted) return;
+          media = d['kind'] == 'video'
+              ? VideoDraft(
+                  bytes,
+                  durationMs: (d['durationMs'] as num).toInt(),
+                  width: (d['width'] as num).toInt(),
+                  height: (d['height'] as num).toInt(),
+                  poster: d['poster'] as String?,
+                )
+              : ImageDraft(bytes, d['type'] as String);
+        }
+        if (committed)
+          error = 'يوجد نشر غير مؤكد؛ أعد المحاولة بنفس المحتوى للتحقق منه.';
+      }
+      restoring = false;
+      if (widget.initialImage != null && data == null)
+        await load(widget.initialImage!, false);
+      if (widget.initialVideo != null && data == null)
+        await load(widget.initialVideo!, true);
+    } catch (_) {
+      storageReady = false;
+      error = 'تعذّر قراءة مسودة الستوري؛ لم تُحذف أو تُستبدل.';
+    } finally {
+      if (mounted) setState(() => restoring = false);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) unawaited(saveSafely());
+  }
+
+  Future<void> closeDraft() async {
+    if (busy || picking || restoring) return;
+    try {
+      await saveDraft();
+    } catch (_) {
+      if (mounted)
+        setState(
+          () => error = 'تعذّر حفظ المسودة؛ أبقِ الصفحة مفتوحة وأعد المحاولة.',
+        );
+      return;
+    }
+    if (mounted) {
+      setState(() => closed = true);
+      Navigator.pop(context);
+    }
   }
 
   Future<void> load(XFile file, bool video) async {
+    if (locked || !storageReady) return;
     setState(() => picking = true);
     try {
       final next = video
@@ -1151,9 +1268,11 @@ class _StoryComposerPageState extends State<StoryComposerPage> {
           media = next;
           videoPath = video ? file.path : null;
           upload = null;
+          uploaded = false;
           requestId = newRequestId();
           error = null;
         });
+      await saveDraft();
     } on AccountFailure catch (e) {
       if (mounted) setState(() => error = e.message);
     } catch (_) {
@@ -1193,8 +1312,54 @@ class _StoryComposerPageState extends State<StoryComposerPage> {
     }
   }
 
+  Future<void> discardDraft() async {
+    if (busy || picking || restoring || !storageReady) return;
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: const Text('مسح مسودة الستوري؟'),
+        content: const Text(
+          'يلغي إعادة المحاولة من جهازك فقط. إذا كانت الستوري قد نُشرت قبل انقطاع الرد، تبقى منشورة.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(d, false),
+            child: const Text('رجوع'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(d, true),
+            child: const Text('مسح المسودة'),
+          ),
+        ],
+      ),
+    );
+    if (yes != true || !current) return;
+    try {
+      if (!await widget.accounts.draftStore.write(
+        owner!,
+        'story',
+        null,
+        valid: () => current,
+      ))
+        return;
+      if (mounted)
+        setState(() {
+          text.clear();
+          media = null;
+          upload = null;
+          videoPath = null;
+          committed = false;
+          uploaded = false;
+          requestId = newRequestId();
+          error = null;
+        });
+    } catch (_) {
+      if (mounted) setState(() => error = 'تعذّر مسح المسودة؛ أعد المحاولة.');
+    }
+  }
+
   Future<void> publish() async {
-    if (busy || picking) return;
+    if (busy || picking || restoring || !storageReady) return;
     if (text.text.trim().isEmpty && media == null) {
       setState(() => error = 'اختَر صورة أو فيديو أو اكتب نصًا.');
       return;
@@ -1209,19 +1374,61 @@ class _StoryComposerPageState extends State<StoryComposerPage> {
           'SESSION_CHANGED',
           'تغيّر الحساب؛ افتح الستوري من حسابك الحالي.',
         );
+      if (committed) {
+        try {
+          await widget.accounts.chatRequest(
+            'GET',
+            '/v1/stories/requests/$requestId',
+          );
+          if (!current) return;
+          await widget.accounts.draftStore.write(
+            owner!,
+            'story',
+            null,
+            valid: () => current,
+          );
+          closed = true;
+          if (mounted) Navigator.pop(context, true);
+          return;
+        } on AccountFailure catch (e) {
+          if (e.code != 'REQUEST_NOT_FOUND') rethrow;
+        }
+      }
+      await saveDraft();
       if (media != null && upload == null) {
         final fresh = await widget.accounts.preparePostMedia(
           media!,
           newRequestId(),
         );
-        await widget.accounts.uploadImage(fresh, media!);
         upload = fresh;
+        await saveDraft();
+      }
+      if (media != null && upload != null && !uploaded) {
+        transfer = UploadTransfer()..addListener(uploadChanged);
+        transfer!.active = true;
+        UploadTransfer.owners[media!] = transfer;
+        try {
+          await widget.accounts.uploadImage(upload!, media!);
+        } finally {
+          UploadTransfer.owners[media!] = null;
+          transfer!.active = false;
+          transfer!.removeListener(uploadChanged);
+        }
+        if (transfer!.cancelled)
+          throw const AccountFailure(
+            'UPLOAD_CANCELLED',
+            'توقف الرفع؛ المسودة محفوظة.',
+          );
+        uploaded = true;
+        await saveDraft();
       }
       if (widget.accounts.user?.id != accountId)
         throw const AccountFailure(
           'SESSION_CHANGED',
           'تغيّر الحساب؛ افتح الستوري من الحساب الحالي.',
         );
+      committed = true;
+      await saveDraft();
       await widget.accounts.chatRequest(
         'POST',
         '/v1/stories',
@@ -1235,8 +1442,23 @@ class _StoryComposerPageState extends State<StoryComposerPage> {
           if (media != null) 'attachmentSha256': media!.contentSha256,
         },
       );
+      if (current && owner != null)
+        await widget.accounts.draftStore.write(
+          owner!,
+          'story',
+          null,
+          valid: () => current,
+        );
+      closed = true;
       if (mounted) Navigator.pop(context, true);
     } on AccountFailure catch (e) {
+      if (e.code == 'UPLOAD_INVALID') {
+        committed = false;
+        uploaded = false;
+        upload = null;
+        requestId = newRequestId();
+        await saveSafely();
+      }
       if (mounted) setState(() => error = e.message);
     } catch (_) {
       if (mounted)
@@ -1246,23 +1468,39 @@ class _StoryComposerPageState extends State<StoryComposerPage> {
     }
   }
 
+  void uploadChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    transfer?.cancel();
+    closed = true;
     text.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) => PopScope(
-    canPop: !busy && !picking,
+    canPop: closed,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) unawaited(closeDraft());
+    },
     child: Scaffold(
       backgroundColor: socialBackground,
       appBar: AppBar(
         backgroundColor: socialBackground,
+        leading: IconButton(
+          onPressed: busy || picking || restoring ? null : closeDraft,
+          icon: const Icon(Icons.arrow_back),
+        ),
         title: const Text('ستوري جديدة'),
         actions: [
           TextButton(
-            onPressed: busy || picking ? null : publish,
+            onPressed: busy || picking || restoring || !storageReady
+                ? null
+                : publish,
             child: Text(busy ? 'جارٍ النشر…' : 'نشر'),
           ),
         ],
@@ -1348,45 +1586,50 @@ class _StoryComposerPageState extends State<StoryComposerPage> {
                 ),
               ),
             ],
-            onChanged: busy
+            onChanged: busy || locked
                 ? null
                 : (v) => setState(() {
                     audience = v!;
                     requestId = newRequestId();
+                    unawaited(saveSafely());
                   }),
           ),
           const SizedBox(height: 12),
           TextField(
             key: const Key('story-text'),
             controller: text,
-            enabled: !busy && !picking,
+            enabled: !busy && !picking && !locked && storageReady,
             maxLength: 500,
             minLines: 1,
             maxLines: 4,
-            onChanged: (_) => requestId = newRequestId(),
+            onChanged: (_) {
+              requestId = newRequestId();
+              unawaited(saveSafely());
+            },
             decoration: const InputDecoration(hintText: 'اكتب شيئًا عن لحظتك…'),
           ),
           Wrap(
             spacing: 10,
             children: [
               OutlinedButton.icon(
-                onPressed: busy || picking ? null : () => pick(false),
+                onPressed: busy || picking || locked ? null : () => pick(false),
                 icon: const Icon(Icons.image_outlined),
                 label: const Text('صورة'),
               ),
               OutlinedButton.icon(
-                onPressed: busy || picking ? null : () => pick(true),
+                onPressed: busy || picking || locked ? null : () => pick(true),
                 icon: const Icon(Icons.videocam_outlined),
                 label: const Text('فيديو حتى60ث'),
               ),
               if (media != null)
                 TextButton(
-                  onPressed: busy || picking
+                  onPressed: busy || picking || locked
                       ? null
                       : () => setState(() {
                           media = null;
                           upload = null;
                           requestId = newRequestId();
+                          unawaited(saveSafely());
                         }),
                   child: const Text('إزالة الملف'),
                 ),
@@ -1395,6 +1638,24 @@ class _StoryComposerPageState extends State<StoryComposerPage> {
           const Text(
             'تظهر لمدة24ساعة. صور حتى10MB وفيديوMP4 حتى60ث و25MB.',
             style: TextStyle(fontSize: 12, color: Colors.white60),
+          ),
+          if (restoring || transfer?.active == true)
+            LinearProgressIndicator(
+              value: transfer?.active == true ? transfer?.progress : null,
+            ),
+          if (transfer?.active == true)
+            TextButton(
+              onPressed: transfer?.cancel,
+              child: Text(
+                'إيقاف الرفع • ${((transfer?.progress ?? 0) * 100).round()}%',
+              ),
+            ),
+          const Text('مسودة الستوري محفوظة على هذا الجهاز.'),
+          TextButton(
+            onPressed: busy || picking || restoring || !storageReady
+                ? null
+                : discardDraft,
+            child: const Text('مسح المسودة'),
           ),
           if (error != null) AccountErrorMessage(error!),
           if (busy || picking) const LinearProgressIndicator(),

@@ -1,3 +1,5 @@
+import '../gaming/chat_game_invite.dart';
+import '../gaming/csharp_games_page.dart';
 import '../social/post_share_screens.dart';
 import '../identity/charisma_badge.dart';
 import 'dart:async';
@@ -995,6 +997,28 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
     }
   }
 
+  Future<void> toggleMute() async {
+    if (thread.conversation.isGroup) return;
+    try {
+      final path = '/v1/chats/${thread.conversation.id}/mute';
+      final old = await widget.chats.accounts.chatRequest('GET', path);
+      final saved = await widget.chats.accounts.chatRequest(
+        'PUT',
+        path,
+        body: {'muted': old['muted'] != true},
+      );
+      if (mounted)
+        showNote(
+          context,
+          saved['muted'] == true
+              ? 'تم كتم إشعارات هذه المحادثة.'
+              : 'تم إلغاء الكتم.',
+        );
+    } catch (_) {
+      if (mounted) showNote(context, 'تعذّر تغيير الكتم؛ أعد المحاولة.');
+    }
+  }
+
   Future<void> recordVoice() async {
     if (widget.chats.accounts.liveAudioBusy) {
       showNote(
@@ -1971,6 +1995,32 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                           ],
                         ),
                       ),
+                    if (!m.deleted &&
+                        !c.isGroup &&
+                        RegExp(
+                          r'^دعوة للعب .+ • كود الغرفة: [A-F0-9]{8}\n',
+                        ).hasMatch(m.text))
+                      TextButton.icon(
+                        icon: const Icon(Icons.sports_esports),
+                        label: const Text('انضم للعبة'),
+                        onPressed: () {
+                          final code = RegExp(
+                            r'كود الغرفة: ([A-F0-9]{8})',
+                          ).firstMatch(m.text)!.group(1)!;
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => Scaffold(
+                                appBar: AppBar(title: const Text('الألعاب')),
+                                body: CSharpGamesPage(
+                                  accounts: widget.chats.accounts,
+                                  initialCode: code,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     if (m.deleted)
                       Text(
                         'تم حذف الرسالة',
@@ -2356,6 +2406,16 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                   errorBuilder: (_, _, _) => const Icon(Icons.image_outlined),
                 ),
               ),
+            if (pending.transfer?.active == true) ...[
+              LinearProgressIndicator(value: pending.transfer?.progress),
+              TextButton.icon(
+                onPressed: pending.transfer?.cancel,
+                icon: const Icon(Icons.close),
+                label: Text(
+                  'إيقاف الرفع • ${((pending.transfer?.progress ?? 0) * 100).round()}%',
+                ),
+              ),
+            ],
             if (pending.hasAudio) const Text('🎤 تسجيل صوتي'),
             if (pending.hasVideo) const Text('🎬 فيديو'),
             if (pending.hasDocument)
@@ -2838,6 +2898,16 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                       unawaited(search());
                     else if (value == 'info')
                       unawaited(info());
+                    else if (value == 'game')
+                      unawaited(
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          builder: (_) => ChatGameInvite(thread: thread),
+                        ),
+                      );
+                    else if (value == 'mute')
+                      unawaited(toggleMute());
                     else if (value == 'wallpaper')
                       unawaited(chooseWallpaper());
                     else if (value == 'pinned')
@@ -2861,6 +2931,16 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                       const PopupMenuItem(
                         value: 'pinned',
                         child: Text('الرسالة المثبّتة'),
+                      ),
+                    if (!c.isGroup && c.canSend)
+                      const PopupMenuItem(
+                        value: 'game',
+                        child: Text('ادعُه للعبة'),
+                      ),
+                    if (!c.isGroup)
+                      const PopupMenuItem(
+                        value: 'mute',
+                        child: Text('كتم / إلغاء كتم إشعارات المحادثة'),
                       ),
                     PopupMenuItem(
                       value: 'wallpaper',
@@ -3178,7 +3258,9 @@ class _ChatVoiceMessage extends StatelessWidget {
                       key: ValueKey('chat-voice-speed-$id'),
                       onPressed: playback.cycleSpeed,
                       style: TextButton.styleFrom(
-                        minimumSize: const Size(36, 36),
+                        minimumSize: const Size(44, 36),
+                        backgroundColor: p.accent.withValues(alpha: .14),
+                        textStyle: const TextStyle(fontWeight: FontWeight.bold),
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                       ),
                       child: Text('${playback.speed.toInt()}×'),

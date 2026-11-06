@@ -18,9 +18,11 @@ class CSharpGamesPage extends StatefulWidget {
     super.key,
     required this.accounts,
     this.visible = true,
+    this.initialCode,
   });
   final AccountController accounts;
   final bool visible;
+  final String? initialCode;
   @override
   State<CSharpGamesPage> createState() => _CSharpGamesPageState();
 }
@@ -51,7 +53,13 @@ class _CSharpGamesPageState extends State<CSharpGamesPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     games.addListener(changed);
+    if (widget.initialCode != null) unawaited(openInvitation());
     if (widget.visible) unawaited(start());
+  }
+
+  Future<void> openInvitation() async {
+    await games.ready;
+    if (!disposed && foreground) await games.join(widget.initialCode!);
   }
 
   Future<void> start() async {

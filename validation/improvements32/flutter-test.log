@@ -1,0 +1,325 @@
+00:00 +0: loading /workspace/tomiapp/test/account_controller_test.dart
+00:00 +0: /workspace/tomiapp/test/account_controller_test.dart: stored session restores the server profile; the token is scoped to the API
+00:00 +1: /workspace/tomiapp/test/account_controller_test.dart: network failure keeps the session and retry restores it
+00:00 +2: /workspace/tomiapp/test/account_controller_test.dart: expired session clears secure storage and returns to login
+00:00 +3: /workspace/tomiapp/test/account_controller_test.dart: registration persists the session, preserves passphrase spaces and exposes recovery once
+00:00 +4: /workspace/tomiapp/test/account_controller_test.dart: follow response updates own counts using server data
+00:00 +5: /workspace/tomiapp/test/account_controller_test.dart: logout revokes the session before clearing storage; late search cannot restore it
+00:00 +6: /workspace/tomiapp/test/account_controller_test.dart: logout failure keeps the valid session so revocation can be retried
+00:00 +7: /workspace/tomiapp/test/account_controller_test.dart: API refuses cleartext endpoints and credentials in URLs
+00:04 +8: /workspace/tomiapp/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:05 +8 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:09 +9 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:09 +10 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:09 +11 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:09 +12 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:09 +13 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:09 +14 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:09 +15 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:09 +16 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:09 +17 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:09 +18 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: login, registration and recovery forms fit a compact screen with enlarged text
+00:09 +19 ~1: /workspace/tomiapp/test/calls_test.dart: incoming and video screens fit 320px with enlarged Arabic text
+00:10 +20 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:10 +21 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:10 +22 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:10 +23 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:10 +24 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:10 +25 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:10 +26 ~1: /workspace/tomiapp/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:12 +26 ~2: /workspace/tomiapp/test/accounts_widget_test.dart: registration presents recovery before opening the signed-in app
+00:12 +27 ~2: /workspace/tomiapp/test/accounts_widget_test.dart: profile edit waits for server success and keeps text when username is taken
+00:15 +28 ~2: /workspace/tomiapp/test/chat12_test.dart: chat1.2 inbox fits Size(320.0, 640.0) at 1.0 text and filters immediately
+00:15 +29 ~2: /workspace/tomiapp/test/chat12_test.dart: chat1.2 inbox fits Size(320.0, 640.0) at 1.0 text and filters immediately
+00:17 +30 ~2: /workspace/tomiapp/test/chat12_test.dart: chat1.2 inbox fits Size(320.0, 640.0) at 1.0 text and filters immediately
+00:17 +31 ~2: /workspace/tomiapp/test/chat12_test.dart: chat1.2 bubbles and composer fit Size(320.0, 640.0) at 1.0 with keyboard
+00:17 +32 ~2: /workspace/tomiapp/test/chat12_test.dart: chat1.2 inbox fits Size(320.0, 640.0) at 2.0 text and filters immediately
+00:18 +33 ~2: /workspace/tomiapp/test/chat12_test.dart: chat1.2 inbox fits Size(320.0, 640.0) at 2.0 text and filters immediately
+00:18 +34 ~2: /workspace/tomiapp/test/chat12_test.dart: chat1.2 inbox fits Size(320.0, 640.0) at 2.0 text and filters immediately
+00:18 +35 ~2: /workspace/tomiapp/test/chat12_test.dart: chat1.2 inbox fits Size(320.0, 640.0) at 2.0 text and filters immediately
+00:18 +36 ~2: /workspace/tomiapp/test/chat_test.dart: image reply loss reuses its verified upload
+00:18 +37 ~2: /workspace/tomiapp/test/chat12_test.dart: chat1.2 bubbles and composer fit Size(320.0, 640.0) at 2.0 with keyboard
+00:18 +38 ~2: /workspace/tomiapp/test/chat12_test.dart: chat1.2 bubbles and composer fit Size(320.0, 640.0) at 2.0 with keyboard
+00:18 +39 ~2: /workspace/tomiapp/test/chat12_test.dart: chat1.2 bubbles and composer fit Size(320.0, 640.0) at 2.0 with keyboard
+00:18 +40 ~2: /workspace/tomiapp/test/chat12_test.dart: chat1.2 bubbles and composer fit Size(320.0, 640.0) at 2.0 with keyboard
+00:18 +41 ~2: /workspace/tomiapp/test/chat_test.dart: stale metadata cannot undo a newer block
+00:18 +42 ~2: /workspace/tomiapp/test/chat12_test.dart: chat1.2 inbox fits Size(800.0, 420.0) at 1.0 text and filters immediately
+00:18 +43 ~2: /workspace/tomiapp/test/chat_test.dart: bounded history reaches the oldest message and returns to latest
+00:18 +44 ~2: /workspace/tomiapp/test/chat12_test.dart: chat1.2 bubbles and composer fit Size(800.0, 420.0) at 1.0 with keyboard
+00:18 +45 ~2: /workspace/tomiapp/test/chat12_test.dart: chat1.2 bubbles and composer fit Size(800.0, 420.0) at 1.0 with keyboard
+00:18 +46 ~2: /workspace/tomiapp/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:19 +47 ~2: /workspace/tomiapp/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:19 +48 ~2: /workspace/tomiapp/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:20 +49 ~2: /workspace/tomiapp/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:21 +50 ~2: /workspace/tomiapp/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:21 +51 ~2: /workspace/tomiapp/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:21 +52 ~2: /workspace/tomiapp/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:21 +53 ~2: /workspace/tomiapp/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:21 +54 ~2: /workspace/tomiapp/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:21 +55 ~2: /workspace/tomiapp/test/chat_test.dart: compact chat sends, reads and deletes with the keyboard visible
+00:23 +56 ~2: /workspace/tomiapp/test/chat12_test.dart: group creation retries the saved request after closing the page without duplicating the group
+00:23 +57 ~2: /workspace/tomiapp/test/chat_test.dart: a failed bubble can retry and clear the error
+00:23 +58 ~2: /workspace/tomiapp/test/chat_test.dart: a failed bubble can retry and clear the error
+00:24 +59 ~2: /workspace/tomiapp/test/chat_test.dart: old history has a compact route back to latest messages
+00:25 +60 ~2: /workspace/tomiapp/test/chat_test.dart: old history has a compact route back to latest messages
+00:25 +61 ~2: /workspace/tomiapp/test/chat_test.dart: old history has a compact route back to latest messages
+00:26 +62 ~2: /workspace/tomiapp/test/development15_test.dart: lost roulette acknowledgement retries the exact saved turn and shows the server prize
+00:27 +63 ~2: /workspace/tomiapp/test/chat_test.dart: landscape attachment composer fits large text above the keyboard
+00:27 +64 ~2: /workspace/tomiapp/test/development15_test.dart: lost roulette acknowledgement retries the exact saved turn and shows the server prize on Size(400.0, 900.0)
+00:27 +65 ~2: /workspace/tomiapp/test/development15_test.dart: lost roulette acknowledgement retries the exact saved turn and shows the server prize on Size(320.0, 640.0)
+00:27 +66 ~2: /workspace/tomiapp/test/development15_test.dart: lost roulette acknowledgement retries the exact saved turn and shows the server prize on Size(800.0, 420.0)
+00:28 +67 ~2: /workspace/tomiapp/test/development15_test.dart: disabled roulette cannot submit even with daily attempts left
+00:28 +68 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 charisma tier fallback matches server boundaries without altering donor XP
+00:28 +69 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 lost wager replies retain one durable nonce and recovery never charges a second bet
+00:28 +70 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 share retry keeps its nonce and reports stranger-request delivery
+00:30 +71 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 share retry keeps its nonce and reports stranger-request delivery
+00:30 +72 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 share retry keeps its nonce and reports stranger-request delivery
+00:31 +73 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 share retry keeps its nonce and reports stranger-request delivery
+00:31 +74 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 share retry keeps its nonce and reports stranger-request delivery
+00:31 +75 ~2: /workspace/tomiapp/test/games17_test.dart: 1.7 side-by-side progress and charisma detail fit Size(320.0, 640.0)/1.0
+00:32 +76 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 recipient can block a stranger request and the request disappears
+00:33 +77 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 recipient can block a stranger request and the request disappears
+00:33 +78 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 recipient can block a stranger request and the request disappears
+00:33 +79 ~2: /workspace/tomiapp/test/games17_test.dart: 1.7 side-by-side progress and charisma detail fit Size(320.0, 640.0)/2.0
+00:34 +80 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 room roulette overlay fits Size(320.0, 640.0) at 1.0 text and recovers a wager
+00:34 +81 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 room roulette overlay fits Size(320.0, 640.0) at 1.0 text and recovers a wager
+00:34 +82 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 room roulette overlay fits Size(320.0, 640.0) at 1.0 text and recovers a wager
+00:34 +83 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 room roulette overlay fits Size(320.0, 640.0) at 1.0 text and recovers a wager
+00:34 +84 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 room roulette overlay fits Size(320.0, 640.0) at 1.0 text and recovers a wager
+00:34 +85 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 room roulette overlay fits Size(320.0, 640.0) at 1.0 text and recovers a wager
+00:34 +86 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 room roulette overlay fits Size(320.0, 640.0) at 1.0 text and recovers a wager
+00:35 +87 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 room roulette overlay fits Size(320.0, 640.0) at 1.0 text and recovers a wager
+00:35 +88 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 room roulette overlay fits Size(320.0, 640.0) at 1.0 text and recovers a wager
+00:35 +89 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 room roulette overlay fits Size(320.0, 640.0) at 2.0 text and recovers a wager
+00:36 +90 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 room roulette overlay fits Size(800.0, 420.0) at 1.0 text and recovers a wager
+00:37 +91 ~2: /workspace/tomiapp/test/development16_test.dart: 1.6 room roulette overlay fits Size(800.0, 420.0) at 2.0 text and recovers a wager
+00:37 +91 ~3: /workspace/tomiapp/test/development16_test.dart: 1.6 room roulette overlay fits Size(800.0, 420.0) at 2.0 text and recovers a wager
+00:37 +92 ~3: /workspace/tomiapp/test/development16_test.dart: 1.6 public charisma badge exposes full points at enlarged text
+00:40 +93 ~3: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:41 +93 ~4: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:43 +94 ~4: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:43 +95 ~4: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:44 +96 ~4: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:44 +97 ~4: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:44 +98 ~4: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:44 +99 ~4: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:44 +100 ~4: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:44 +101 ~4: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:44 +102 ~4: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:44 +103 ~4: /workspace/tomiapp/test/home11_test.dart: story labels fit at 320.0x640.0 with text scale 1.0
+00:44 +104 ~4: /workspace/tomiapp/test/identity11_test.dart: effects skip initial history and duplicate snapshots, and cap their waiting queue
+00:45 +105 ~4: /workspace/tomiapp/test/identity11_test.dart: effects skip initial history and duplicate snapshots, and cap their waiting queue
+00:45 +106 ~4: /workspace/tomiapp/test/identity11_test.dart: effects skip initial history and duplicate snapshots, and cap their waiting queue
+00:45 +107 ~4: /workspace/tomiapp/test/home11_test.dart: story labels fit at 800.0x420.0 with text scale 1.0
+00:45 +108 ~4: /workspace/tomiapp/test/identity11_test.dart: identity studio locks unavailable styles and saves available choices at compact size
+00:45 +109 ~4: /workspace/tomiapp/test/identity11_test.dart: identity studio locks unavailable styles and saves available choices at compact size
+00:45 +110 ~4: /workspace/tomiapp/test/identity11_test.dart: identity studio locks unavailable styles and saves available choices at compact size
+00:45 +111 ~4: /workspace/tomiapp/test/identity11_test.dart: identity studio locks unavailable styles and saves available choices at compact size
+00:46 +112 ~4: /workspace/tomiapp/test/identity11_test.dart: identity studio locks unavailable styles and saves available choices at compact size
+00:46 +113 ~4: /workspace/tomiapp/test/identity11_test.dart: identity studio locks unavailable styles and saves available choices at compact size
+00:46 +114 ~4: /workspace/tomiapp/test/identity11_test.dart: identity studio locks unavailable styles and saves available choices at compact size
+00:46 +115 ~4: /workspace/tomiapp/test/identity11_test.dart: identity studio locks unavailable styles and saves available choices at compact size
+00:46 +116 ~4: /workspace/tomiapp/test/identity11_test.dart: identity studio locks unavailable styles and saves available choices at compact size
+00:46 +117 ~4: /workspace/tomiapp/test/identity11_test.dart: identity studio locks unavailable styles and saves available choices at compact size
+
+Warning: A call to tap() with finder "Found 1 widget with key [<'identity-frames-royal'>]: [
+  ListTile-[<'identity-frames-royal'>](contentPadding: EdgeInsets.zero, dependencies: [Directionality, InheritedCupertinoTheme, _InheritedTheme, _LocalizationsScope-[GlobalKey#9f329], _ScrollableScope]),
+]" derived an Offset (Offset(195.0, 943.0)) that would not hit test on the specified widget.
+Maybe the widget is actually off-screen, or another widget is obscuring it, or the widget cannot receive pointer events.
+Indeed, Offset(195.0, 943.0) is outside the bounds of the root of the render tree, Size(390.0, 844.0).
+The finder corresponds to this RenderBox: RenderSemanticsAnnotations#6f908 relayoutBoundary=up7
+The hit test result at that offset is: HitTestResult(HitTestEntry<HitTestTarget>#00471(_ReusableRenderView#79c2b), HitTestEntry<HitTestTarget>#cbee4(<AutomatedTestWidgetsFlutterBinding>))
+#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2165:25)
+#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
+#2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
+#3      main.<anonymous closure> (file:///workspace/tomiapp/test/identity11_test.dart:478:20)
+<asynchronous suspension>
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+#6      StackZoneSpecification._registerCallback.<anonymous closure> (package:stack_trace/src/stack_zone_specification.dart:114:42)
+<asynchronous suspension>
+To silence this warning, pass "warnIfMissed: false" to "tap()".
+To make this warning fatal, set WidgetController.hitTestWarningShouldBeFatal to true.
+
+00:46 +118 ~4: /workspace/tomiapp/test/identity11_test.dart: identity studio locks unavailable styles and saves available choices at compact size
+00:47 +119 ~4: /workspace/tomiapp/test/home11_test.dart: profile menu exposes settings and the four upcoming subscriptions
+00:47 +120 ~4: /workspace/tomiapp/test/home11_test.dart: profile menu exposes settings and the four upcoming subscriptions
+00:47 +121 ~4: /workspace/tomiapp/test/home11_test.dart: profile menu exposes settings and the four upcoming subscriptions
+00:47 +122 ~4: /workspace/tomiapp/test/home11_test.dart: profile menu exposes settings and the four upcoming subscriptions
+00:47 +123 ~4: /workspace/tomiapp/test/home11_test.dart: profile menu exposes settings and the four upcoming subscriptions
+00:49 +124 ~4: /workspace/tomiapp/test/identity11_test.dart: room list favorite and follow actions use real controller state
+00:50 +125 ~4: /workspace/tomiapp/test/identity11_test.dart: room list favorite and follow actions use real controller state
+00:50 +126 ~4: /workspace/tomiapp/test/home11_test.dart: home saving uses the authenticated endpoint
+00:52 +126 ~5: /workspace/tomiapp/test/home11_test.dart: home saving uses the authenticated endpoint
+00:55 +127 ~5: /workspace/tomiapp/test/media05_test.dart: voice lost replies retry the same upload and nonce
+00:55 +128 ~5: /workspace/tomiapp/test/media05_test.dart: pending voices share the bounded private-draft memory limit
+00:56 +129 ~5: /workspace/tomiapp/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+00:58 +130 ~5: /workspace/tomiapp/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+00:58 +131 ~5: /workspace/tomiapp/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+00:59 +132 ~5: /workspace/tomiapp/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+01:00 +133 ~5: /workspace/tomiapp/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+01:00 +134 ~5: /workspace/tomiapp/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+01:00 +135 ~5: /workspace/tomiapp/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+01:00 +136 ~5: /workspace/tomiapp/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+01:00 +137 ~5: /workspace/tomiapp/test/media05_test.dart: voice controls fit a compact chat with enlarged text without initializing a player
+01:00 +138 ~5: /workspace/tomiapp/test/messaging10_test.dart: process restart reconciles a lost image send ACK without uploading or sending again
+01:00 +139 ~5: /workspace/tomiapp/test/media05_test.dart: push asks permission explicitly, registers and detaches when disabled
+01:00 +140 ~5: /workspace/tomiapp/test/media05_test.dart: push asks permission explicitly, registers and detaches when disabled
+01:00 +141 ~5: /workspace/tomiapp/test/media05_test.dart: push asks permission explicitly, registers and detaches when disabled
+01:00 +142 ~5: /workspace/tomiapp/test/media05_test.dart: push asks permission explicitly, registers and detaches when disabled
+01:00 +143 ~5: /workspace/tomiapp/test/media05_test.dart: push asks permission explicitly, registers and detaches when disabled
+01:00 +144 ~5: /workspace/tomiapp/test/messaging10_test.dart: an uncertain post survives process restart and reconciles without a second publish
+01:00 +145 ~5: /workspace/tomiapp/test/messaging10_test.dart: an uncertain post survives process restart and reconciles without a second publish
+01:00 +146 ~5: /workspace/tomiapp/test/messaging10_test.dart: an uncertain post survives process restart and reconciles without a second publish
+01:00 +147 ~5: /workspace/tomiapp/test/media05_test.dart: avatar retries a lost save reply using the same uploaded image and nonce
+01:00 +148 ~5: /workspace/tomiapp/test/media05_test.dart: avatar retries a lost save reply using the same uploaded image and nonce
+01:00 +149 ~5: /workspace/tomiapp/test/media05_test.dart: avatar retries a lost save reply using the same uploaded image and nonce
+01:01 +150 ~5: /workspace/tomiapp/test/messaging10_test.dart: the post sheet saves on close and restores editable text when reopened
+01:02 +151 ~5: /workspace/tomiapp/test/messaging_api_integration_test.dart: 0.10 Flutter disk restart reconciles real HTTP send and retains reply reaction pin search and post contracts
+01:04 +151 ~6: /workspace/tomiapp/test/mobile09_test.dart: screen off retains active audio and signaling; hangup releases the service
+01:04 +152 ~6: /workspace/tomiapp/test/mobile09_test.dart: minimized video stops capture and returning never silently enables it
+01:04 +153 ~6: /workspace/tomiapp/test/mobile09_test.dart: unavailable foreground service keeps the foreground-only fallback
+01:04 +154 ~6: /workspace/tomiapp/test/mobile09_test.dart: a service start completing after logout cannot revive capture or signaling
+01:04 +155 ~6: /workspace/tomiapp/test/mobile09_test.dart: room listener keeps heartbeat when locked without starting a microphone
+01:04 +156 ~6: /workspace/tomiapp/test/mobile09_test.dart: background moderation revokes an already open room microphone
+01:04 +157 ~6: /workspace/tomiapp/test/mobile09_test.dart: a permission result after minimizing cannot enable an untyped background microphone
+01:04 +158 ~6: /workspace/tomiapp/test/mobile09_test.dart: notification actions require the account, session binding and a fresh live call
+01:04 +159 ~6: /workspace/tomiapp/test/mobile09_test.dart: an expired ring action cannot start capture
+01:04 +160 ~6: /workspace/tomiapp/test/mobile09_test.dart: an answer action fetches the live call and accepts once with explicit microphone preparation
+01:04 +161 ~6: /workspace/tomiapp/test/mobile09_test.dart: a video permission finishing after screen lock rolls back to audio
+01:04 +162 ~6: /workspace/tomiapp/test/mobile09_test.dart: native service loss ends the matching call but cannot end a newer session
+01:04 +163 ~6: /workspace/tomiapp/test/moderation12_test.dart: admin retries freeze the original nonce and cannot apply an accepted action twice
+01:05 +164 ~6: /workspace/tomiapp/test/moderation12_test.dart: revoked platform role clears all staff data and cannot execute a pending command
+01:05 +165 ~6: /workspace/tomiapp/test/moderation12_test.dart: late privileged response after logout cannot restore staff content
+01:05 +166 ~6: /workspace/tomiapp/test/moderation12_test.dart: new report queue filter wins over an older response
+01:05 +167 ~6: /workspace/tomiapp/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+01:06 +167 ~7: /workspace/tomiapp/test/moderation12_test.dart: a report with a lost accepted ACK retries the same frozen request and creates once
+01:07 +168 ~7: /workspace/tomiapp/test/moderation12_test.dart: ordinary reporter sees public status but never staff notes
+01:08 +169 ~7: /workspace/tomiapp/test/native_call_media_test.dart: native audio offer and answer override the plugin video default
+01:08 +170 ~7: /workspace/tomiapp/test/moderation12_test.dart: admin tabs, status filters and metrics fit a compact Arabic screen
+01:08 +171 ~7: /workspace/tomiapp/test/moderation12_test.dart: admin tabs, status filters and metrics fit a compact Arabic screen
+01:09 +172 ~7: /workspace/tomiapp/test/moderation12_test.dart: a room moderator account without a platform role cannot see the admin dashboard
+01:10 +173 ~7: /workspace/tomiapp/test/notification_room132_test.dart: (setUpAll)
+01:10 +173 ~7: /workspace/tomiapp/test/notification_room132_test.dart: Firebase native initialization shares an active attempt and retries a failed attempt
+01:10 +174 ~7: /workspace/tomiapp/test/notification_room132_test.dart: notification refresh recovers native setup and registers the device with its session binding
+01:10 +175 ~7: /workspace/tomiapp/test/notification_room132_test.dart: a server that declines registration cannot show notifications as activated
+01:10 +176 ~7: /workspace/tomiapp/test/notification_room132_test.dart: enabling requests phone permission and disabling unregisters the existing token
+01:10 +177 ~7: /workspace/tomiapp/test/notification_room132_test.dart: missing notification setup remains retryable and explains client and server states
+01:11 +178 ~7: /workspace/tomiapp/test/notification_room132_test.dart: missing notification setup remains retryable and explains client and server states
+01:11 +179 ~7: /workspace/tomiapp/test/notification_room132_test.dart: missing notification setup remains retryable and explains client and server states
+01:11 +180 ~7: /workspace/tomiapp/test/notification_room132_test.dart: missing notification setup remains retryable and explains client and server states
+01:13 +181 ~7: /workspace/tomiapp/test/owner14_test.dart: owner account tools show balances, finance form and explicit moderator permission selection
+01:14 +182 ~7: /workspace/tomiapp/test/owner14_test.dart: owner account tools show balances, finance form and explicit moderator permission selection
+01:15 +183 ~7: /workspace/tomiapp/test/owner14_test.dart: owner account tools show balances, finance form and explicit moderator permission selection
+01:16 +184 ~7: /workspace/tomiapp/test/owner14_test.dart: owner controls remain reachable on a compact enlarged-text screen
+01:17 +185 ~7: /workspace/tomiapp/test/owner14_test.dart: report-only staff cannot see finance, staff assignment or post moderation controls
+01:18 +186 ~7: /workspace/tomiapp/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+01:18 +187 ~7: /workspace/tomiapp/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+01:18 +188 ~7: /workspace/tomiapp/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+01:21 +189 ~7: /workspace/tomiapp/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+01:21 +190 ~7: /workspace/tomiapp/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+01:21 +191 ~7: /workspace/tomiapp/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+01:21 +192 ~7: /workspace/tomiapp/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+01:21 +193 ~7: /workspace/tomiapp/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+01:21 +194 ~7: /workspace/tomiapp/test/preview_test.dart: five tabs fit viewport Size(320.0, 640.0)
+01:22 +195 ~7: /workspace/tomiapp/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+01:24 +196 ~7: /workspace/tomiapp/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+01:25 +197 ~7: /workspace/tomiapp/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+01:26 +198 ~7: /workspace/tomiapp/test/privacy10_test.dart: Arabic privacy and irreversible deletion controls fit a small enlarged-text display
+01:28 +199 ~7: /workspace/tomiapp/test/preview_test.dart: chat sends local text and clears unread badge
+01:28 +200 ~7: /workspace/tomiapp/test/privacy10_test.dart: signed-out users can read policies and open deletion tracking without sending credentials
+01:30 +201 ~7: /workspace/tomiapp/test/privacy_api_integration_test.dart: 1.0 real HTTP erasure revokes sessions, removes posts and messages and verifies its private receipt signed out
+01:30 +201 ~8: /workspace/tomiapp/test/room_api_integration_test.dart: two room controllers create, join, request mic, moderate and leave via real Node API
+01:31 +201 ~9: /workspace/tomiapp/test/room_features_test.dart: uncertain gift retries reuse the same request id and confirmed response updates wallet
+01:31 +202 ~9: /workspace/tomiapp/test/room_features_test.dart: late gift response after leaving cannot change a newer wallet or recreate room membership
+01:31 +203 ~9: /workspace/tomiapp/test/room_features_test.dart: accepting a special-seat invitation never starts microphone capture
+01:31 +204 ~9: /workspace/tomiapp/test/room_features_test.dart: gallery handoff mutes capture and returning does not unmute; normal background still leaves
+01:31 +205 ~9: /workspace/tomiapp/test/room_features_test.dart: leaving during gift loading releases loading state and a late response cannot overwrite a new room
+01:31 +206 ~9: /workspace/tomiapp/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+01:32 +207 ~9: /workspace/tomiapp/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+01:32 +208 ~9: /workspace/tomiapp/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+01:32 +209 ~9: /workspace/tomiapp/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+01:32 +210 ~9: /workspace/tomiapp/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+01:32 +211 ~9: /workspace/tomiapp/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+01:32 +212 ~9: /workspace/tomiapp/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+01:32 +213 ~9: /workspace/tomiapp/test/room_features_test.dart: owner absence keeps a reserved seat with identity visible and no claimant control
+01:34 +214 ~9: /workspace/tomiapp/test/rooms_test.dart: room list loads when its tab becomes visible
+01:35 +215 ~9: /workspace/tomiapp/test/room_features_test.dart: gift picker selects recipient and gift then sends correct quantity with trial wallet
+01:35 +216 ~9: /workspace/tomiapp/test/rooms_test.dart: room UI fits narrow Arabic screen and 2x text with working request and leave controls
+01:36 +217 ~9: /workspace/tomiapp/test/room_features_test.dart: white room settings toggle persists and remains usable at large Arabic text
+01:37 +218 ~9: /workspace/tomiapp/test/room_features_test.dart: room landscape and gift sheet fit narrow screen at double text size
+01:39 +219 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 result presentation uses exactly the five server seconds despite a stale phase label
+01:39 +220 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 no result is fabricated while settlement has not arrived
+01:39 +221 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 podium is limited to three current-round winners and rejects a mismatched round
+01:39 +222 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 every stop reaches the server target without a local result draw
+01:39 +223 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 phase progress is bounded at every deadline
+01:39 +224 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 dark conversation surfaces share the app design tokens
+01:39 +225 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 stale snapshots cannot replace a newer round, balance or server clock
+01:39 +226 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 rate-limited recovery retains the original accepted wager intent
+01:39 +227 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 closing an account session clears cached share contacts and disables sending
+01:41 +228 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 closing an account session clears cached share contacts and disables sending
+01:42 +229 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 closing an account session clears cached share contacts and disables sending
+01:43 +230 ~9: /workspace/tomiapp/test/social_test.dart: real publication keeps draft and request ID after a failed response
+01:45 +231 ~9: /workspace/tomiapp/test/social_test.dart: real publication keeps draft and request ID after a failed response
+01:45 +232 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 wheel stays fixed while sending, losing and recovering a wager at Size(320.0, 640.0)/2.0
+01:47 +233 ~9: /workspace/tomiapp/test/social_test.dart: real feed, likes and comments fit enlarged text on Size(320.0, 640.0)
+01:47 +234 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 wheel stays fixed while sending, losing and recovering a wager at Size(800.0, 420.0)/1.0
+01:48 +235 ~9: /workspace/tomiapp/test/social_test.dart: real feed, likes and comments fit enlarged text on Size(800.0, 420.0)
+01:48 +236 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 wheel stays fixed while sending, losing and recovering a wager at Size(800.0, 420.0)/2.0
+01:48 +237 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 wheel stays fixed while sending, losing and recovering a wager at Size(800.0, 420.0)/2.0
+01:48 +238 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 wheel stays fixed while sending, losing and recovering a wager at Size(800.0, 420.0)/2.0
+01:49 +239 ~9: /workspace/tomiapp/test/roulette_polish_test.dart: 1.6.1 podium shows this round top three and clears immediately for the next round
+01:50 +240 ~9: /workspace/tomiapp/test/store_test.dart: like toggle restores the original count
+01:50 +241 ~9: /workspace/tomiapp/test/store_test.dart: blank input cannot create a post, comment, story, or message
+01:50 +242 ~9: /workspace/tomiapp/test/store_test.dart: profile edits do not lose ownership of existing posts
+01:50 +243 ~9: /workspace/tomiapp/test/store_test.dart: gifts never produce a negative balance and XP stays separate
+01:52 +244 ~9: /workspace/tomiapp/test/voice13_test.dart: (setUpAll)
+01:52 +244 ~9: /workspace/tomiapp/test/voice13_test.dart: paid room intent survives restart and lost ACK without another charge
+01:53 +245 ~9: /workspace/tomiapp/test/voice13_test.dart: cosmetic purchase retries the durable request after app restart
+01:53 +246 ~9: /workspace/tomiapp/test/voice13_test.dart: self and group gifts preserve chosen audience and price preview
+01:53 +247 ~9: /workspace/tomiapp/test/voice13_test.dart: realtime seat change refreshes before polling interval
+01:53 +248 ~9: /workspace/tomiapp/test/voice13_test.dart: voice UI, paid terms, stage and gift audiences fit Arabic compact screens
+01:57 +249 ~9: /workspace/tomiapp/test/voice13_test.dart: voice UI, paid terms, stage and gift audiences fit Arabic compact screens
+01:58 +250 ~9: /workspace/tomiapp/test/voice13_test.dart: voice UI, paid terms, stage and gift audiences fit Arabic compact screens
+01:58 +251 ~9: /workspace/tomiapp/test/voice13_test.dart: voice UI, paid terms, stage and gift audiences fit Arabic compact screens
+01:59 +252 ~9: /workspace/tomiapp/test/voice13_test.dart: (tearDownAll)
+02:00 +252 ~9: /workspace/tomiapp/test/smooth_chat_test.dart: game and room realtime events do not trigger chat inbox network refreshes
+02:00 +253 ~9: /workspace/tomiapp/test/smooth_chat_test.dart: game and room realtime events do not trigger chat inbox network refreshes
+02:01 +254 ~9: /workspace/tomiapp/test/board_games_test.dart: jackaroo table and rules fit Size(320.0, 640.0) at 1.0 text
+02:01 +255 ~9: /workspace/tomiapp/test/board_games_test.dart: jackaroo table and rules fit Size(320.0, 640.0) at 1.0 text
+02:01 +256 ~9: /workspace/tomiapp/test/board_games_test.dart: jackaroo table and rules fit Size(320.0, 640.0) at 1.0 text
+02:01 +257 ~9: /workspace/tomiapp/test/board_games_test.dart: jackaroo table and rules fit Size(320.0, 640.0) at 1.0 text
+02:03 +258 ~9: /workspace/tomiapp/test/smooth_chat_test.dart: GIF picker fits a compact enlarged-text conversation and sends an animated sticker
+02:03 +259 ~9: /workspace/tomiapp/test/board_games_test.dart: camel table and rules fit Size(320.0, 640.0) at 1.0 text
+02:04 +260 ~9: /workspace/tomiapp/test/board_games_test.dart: jackaroo table and rules fit Size(320.0, 640.0) at 2.0 text
+02:04 +261 ~9: /workspace/tomiapp/test/board_games_test.dart: camel table and rules fit Size(320.0, 640.0) at 2.0 text
+02:04 +262 ~9: /workspace/tomiapp/test/board_games_test.dart: jackaroo table and rules fit Size(800.0, 420.0) at 1.0 text
+02:04 +263 ~9: /workspace/tomiapp/test/board_games_test.dart: camel table and rules fit Size(800.0, 420.0) at 1.0 text
+02:05 +264 ~9: /workspace/tomiapp/test/board_games_test.dart: jackaroo table and rules fit Size(800.0, 420.0) at 2.0 text
+02:05 +265 ~9: /workspace/tomiapp/test/board_games_test.dart: camel table and rules fit Size(800.0, 420.0) at 2.0 text
+02:05 +266 ~9: /workspace/tomiapp/test/board_games_test.dart: jackaroo sends one server choice through the existing durable controller
+02:06 +267 ~9: /workspace/tomiapp/test/csharp_games_visibility_test.dart: hidden CSharp games do not initialize WebView or keep other tabs animating
+02:06 +268 ~9: /workspace/tomiapp/test/csharp_games_visibility_test.dart: hidden CSharp games do not initialize WebView or keep other tabs animating
+02:06 +269 ~9: /workspace/tomiapp/test/csharp_games_visibility_test.dart: hidden CSharp games do not initialize WebView or keep other tabs animating
+02:07 +270 ~9: /workspace/tomiapp/test/csharp_asset_server_test.dart: CSharp assets use isolated loopback origin, exact manifest, WASM MIME and deny foreign access
+02:07 +271 ~9: /workspace/tomiapp/test/csharp_asset_server_test.dart: packaged CSharp UI boots under the actual native asset server CSP and talks to real API
+02:08 +271 ~10: /workspace/tomiapp/test/red_room30_test.dart: minimized room renders in the real app builder without a red error overlay
+02:09 +272 ~10: /workspace/tomiapp/test/red_room30_test.dart: minimized room renders in the real app builder without a red error overlay
+02:09 +273 ~10: /workspace/tomiapp/test/red_room30_test.dart: minimized room renders in the real app builder without a red error overlay
+02:10 +274 ~10: /workspace/tomiapp/test/red_room30_test.dart: minimized room renders in the real app builder without a red error overlay
+02:10 +275 ~10: /workspace/tomiapp/test/red_room30_test.dart: minimized room renders in the real app builder without a red error overlay
+02:13 +276 ~10: /workspace/tomiapp/test/content30_api_integration_test.dart: Flutter publishing audience, profile posts, message edits and real delivery/read receipts round-trip through the Node API
+02:15 +276 ~11: /workspace/tomiapp/test/polish31_test.dart: wallet is six display-only offers in three columns at text scale 1.0
+02:15 +277 ~11: /workspace/tomiapp/test/polish31_test.dart: wallet is six display-only offers in three columns at text scale 1.0
+02:18 +278 ~11: /workspace/tomiapp/test/improvements32_test.dart: story draft restores text and audience after leaving and reopening without publishing
+02:18 +279 ~11: /workspace/tomiapp/test/improvements32_test.dart: story draft restores text and audience after leaving and reopening without publishing
+02:19 +280 ~11: /workspace/tomiapp/test/polish31_test.dart: actual chat voice bubble exposes 2x and 3x playback controls
+02:19 +281 ~11: /workspace/tomiapp/test/polish31_test.dart: actual chat voice bubble exposes 2x and 3x playback controls
+02:20 +282 ~11: /workspace/tomiapp/test/polish31_test.dart: actual chat voice bubble exposes 2x and 3x playback controls
+02:20 +283 ~11: /workspace/tomiapp/test/polish31_test.dart: permission failure in live preparation cannot create an empty public broadcast
+02:21 +284 ~11: /workspace/tomiapp/test/polish31_test.dart: definitively rejected video is repaired with a new request and upload without duplicating an accepted message
+02:21 +285 ~11: /workspace/tomiapp/test/voice32_test.dart: voice recorder uses microphone input and warns before sending a silent capture
+02:24 +286 ~11: /workspace/tomiapp/test/voice32_test.dart: voice recorder uses microphone input and allows a capture with detected speech
+02:25 +287 ~11: All tests passed!

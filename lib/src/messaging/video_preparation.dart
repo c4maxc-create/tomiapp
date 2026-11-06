@@ -1,3 +1,5 @@
+import '../preferences/media_preferences.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
@@ -34,8 +36,22 @@ class VideoPreparation {
         'VIDEO_DURATION',
         'اختار فيديو مدته حتى ثلاث دقائق.',
       );
+    final preferences = MediaPreferences.instance;
+    try {
+      await preferences.restore();
+    } catch (_) {}
+    var smaller = preferences.dataSaver;
+    if (preferences.smartQuality && !smaller) {
+      try {
+        final network = await Connectivity().checkConnectivity();
+        smaller =
+            network.contains(ConnectivityResult.mobile) &&
+            !network.contains(ConnectivityResult.wifi) &&
+            !network.contains(ConnectivityResult.ethernet);
+      } catch (_) {}
+    }
     for (final quality in [
-      VideoQuality.Res1280x720Quality,
+      if (!smaller) VideoQuality.Res1280x720Quality,
       VideoQuality.Res960x540Quality,
     ]) {
       final out = await VideoCompress.compressVideo(
