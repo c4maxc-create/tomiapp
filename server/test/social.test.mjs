@@ -51,12 +51,13 @@ test('R2 signing matches the published AWS Signature V4 test vector',()=>{
  const url=signS3Url({endpoint:'https://examplebucket.s3.amazonaws.com',bucket:'',key:'test.txt',region:'us-east-1',accessKeyId:'AKIAIOSFODNN7EXAMPLE',secretAccessKey:'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',expires:86400,now:new Date('2013-05-24T00:00:00Z')});assert.equal(new URL(url).searchParams.get('X-Amz-Signature'),'aeeed9bbccd4d02ee5c0109b86d86835f995330da4c265957d157751f604d404');assert.equal(r2FromEnvironment({}),null);assert.throws(()=>r2FromEnvironment({R2_ACCOUNT_ID:'partial'}));assert.deepEqual(imageDimensions(png,'image/png'),{width:1,height:1});
 });
 
-test('explore excludes followed accounts and own posts while retaining ordinary public posts',async t=>{
+test('explore includes every public post including own and followed accounts but excludes follower-only distribution',async t=>{
  const a=await fixture(t),u=await a.register('explore_viewer'),v=await a.register('explore_followed'),w=await a.register('explore_other');
  await a.request('PUT','/v1/users/'+v.user.id+'/follow',{follow:true},u.token);
  for(const person of [u,v,w])await a.post(person,'ordinary public content');
  const found=await a.request('GET','/v1/posts?scope=explore',undefined,u.token);
- assert.equal(found.status,200);assert.equal(found.data.posts.length,1);assert.equal(found.data.posts[0].author.id,w.user.id);
+ assert.equal(found.status,200);assert.equal(found.data.posts.length,3);assert.deepEqual(new Set(found.data.posts.map(p=>p.author.id)),new Set([u.user.id,v.user.id,w.user.id]));
  await a.request('PUT','/v1/users/'+w.user.id+'/follow',{follow:true},u.token);
- assert.equal((await a.request('GET','/v1/posts?scope=explore',undefined,u.token)).data.posts.length,0);
+ await a.request('POST','/v1/posts',{requestId:randomUUID(),text:'followers only',audience:'followers'},v.token);
+ assert.equal((await a.request('GET','/v1/posts?scope=explore',undefined,u.token)).data.posts.length,3);
 });

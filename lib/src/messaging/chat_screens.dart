@@ -1927,7 +1927,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
             mainAxisSize: MainAxisSize.min,
             children: [
               GestureDetector(
-                onDoubleTap: !m.deleted && c.canSend
+                onDoubleTap:
+                    !m.deleted &&
+                        c.canSend &&
+                        m.audio == null &&
+                        m.video == null &&
+                        m.document == null
                     ? () async {
                         try {
                           await thread.changeTool(m, 'reaction', {
@@ -3169,6 +3174,15 @@ class _ChatVoiceMessage extends StatelessWidget {
                 textDirection: TextDirection.ltr,
                 child: Row(
                   children: [
+                    TextButton(
+                      key: ValueKey('chat-voice-speed-$id'),
+                      onPressed: playback.cycleSpeed,
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(36, 36),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                      child: Text('${playback.speed.toInt()}×'),
+                    ),
                     IconButton(
                       tooltip: active && playback.playing
                           ? 'إيقاف مؤقت'

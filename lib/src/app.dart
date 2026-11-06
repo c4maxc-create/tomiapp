@@ -4,6 +4,7 @@ import 'messaging/chat_screens.dart';
 import 'messaging/chat_models.dart';
 import 'calling/call_models.dart';
 import 'live/live_pages.dart';
+import 'wallet/wallet_page.dart' as wallet;
 import 'calling/call_screens.dart';
 import 'voice_rooms/room_screens.dart';
 
@@ -302,13 +303,35 @@ class _TomiAppState extends State<TomiApp> {
             Positioned(
               left: 12,
               right: 12,
-              bottom: MediaQuery.paddingOf(context).bottom + 84,
+              bottom: MediaQuery.paddingOf(context).bottom + 116,
               child: Material(
                 elevation: 12,
                 color: TomiColors.surface,
                 borderRadius: BorderRadius.circular(20),
                 child: Row(
                   children: [
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(start: 10),
+                      child: ClipOval(
+                        child: c.active!.image?['url'] != null
+                            ? Image.network(
+                                c.active!.image!['url'] as String,
+                                width: 30,
+                                height: 30,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) =>
+                                    const Icon(Icons.headphones),
+                              )
+                            : const SizedBox(
+                                width: 30,
+                                height: 30,
+                                child: Icon(
+                                  Icons.headphones,
+                                  color: TomiColors.accent,
+                                ),
+                              ),
+                      ),
+                    ),
                     Expanded(
                       child: InkWell(
                         onTap: () {
@@ -550,54 +573,78 @@ class _TomiShellState extends State<TomiShell> {
           ],
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        height: 76,
-        animationDuration: const Duration(milliseconds: 180),
-        backgroundColor: TomiColors.surface,
-        selectedIndex: selected,
-        onDestinationSelected: (value) => setState(() => selected = value),
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: [
-          NavigationDestination(
-            key: Key('nav-home'),
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'الرئيسية',
-          ),
-          NavigationDestination(
-            key: Key('nav-chats'),
-            icon: Badge(
-              isLabelVisible: (widget.accounts?.chats.totalUnread ?? 0) > 0,
-              label: Text('${widget.accounts?.chats.totalUnread ?? 0}'),
-              child: const Icon(Icons.chat_bubble_outline_rounded),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 32,
+            child: Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: TextButton.icon(
+                key: const Key('wallet-entry'),
+                onPressed: () => wallet.WalletPage.open(context),
+                icon: const Icon(
+                  Icons.account_balance_wallet_outlined,
+                  size: 17,
+                ),
+                label: const Text('المحفظة'),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
             ),
-            selectedIcon: Icon(Icons.chat_bubble_rounded),
-            label: 'المحادثات',
           ),
-          NavigationDestination(
-            key: Key('nav-rooms'),
-            icon: Icon(Icons.mic_none_rounded),
-            selectedIcon: Icon(Icons.mic_rounded),
-            label: 'الغرف',
+          NavigationBar(
+            height: 76,
+            animationDuration: const Duration(milliseconds: 180),
+            backgroundColor: TomiColors.surface,
+            selectedIndex: selected,
+            onDestinationSelected: (value) => setState(() => selected = value),
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            destinations: [
+              NavigationDestination(
+                key: Key('nav-home'),
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home_rounded),
+                label: 'الرئيسية',
+              ),
+              NavigationDestination(
+                key: Key('nav-chats'),
+                icon: Badge(
+                  isLabelVisible: (widget.accounts?.chats.totalUnread ?? 0) > 0,
+                  label: Text('${widget.accounts?.chats.totalUnread ?? 0}'),
+                  child: const Icon(Icons.chat_bubble_outline_rounded),
+                ),
+                selectedIcon: Icon(Icons.chat_bubble_rounded),
+                label: 'المحادثات',
+              ),
+              NavigationDestination(
+                key: Key('nav-rooms'),
+                icon: Icon(Icons.mic_none_rounded),
+                selectedIcon: Icon(Icons.mic_rounded),
+                label: 'الغرف',
+              ),
+              NavigationDestination(
+                key: Key('nav-games'),
+                icon: Icon(Icons.sports_esports_outlined),
+                selectedIcon: Icon(Icons.sports_esports_rounded),
+                label: 'الألعاب',
+              ),
+              NavigationDestination(
+                key: Key('nav-profile'),
+                icon: Icon(Icons.person_outline_rounded),
+                selectedIcon: Icon(Icons.person_rounded),
+                label: 'حسابي',
+              ),
+              if (widget.accounts != null)
+                const NavigationDestination(
+                  key: Key('nav-live'),
+                  icon: Icon(Icons.sensors),
+                  label: 'مباشر',
+                ),
+            ],
           ),
-          NavigationDestination(
-            key: Key('nav-games'),
-            icon: Icon(Icons.sports_esports_outlined),
-            selectedIcon: Icon(Icons.sports_esports_rounded),
-            label: 'الألعاب',
-          ),
-          NavigationDestination(
-            key: Key('nav-profile'),
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded),
-            label: 'حسابي',
-          ),
-          if (widget.accounts != null)
-            const NavigationDestination(
-              key: Key('nav-live'),
-              icon: Icon(Icons.sensors),
-              label: 'مباشر',
-            ),
         ],
       ),
     ),

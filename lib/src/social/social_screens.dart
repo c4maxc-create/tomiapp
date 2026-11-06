@@ -120,10 +120,19 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
     scope: widget.initialScope,
   );
   final scroll = ScrollController();
+  Timer? newestTimer;
   @override
   void initState() {
     super.initState();
     scroll.addListener(maybeMore);
+    newestTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      if (widget.visible &&
+          widget.userId == null &&
+          WidgetsBinding.instance.lifecycleState != AppLifecycleState.paused &&
+          (!scroll.hasClients || scroll.offset < 80)) {
+        unawaited(feed.refresh(quiet: true));
+      }
+    });
     unawaited(feed.refresh());
     if (widget.userId == null &&
         !kIsWeb &&
@@ -296,6 +305,7 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
 
   @override
   void dispose() {
+    newestTimer?.cancel();
     scroll.dispose();
     feed.dispose();
     super.dispose();
@@ -417,27 +427,6 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                           feed.scope == 'following' ? 'following' : 'explore',
                         },
                         onSelectionChanged: (v) => feed.select(v.first),
-                      ),
-                    ),
-                  if (feed.scope != 'all' && widget.userId == null)
-                    Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Row(
-                        children: [
-                          Text(
-                            {
-                                  'following': 'متابعاتي',
-                                  'mine': 'منشوراتي',
-                                  'saved': 'المحفوظات',
-                                }[feed.scope] ??
-                                '',
-                          ),
-                          const Spacer(),
-                          TextButton(
-                            onPressed: () => feed.select('all'),
-                            child: const Text('عرض الكل'),
-                          ),
-                        ],
                       ),
                     ),
                   if (feed.loading && feed.posts.isEmpty)

@@ -10,6 +10,7 @@ import '../social/social_models.dart';
 import 'chat_models.dart';
 import 'chat_connection.dart';
 import 'draft_store.dart';
+import 'video_media.dart' show repairRejectedVideo;
 
 class ChatController extends ChangeNotifier with WidgetsBindingObserver {
   ChatController({required this.accounts, this.realtimeEnabled = true}) {
@@ -562,6 +563,7 @@ class ChatThreadController extends ChangeNotifier {
     }
   }
 
+  Future<VideoDraft> Function(VideoDraft) videoRepairer = repairRejectedVideo;
   final committedMediaKeys = <String>{};
   Future<bool> persist() async {
     await restored;
@@ -1385,6 +1387,23 @@ class ChatThreadController extends ChangeNotifier {
       if (await reconcilePending(p)) return;
       await loadMedia(p);
       if (!current) return;
+      if (p.videoRepair && p.video != null) {
+        final prepared = await videoRepairer(p.video!);
+        if (!current) return;
+        final replacement = PendingChatMessage(
+          p.text,
+          null,
+          video: prepared,
+          replyToId: p.replyToId,
+          createdAt: p.createdAt,
+        );
+        final index = pending.indexOf(p);
+        if (index < 0) return;
+        pending[index] = replacement;
+        if (!await persist()) return;
+        notify();
+        return;
+      }
       p.attempts++;
       if (p.media != null && !p.uploaded) {
         if (p.upload != null &&
@@ -1452,6 +1471,11 @@ class ChatThreadController extends ChangeNotifier {
     } on AccountFailure catch (f) {
       if (!disposed) {
         p.error = f.message;
+        if (f.code == 'INVALID_VIDEO' && p.hasVideo) {
+          p.videoRepair = true;
+          p.error =
+              'الفيديو يحتاج تجهيزًا؛ اضغط إعادة المحاولة حتى نجهّزه ونرسله.';
+        }
         p.autoRetry =
             [
               'NETWORK',

@@ -59,7 +59,9 @@ class ChatMessage {
       : null;
   DateTime? get createdAt =>
       DateTime.tryParse(data['createdAt'] as String? ?? '');
-  UserIdentity get authorIdentity => UserIdentity((data['author'] as Map?)?['identity'] as Map<String, dynamic>? ?? const {});
+  UserIdentity get authorIdentity => UserIdentity(
+    (data['author'] as Map?)?['identity'] as Map<String, dynamic>? ?? const {},
+  );
   String get authorName =>
       (data['author'] as Map?)?['displayName'] as String? ?? '';
   int get revision => (data['revision'] as num?)?.toInt() ?? 0;
@@ -117,6 +119,7 @@ class PendingChatMessage {
       busy = false,
       commitAttempted = false,
       autoRetry = true;
+  bool videoRepair = false;
   int attempts = 0;
   String? error;
   Map<String, dynamic> toJson() {
@@ -154,6 +157,7 @@ class PendingChatMessage {
       'commitAttempted': commitAttempted,
       'autoRetry': autoRetry,
       'attempts': attempts,
+      'videoRepair': videoRepair,
     };
   }
 
@@ -175,6 +179,7 @@ class PendingChatMessage {
             : DateTime.parse(d['preparedAt'] as String)
         ..uploaded = d['uploaded'] == true
         ..commitAttempted = d['commitAttempted'] == true
+        ..videoRepair = d['videoRepair'] == true
         ..autoRetry = d['autoRetry'] != false
         ..attempts = (d['attempts'] as num?)?.toInt() ?? 0
         ..error = 'رسالة محفوظة من الجلسة السابقة؛ جاهزة لإعادة المحاولة.';

@@ -78,6 +78,7 @@ test('0.10 upload init and physical-upload renewal preserve a single logical ima
 });
 test('0.10 real H264 AAC MP4 inspection streams across every header and bounds malformed metadata',()=>{
  assert.deepEqual(videoMetadata(video),{width:320,height:180,durationMs:1000});
+ const surround=Buffer.from(video),audio=surround.indexOf('mp4a');assert.ok(audio>0);surround.writeUInt16BE(6,audio+20);assert.equal(videoMetadata(surround).durationMs,1000);surround.writeUInt16BE(9,audio+20);assert.throws(()=>videoMetadata(surround));
  for(const size of [1,7,13,1024]){const x=new VideoInspector(video.length);for(let i=0;i<video.length;i+=size)x.push(video.subarray(i,i+size));assert.equal(x.finish().durationMs,1000);}
  assert.throws(()=>new VideoInspector(maxVideoBytes+1));assert.throws(()=>videoMetadata(png));assert.throws(()=>videoMetadata(video.subarray(0,video.length-1)));
  const unsupported=Buffer.from(video);let i=unsupported.indexOf('avc1');while(i>=0){unsupported.write('hvc1',i);i=unsupported.indexOf('avc1',i+4);}assert.throws(()=>videoMetadata(unsupported));

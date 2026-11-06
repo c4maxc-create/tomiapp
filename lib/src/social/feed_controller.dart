@@ -26,11 +26,12 @@ class FeedController extends ChangeNotifier {
     await refresh();
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh({bool quiet = false}) async {
+    if (quiet && loading) return;
     final revision = ++_revision;
     loading = true;
     error = null;
-    _notify();
+    if (!quiet) _notify();
     try {
       final p = await accounts.feed(scope: scope, userId: userId);
       if (_disposed || revision != _revision) return;
@@ -81,6 +82,7 @@ class FeedController extends ChangeNotifier {
   }
 
   void add(SocialPost p) {
+    if (scope == 'explore' && userId == null && p.audience != 'public') return;
     posts = [p, ...posts.where((v) => v.id != p.id)];
     _notify();
   }

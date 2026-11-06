@@ -539,6 +539,10 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
       notify();
       return false;
     }
+    if (inRoom && active?.id != roomId && !busy) {
+      await leave();
+      await releaseTail;
+    }
     if (disposed || busy || inRoom || sessionKey == null || !foreground)
       return false;
     if (accounts.calls.busy || accounts.calls.active?.ended == false) {

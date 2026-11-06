@@ -29,7 +29,7 @@ function metadata(b){
    video={width,height,durationMs};
   }else{
    if(++audio>1||entry.type!=='mp4a'||entry.end-entry.start<28)invalid();const channels=b.readUInt16BE(entry.start+16);
-   if(channels<1||channels>2||!boxes(b,entry.start+28,entry.end).some(x=>x.type==='esds'))invalid();
+   if(channels<1||channels>8||!boxes(b,entry.start+28,entry.end).some(x=>x.type==='esds'))invalid();
   }
  }if(!video)invalid();return video;
 }

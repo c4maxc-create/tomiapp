@@ -1,0 +1,36 @@
+✔ 0.10 replies reactions pins and their deletion persist and enforce participant/block boundaries (4216.278105ms)
+✔ 0.10 search uses literal matching, stable sequence pages and private own request receipts (14888.7869ms)
+ℹ Search fixture messages prepared: 16/65
+ℹ Search fixture messages prepared: 32/65
+ℹ Search fixture messages prepared: 48/65
+ℹ Search fixture messages prepared: 64/65
+ℹ Search fixture messages prepared: 65/65
+ℹ Search page completed: 1
+ℹ Search page completed: 2
+ℹ Search page completed: 3
+✔ 0.10 upload init and physical-upload renewal preserve a single logical image request (10091.800259ms)
+✔ 0.10 real H264 AAC MP4 inspection streams across every header and bounds malformed metadata (28.908789ms)
+✔ 0.10 videos use separate private/public buckets, actual metadata and cleanup after deletion (2367.31061ms)
+✔ 0.10 a post receipt survives deleted posts and cannot republish an uncertain old nonce (2444.044616ms)
+✔ 0.10 room history is keyset paginated and session bound; own gift receipt remains readable after close (6498.090995ms)
+ℹ Room-history fixture messages prepared: 32/95
+ℹ Room-history fixture messages prepared: 64/95
+ℹ Room-history fixture messages prepared: 95/95
+✔ 0.10 additive migration opens the exact 0.9 schema and retains existing session and text post receipt (45.755522ms)
+✔ text posts and profile counts survive restart; text works without R2 (2222.198269ms)
+✔ simultaneous and repeated requests cannot duplicate posts or comments (1088.482234ms)
+✔ likes are idempotent; author and comment ownership are enforced (2030.594948ms)
+✔ following and own feeds paginate without duplicates at equal timestamps (2156.918467ms)
+✔ unauthenticated, empty, oversized and forged content is refused (990.285566ms)
+✔ image publication checks bytes and ownership; deleting queues safe cleanup (2064.423909ms)
+✔ missing, checksum-mismatched and fake image files are never published (1177.518051ms)
+✔ R2 signing matches the published AWS Signature V4 test vector (1.709931ms)
+✔ explore includes every public post including own and followed accounts but excludes follower-only distribution (1935.539515ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 54680.163826

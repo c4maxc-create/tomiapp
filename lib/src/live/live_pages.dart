@@ -5,6 +5,7 @@ import '../accounts/account_controller.dart';
 import '../accounts/account_api.dart';
 import '../social/social_models.dart' show newRequestId;
 import '../widgets.dart';
+import 'live_setup_page.dart';
 
 class LiveHub extends StatefulWidget {
   const LiveHub({super.key, required this.accounts, this.visible = true});
@@ -20,6 +21,8 @@ class _LiveHubState extends State<LiveHub> {
   String? error;
   Timer? timer;
   Map<String, dynamic>? pending;
+  LiveSetup? setup;
+  bool creating = false;
   @override
   void initState() {
     super.initState();
@@ -56,36 +59,57 @@ class _LiveHubState extends State<LiveHub> {
   }
 
   Future<void> create() async {
+    if (creating) return;
+    if (widget.accounts.liveAudioBusy) {
+      showNote(context, 'أنه المكالمة أو غادر الروم قبل تجهيز البث.');
+      return;
+    }
     if (pending == null) {
-      final text = TextEditingController();
-      final yes = await showDialog<bool>(
+      var title = '';
+      final result = await showDialog<String>(
         context: context,
         builder: (d) => AlertDialog(
           title: const Text('ابدأ بثًا مباشرًا'),
           content: TextField(
-            controller: text,
+            onChanged: (value) => title = value,
             maxLength: 80,
             decoration: const InputDecoration(labelText: 'عنوان البث'),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(d, false),
+              onPressed: () => Navigator.pop(d),
               child: const Text('إلغاء'),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(d, true),
+              onPressed: () => Navigator.pop(d, title.trim()),
               child: const Text('متابعة'),
             ),
           ],
         ),
       );
-      if (yes != true) {
-        text.dispose();
+      if (result == null || !mounted) return;
+      if (result.isEmpty) {
+        showNote(context, 'اكتب عنوانًا للبث أولًا.');
         return;
       }
-      pending = {'title': text.text.trim(), 'requestId': newRequestId()};
-      text.dispose();
+      pending = {'title': result, 'requestId': newRequestId()};
     }
+    if (setup == null) {
+      setup = await Navigator.push<LiveSetup>(
+        context,
+        MaterialPageRoute<LiveSetup>(
+          builder: (_) => LiveSetupPage(
+            accounts: widget.accounts,
+            title: pending!['title'] as String,
+          ),
+        ),
+      );
+      if (setup == null) {
+        pending = null;
+        return;
+      }
+    }
+    creating = true;
     try {
       final d = await widget.accounts.chatRequest(
         'POST',
@@ -97,6 +121,8 @@ class _LiveHubState extends State<LiveHub> {
     } on AccountFailure catch (e) {
       if (mounted) setState(() => error = e.message);
     }
+    creating = false;
+    setup = null;
     await load();
   }
 
@@ -109,7 +135,11 @@ class _LiveHubState extends State<LiveHub> {
     await Navigator.push(
       context,
       MaterialPageRoute<void>(
-        builder: (_) => LiveRoomPage(accounts: widget.accounts, initial: live),
+        builder: (_) => LiveRoomPage(
+          accounts: widget.accounts,
+          initial: live,
+          setup: live['isMine'] == true ? setup : null,
+        ),
       ),
     );
     await load();
@@ -209,9 +239,11 @@ class LiveRoomPage extends StatefulWidget {
     super.key,
     required this.accounts,
     required this.initial,
+    this.setup,
   });
   final AccountController accounts;
   final Map<String, dynamic> initial;
+  final LiveSetup? setup;
   @override
   State<LiveRoomPage> createState() => _LiveRoomPageState();
 }
@@ -225,7 +257,13 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   final queuedTaps = <String, int>{};
   StreamSubscription<Map<String, dynamic>>? realtime;
   bool refreshing = false;
-  bool disposed = false, busy = false, supporting = false;
+  bool disposed = false,
+      busy = false,
+      supporting = false,
+      everPublished = false,
+      microphoneOn = true,
+      cameraOn = true,
+      front = true;
   String? error, roomName;
   final lease = Object();
   Map<String, dynamic>? pendingSupport;
@@ -236,6 +274,8 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   @override
   void initState() {
     super.initState();
+    microphoneOn = widget.setup?.microphone ?? true;
+    front = widget.setup?.front ?? true;
     WidgetsBinding.instance.addObserver(this);
     realtime = widget.accounts.chats.realtimeEvents.stream.listen((e) {
       if (e['type'] == 'live.changed' &&
@@ -278,11 +318,14 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       await media?.dispose();
       if (disposed) return;
       final r = lk.Room(
-        roomOptions: const lk.RoomOptions(
+        roomOptions: lk.RoomOptions(
           adaptiveStream: true,
           stopLocalTrackOnUnpublish: true,
           dynacast: true,
           defaultCameraCaptureOptions: lk.CameraCaptureOptions(
+            cameraPosition: front
+                ? lk.CameraPosition.front
+                : lk.CameraPosition.back,
             params: lk.VideoParameters(
               dimensions: lk.VideoDimensions(1280, 720),
               encoding: lk.VideoEncoding(maxBitrate: 2500000, maxFramerate: 30),
@@ -302,9 +345,10 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       }
       roomName = c['room'] as String;
       if (c['publish'] == true) {
-        await r.localParticipant?.setMicrophoneEnabled(true);
+        await r.localParticipant?.setMicrophoneEnabled(microphoneOn);
         if (disposed) return;
-        await r.localParticipant?.setCameraEnabled(true);
+        await r.localParticipant?.setCameraEnabled(cameraOn);
+        everPublished = true;
       }
       error = null;
     } on AccountFailure catch (e) {
@@ -313,6 +357,16 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       error = 'تعذّر اتصال البث. راجع إذن الكاميرا والمايك واتصال الشبكة.';
     } finally {
       busy = false;
+      if (mine && !everPublished && error != null) {
+        await media?.disconnect();
+        try {
+          await widget.accounts.chatRequest(
+            'POST',
+            '/v1/lives/$id/end',
+            body: {},
+          );
+        } catch (_) {}
+      }
       if (mounted) setState(() {});
     }
   }
@@ -321,6 +375,14 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     if (disposed || refreshing) return;
     refreshing = true;
     try {
+      if (mine &&
+          (media?.connectionState != lk.ConnectionState.connected ||
+              !everPublished)) {
+        await join();
+        if (!everPublished ||
+            media?.connectionState != lk.ConnectionState.connected)
+          return;
+      }
       Map<String, dynamic>? next;
       final d = await widget.accounts.chatRequest(
         'POST',
@@ -346,6 +408,34 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       if (e.code == 'LIVE_ENDED') await media?.disconnect();
     } finally {
       refreshing = false;
+    }
+  }
+
+  Future<void> control(String kind) async {
+    final p = media?.localParticipant;
+    if (p == null || !mine || busy) return;
+    try {
+      if (kind == 'mic') {
+        microphoneOn = !microphoneOn;
+        await p.setMicrophoneEnabled(microphoneOn);
+      } else if (kind == 'camera') {
+        cameraOn = !cameraOn;
+        await p.setCameraEnabled(cameraOn);
+      } else {
+        for (final t in p.videoTrackPublications) {
+          final track = t.track;
+          if (track is lk.LocalVideoTrack) {
+            front = !front;
+            await track.setCameraPosition(
+              front ? lk.CameraPosition.front : lk.CameraPosition.back,
+            );
+          }
+        }
+      }
+      if (mounted) setState(() {});
+    } catch (_) {
+      if (mounted)
+        setState(() => error = 'تعذّر تغيير إعداد الصوت أو الكاميرا.');
     }
   }
 
@@ -617,6 +707,33 @@ class _LiveRoomPageState extends State<LiveRoomPage>
                   onPressed: join,
                   child: const Text('إعادة الاتصال'),
                 ),
+              ),
+            if (mine)
+              Wrap(
+                alignment: WrapAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: () => control('mic'),
+                    tooltip: microphoneOn ? 'كتم المايك' : 'فتح المايك',
+                    icon: Icon(
+                      microphoneOn ? Icons.mic : Icons.mic_off,
+                      color: Colors.white,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => control('camera'),
+                    tooltip: cameraOn ? 'إيقاف الكاميرا' : 'فتح الكاميرا',
+                    icon: Icon(
+                      cameraOn ? Icons.videocam : Icons.videocam_off,
+                      color: Colors.white,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => control('flip'),
+                    tooltip: 'تبديل الكاميرا',
+                    icon: const Icon(Icons.cameraswitch, color: Colors.white),
+                  ),
+                ],
               ),
             if (battle != null)
               Padding(

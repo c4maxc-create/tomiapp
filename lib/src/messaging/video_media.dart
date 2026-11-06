@@ -4,12 +4,15 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
+import 'package:path_provider/path_provider.dart';
 import '../accounts/account_api.dart';
 import '../social/social_models.dart';
 import 'audio_focus.dart';
+import 'video_preparation.dart';
 import 'voice_note.dart' show voiceTime;
 
-Future<VideoDraft> readPickedVideo(XFile file) async {
+Future<VideoDraft> readPickedVideo(XFile original) async {
+  final file = await VideoPreparation.prepare(original);
   if (await file.length() > 25 * 1024 * 1024)
     throw const AccountFailure(
       'INVALID_VIDEO',
@@ -50,6 +53,23 @@ Future<VideoDraft> readPickedVideo(XFile file) async {
     return VideoDraft(b, durationMs: ms, width: w, height: h);
   } finally {
     await player.dispose();
+    if (file.path != original.path)
+      try {
+        await File(file.path).delete();
+      } catch (_) {}
+  }
+}
+
+Future<VideoDraft> repairRejectedVideo(VideoDraft old) async {
+  final dir = await getTemporaryDirectory(),
+      file = File(
+        '${dir.path}/tomi-video-repair-${DateTime.now().microsecondsSinceEpoch}.mp4',
+      );
+  try {
+    await file.writeAsBytes(old.bytes, flush: true);
+    return await readPickedVideo(XFile(file.path));
+  } finally {
+    if (await file.exists()) await file.delete();
   }
 }
 

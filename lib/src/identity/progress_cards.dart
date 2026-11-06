@@ -5,7 +5,12 @@ import '../widgets.dart';
 import 'identity_models.dart';
 
 class TomiProgressTiles extends StatelessWidget {
-  const TomiProgressTiles({super.key, required this.user});
+  const TomiProgressTiles({
+    super.key,
+    required this.user,
+    this.compact = false,
+  });
+  final bool compact;
   final AccountUser user;
   @override
   Widget build(BuildContext context) => Row(
@@ -48,10 +53,13 @@ class TomiProgressTiles extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 6 : 10,
+          vertical: compact ? 5 : 9,
+        ),
         child: Row(
           children: [
-            Icon(icon, color: Colors.white, size: 21),
+            Icon(icon, color: Colors.white, size: compact ? 13 : 21),
             const SizedBox(width: 6),
             Expanded(
               child: FittedBox(
@@ -59,9 +67,9 @@ class TomiProgressTiles extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: compact ? 12 : 18,
                     fontWeight: FontWeight.w800,
                   ),
                 ),

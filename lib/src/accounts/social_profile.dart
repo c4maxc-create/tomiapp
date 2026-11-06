@@ -1,4 +1,3 @@
-import '../identity/charisma_badge.dart';
 import '../identity/progress_cards.dart';
 
 import 'dart:async';
@@ -219,7 +218,11 @@ class _SocialProfileViewState extends State<SocialProfileView> {
     );
     final name = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [nameText, CharismaBadge(user.identity)],
+      children: [
+        nameText,
+        const SizedBox(height: 6),
+        TomiProgressTiles(user: user, compact: true),
+      ],
     );
     final stats = Row(
       children: [
@@ -370,7 +373,7 @@ class _SocialProfileViewState extends State<SocialProfileView> {
                       const SizedBox(height: 18),
                       identityHeader(context),
                       const SizedBox(height: 16),
-                      TomiProgressTiles(user: user),
+
                       if (user.bio.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 12, bottom: 4),

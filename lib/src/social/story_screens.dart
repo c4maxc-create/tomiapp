@@ -54,7 +54,7 @@ class StoryAvatar extends StatelessWidget {
             child: GestureDetector(
               onTap: onTap,
               child: Container(
-                padding: EdgeInsets.all(hasStory ? 3 : 0),
+                padding: EdgeInsets.all(hasStory ? 3 : 2),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: hasStory && unseen
@@ -74,7 +74,7 @@ class StoryAvatar extends StatelessWidget {
                       : null,
                 ),
                 child: Container(
-                  padding: EdgeInsets.all(hasStory ? 3 : 0),
+                  padding: EdgeInsets.all(hasStory ? 3 : 2),
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     color: socialBackground,
@@ -92,6 +92,8 @@ class StoryAvatar extends StatelessWidget {
                       child: user.avatarUrl != null
                           ? Image.network(
                               user.avatarUrl!,
+                              width: double.infinity,
+                              height: double.infinity,
                               fit: BoxFit.cover,
                               errorBuilder: (_, _, _) => placeholder(),
                             )
