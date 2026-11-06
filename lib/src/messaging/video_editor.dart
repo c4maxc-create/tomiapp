@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 import '../social/social_models.dart';
+import '../accounts/account_api.dart';
 import 'video_media.dart';
 import 'video_preparation.dart';
 import 'voice_note.dart' show voiceTime;
@@ -124,10 +125,13 @@ class _VideoEditorPageState extends State<VideoEditorPage>
         ),
       );
       if (mounted) Navigator.pop(context, draft);
+    } on AccountFailure catch (failure) {
+      if (mounted) setState(() => error = failure.message);
     } catch (_) {
       if (mounted)
         setState(
-          () => error = 'تعذّر تجهيز الفيديو؛ قلّل مدة المقطع وأعد المحاولة.',
+          () => error =
+              'تعذّر تجهيز الفيديو؛ جرّب مرة ثانية أو اختَر مقطعاً آخر.',
         );
     } finally {
       if (mounted) setState(() => busy = false);
@@ -161,92 +165,94 @@ class _VideoEditorPageState extends State<VideoEditorPage>
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
-        children: [
-          if (player?.value.isInitialized == true)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: AspectRatio(
-                aspectRatio: player!.value.aspectRatio.clamp(.65, 1.8),
-                child: VideoPlayer(player!),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(18),
+          children: [
+            if (player?.value.isInitialized == true)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: AspectRatio(
+                  aspectRatio: player!.value.aspectRatio.clamp(.65, 1.8),
+                  child: VideoPlayer(player!),
+                ),
+              )
+            else
+              const SizedBox(
+                height: 180,
+                child: Center(child: CircularProgressIndicator()),
               ),
-            )
-          else
-            const SizedBox(
-              height: 180,
-              child: Center(child: CircularProgressIndicator()),
-            ),
-          if (error != null)
-            Padding(padding: const EdgeInsets.all(12), child: Text(error!)),
-          if (ready) ...[
-            const SizedBox(height: 16),
-            Text(
-              'حدد الجزء المطلوب • حتى ${widget.maxSeconds} ثانية',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            RangeSlider(
-              key: const Key('video-trim-range'),
-              values: RangeValues(start, end),
-              min: 0,
-              max: total,
-              divisions: math.max(1, total.ceil()),
-              labels: RangeLabels(
-                voiceTime((start * 1000).round()),
-                voiceTime((end * 1000).round()),
+            if (error != null)
+              Padding(padding: const EdgeInsets.all(12), child: Text(error!)),
+            if (ready) ...[
+              const SizedBox(height: 16),
+              Text(
+                'حدد الجزء المطلوب • حتى ${widget.maxSeconds} ثانية',
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-              onChanged: busy ? null : range,
-              onChangeEnd: (_) => seek(start),
-            ),
-            Text(
-              '${voiceTime((start * 1000).round())} — ${voiceTime((end * 1000).round())}',
-              textDirection: TextDirection.ltr,
-              textAlign: TextAlign.center,
-            ),
-            OutlinedButton.icon(
-              onPressed: busy
-                  ? null
-                  : () async {
-                      final p = player!;
-                      if (p.value.isPlaying) {
-                        await p.pause();
-                      } else {
-                        await stopVoiceForCall(except: this);
-                        await p.setVolume(
-                          widget.audioBusy?.call() == true ? 0 : 1,
-                        );
-                        await seek(start);
-                        await p.play();
-                      }
-                    },
-              icon: Icon(
-                player!.value.isPlaying ? Icons.pause : Icons.play_arrow,
+              RangeSlider(
+                key: const Key('video-trim-range'),
+                values: RangeValues(start, end),
+                min: 0,
+                max: total,
+                divisions: math.max(1, total.ceil()),
+                labels: RangeLabels(
+                  voiceTime((start * 1000).round()),
+                  voiceTime((end * 1000).round()),
+                ),
+                onChanged: busy ? null : range,
+                onChangeEnd: (_) => seek(start),
               ),
-              label: const Text('معاينة الجزء المختار'),
-            ),
-            const SizedBox(height: 16),
-            const Text('اختَر صورة الغلاف'),
-            Slider(
-              key: const Key('video-cover-frame'),
-              value: poster.clamp(start, end),
-              min: start,
-              max: math.max(start + .01, end),
-              label: voiceTime((poster * 1000).round()),
-              onChanged: busy ? null : (v) => setState(() => poster = v),
-              onChangeEnd: seek,
-            ),
-            const Text(
-              'المقطع الأصلي يبقى في الاستوديو. تظهر هذه الصورة قبل تشغيل الفيديو.',
-            ),
+              Text(
+                '${voiceTime((start * 1000).round())} — ${voiceTime((end * 1000).round())}',
+                textDirection: TextDirection.ltr,
+                textAlign: TextAlign.center,
+              ),
+              OutlinedButton.icon(
+                onPressed: busy
+                    ? null
+                    : () async {
+                        final p = player!;
+                        if (p.value.isPlaying) {
+                          await p.pause();
+                        } else {
+                          await stopVoiceForCall(except: this);
+                          await p.setVolume(
+                            widget.audioBusy?.call() == true ? 0 : 1,
+                          );
+                          await seek(start);
+                          await p.play();
+                        }
+                      },
+                icon: Icon(
+                  player!.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                ),
+                label: const Text('معاينة الجزء المختار'),
+              ),
+              const SizedBox(height: 16),
+              const Text('اختَر صورة الغلاف'),
+              Slider(
+                key: const Key('video-cover-frame'),
+                value: poster.clamp(start, end),
+                min: start,
+                max: math.max(start + .01, end),
+                label: voiceTime((poster * 1000).round()),
+                onChanged: busy ? null : (v) => setState(() => poster = v),
+                onChangeEnd: seek,
+              ),
+              const Text(
+                'المقطع الأصلي يبقى في الاستوديو. تظهر هذه الصورة قبل تشغيل الفيديو.',
+              ),
+            ],
+            if (busy) ...[
+              const LinearProgressIndicator(),
+              const Text(
+                'جارٍ قص المقطع وتجهيزه للرفع…',
+                textAlign: TextAlign.center,
+              ),
+            ],
           ],
-          if (busy) ...[
-            const LinearProgressIndicator(),
-            const Text(
-              'جارٍ قص المقطع وتجهيزه للرفع…',
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ],
+        ),
       ),
     ),
   );

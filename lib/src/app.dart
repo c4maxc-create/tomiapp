@@ -532,14 +532,22 @@ class _TomiAppState extends State<TomiApp> {
     locale: const Locale('ar'),
     supportedLocales: const [Locale('ar'), Locale('en')],
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
-    builder: (context, child) => widget.textScaler == null
-        ? roomOverlay(child!)
-        : MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: widget.textScaler),
-            child: roomOverlay(child!),
-          ),
+    builder: (context, child) => ColoredBox(
+      color: TomiColors.background,
+      child: SafeArea(
+        child: Builder(
+          builder: (safeContext) {
+            final media = MediaQuery.of(safeContext);
+            return MediaQuery(
+              data: media.copyWith(
+                textScaler: widget.textScaler ?? media.textScaler,
+              ),
+              child: roomOverlay(child!),
+            );
+          },
+        ),
+      ),
+    ),
     theme: TomiTheme.dark(),
     home: accountHome(),
   );

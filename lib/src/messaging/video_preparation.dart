@@ -68,6 +68,9 @@ class VideoPreparation {
             !network.contains(ConnectivityResult.ethernet);
       } catch (_) {}
     }
+    final needsTrim =
+        edit != null &&
+        (edit.startSeconds > 0 || edit.durationSeconds * 1000 < duration);
     for (final quality in [
       if (!smaller) VideoQuality.Res1280x720Quality,
       VideoQuality.Res960x540Quality,
@@ -78,8 +81,8 @@ class VideoPreparation {
         includeAudio: true,
         deleteOrigin: false,
         frameRate: 30,
-        startTime: edit == null || duration < 1000 ? null : edit.startSeconds,
-        duration: edit == null || duration < 1000 ? null : edit.durationSeconds,
+        startTime: needsTrim ? edit.startSeconds : null,
+        duration: needsTrim ? edit.durationSeconds : null,
       );
       if (out?.path == null) continue;
       final file = File(out!.path!);

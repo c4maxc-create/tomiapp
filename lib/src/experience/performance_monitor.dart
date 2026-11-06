@@ -11,7 +11,7 @@ class PerformanceMonitor {
   bool installed = false, busy = false;
   static const build = int.fromEnvironment(
     'FLUTTER_BUILD_NUMBER',
-    defaultValue: 37,
+    defaultValue: 38,
   );
   Object? bindingOwner;
   void unbind(Object owner) {

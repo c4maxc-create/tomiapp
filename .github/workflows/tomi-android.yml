@@ -182,6 +182,7 @@ jobs:
       - name: Verify Android and Firebase configuration
         run: |
           python3 tool/check_mobile_policy.py
+          python3 tool/check_video_trim.py
           python3 tool/check_bootstrap.py
           python3 tool/check_firebase.py
 

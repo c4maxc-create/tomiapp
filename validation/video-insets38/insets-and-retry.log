@@ -1,0 +1,15 @@
+00:00 +0: loading /workspace/tomiapp/test/video_insets38_test.dart
+00:00 +0: a native compression exception never locks the next video attempt
+VideoCompress: You can try to subscribe to the
+      compressProgress$ stream to know the compressing state.
+VideoCompress: You can try to subscribe to the
+      compressProgress$ stream to know the compressing state.
+00:00 +1: all root tabs stay above system controls at Size(320.0, 640.0) bottom 24.0
+00:02 +2: all root tabs stay above system controls at Size(320.0, 640.0) bottom 48.0
+00:03 +3: all root tabs stay above system controls at Size(390.0, 844.0) bottom 24.0
+00:03 +4: all root tabs stay above system controls at Size(390.0, 844.0) bottom 48.0
+00:04 +5: all root tabs stay above system controls at Size(800.0, 420.0) bottom 24.0
+00:05 +6: all root tabs stay above system controls at Size(800.0, 420.0) bottom 48.0
+00:05 +7: chat send stays accessible when keyboard and system insets change
+00:06 +8: video cover and final instructions remain scrollable above three-button navigation
+00:07 +9: All tests passed!
