@@ -71,7 +71,7 @@ void main() {
       );
       expect(
         (await api.publicRequest('GET', '/v1/privacy/documents'))['version'],
-        '2026-10-23',
+        fixture['policyVersion'],
       );
     },
     skip: Platform.environment['TOMI_PRIVACY_INTEGRATION'] != '1',
