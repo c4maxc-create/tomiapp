@@ -1,3 +1,4 @@
+import {createVideoWorker} from './video_worker.mjs';
 import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { openDatabase } from './database.mjs';
@@ -15,19 +16,21 @@ const sqliteFile = process.env.TOMI_SQLITE_FILE;
 if (sqliteFile && !production && sqliteFile !== ':memory:') await mkdir(dirname(sqliteFile), { recursive: true });
 const database = await openDatabase({ connectionString: process.env.DATABASE_URL, sqliteFile, production });
 const storage = r2FromEnvironment();
+const chatStorage=chatR2FromEnvironment(process.env,storage);
 const server = await createApp({
   storage,
   pushSender:fcmFromEnvironment(),
   iceProvider:iceFromEnvironment(),
   roomProvider:roomProviderFromEnvironment(),
   liveProvider:liveProviderFromEnvironment(),
-  chatStorage:chatR2FromEnvironment(process.env,storage),
+  chatStorage,
   database,
   ownerUserId:moderationOwner(),
   privacyConfig:privacyEnvironment(),
   trustProxy: process.env.TRUST_PROXY === '1',
   origins: (process.env.CORS_ORIGINS || '').split(',').map((origin) => origin.trim()).filter(Boolean),
 });
+const videoWorker=createVideoWorker({database,storage,chatStorage,binary:process.env.TOMI_FFMPEG_BINARY||null});
 const port = Number(process.env.PORT || 10000);
 server.listen(port, '0.0.0.0', () => console.log(`TOMI API1.5.0-beta.1 listening on port ${port}`));
 
@@ -42,6 +45,7 @@ cleanup.unref();
 for (const signal of ['SIGTERM', 'SIGINT']) {
   process.once(signal, () => {
     clearInterval(cleanup);
+    videoWorker.close();
     const deadline = setTimeout(() => process.exit(1), 10000);
     deadline.unref();
     server.close(() => database.close().then(() => process.exit(0)));

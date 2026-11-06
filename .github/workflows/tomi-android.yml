@@ -58,6 +58,10 @@ jobs:
       - name: Install backend dependencies
         working-directory: server
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install FFmpeg for real video worker tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Test local persistence and authentication
         timeout-minutes: 12
         working-directory: server

@@ -139,6 +139,22 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
               children: [
                 for (final item in <(IconData, String, VoidCallback)>[
                   (
+                    Icons.qr_code_2,
+                    'مشاركة الغرفة',
+                    () {
+                      Navigator.pop(sheet);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => ShareCodePage(
+                            url: 'tomi://room/${c.active!.id}',
+                            title: 'مشاركة الغرفة',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  (
                     Icons.poll_outlined,
                     'تصويت الغرفة',
                     () {

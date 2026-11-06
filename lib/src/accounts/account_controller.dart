@@ -440,7 +440,11 @@ class AccountController extends ChangeNotifier {
         if (e.status != 404 && e.status != 409) rethrow;
       }
     }
-    await _authenticated((_) => api.uploadImage(upload, image));
+    await _authenticated(
+      (token) => upload.resumablePath == null
+          ? api.uploadImage(upload, image)
+          : api.uploadResumable(token, upload, image),
+    );
   }
 
   Future<void> logout() async {

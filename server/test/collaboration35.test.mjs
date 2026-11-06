@@ -1,0 +1,24 @@
+import {hashPassword,digest,newToken} from '../src/security.mjs';
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {once} from 'node:events';
+import {openDatabase} from '../src/database.mjs';
+import {createApp} from '../src/app.mjs';
+import {WebSocket} from 'ws';
+async function fixture(t){
+ const dir=await mkdtemp(join(tmpdir(),'tomi32-')),db=await openDatabase({connectionString:process.env.TEST_DATABASE_URL,sqliteFile:join(dir,'test.sqlite')});
+ if(process.env.TEST_DATABASE_URL){await db.query('DELETE FROM tomi_users');await db.query('DELETE FROM tomi_rate_limits');await db.query('DELETE FROM tomi_client_metrics');}
+ const ownerId=randomUUID(),stamp=new Date().toISOString();await db.query('INSERT INTO tomi_users(id,username,display_name,password_hash,recovery_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',[ownerId,'owner34','owner',await hashPassword('test-only improvements32 passphrase'),digest(newToken()),stamp,stamp]);
+ const server=await createApp({database:db,ownerUserId:ownerId,rateLimitMultiplier:30,callAutoSweep:false,roomAutoSweep:false,liveAutoTick:false,pushAutoFlush:false,pushSender:async()=> 'sent',iceProvider:async()=>({iceServers:[{urls:['turn:relay.example.com'],username:'test',credential:'test'}]})});
+ server.listen(0,'127.0.0.1');await once(server,'listening');const base='http://127.0.0.1:'+server.address().port;
+ t.after(async()=>{const done=once(server,'close');server.close();server.closeIdleConnections();await done;await db.close();await rm(dir,{recursive:true,force:true});});
+ const f={db,base,async req(a,method,path,body){const r=await fetch(base+path,{method,headers:{...(a?{authorization:'Bearer '+a.token}:{}),...(body?{'content-type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});return {status:r.status,data:await r.json()};},async user(name){const r=await this.req(null,'POST','/v1/auth/register',{username:name,displayName:name,password:'test-only improvements32 passphrase'});assert.equal(r.status,201);return r.data;}};f.owner=(await f.req(null,'POST','/v1/auth/login',{username:'owner34',password:'test-only improvements32 passphrase'})).data;return f;
+}
+const login=(f,a)=>f.req(null,'POST','/v1/auth/login',{username:a.user.username,password:'test-only improvements32 passphrase'});
+const post=(f,a,text,audience='public')=>f.req(a,'POST','/v1/posts',{text,audience,requestId:randomUUID()});
+test('35 group search filters links, media and dates and organisation remains private after member removal',async t=>{const f=await fixture(t),a=await f.user('group35a'),b=await f.user('group35b'),c=await f.user('group35c'),gid=(await f.req(a,'POST','/v1/groups',{title:'Friends',memberIds:[b.user.id,c.user.id],requestId:randomUUID()})).data.conversation.id;await f.req(a,'POST','/v1/groups/'+gid+'/messages',{text:'https://example.com/test',requestId:randomUUID()});await f.req(b,'POST','/v1/groups/'+gid+'/messages',{text:'plain text',requestId:randomUUID()});assert.equal((await f.req(b,'GET','/v1/groups/'+gid+'/search?kind=link')).data.messages.length,1);assert.equal((await f.req(b,'GET','/v1/groups/'+gid+'/search?kind=video')).data.messages.length,0);assert.equal((await f.req(b,'GET','/v1/groups/'+gid+'/search?date=invalid')).status,400);assert.equal((await f.req(b,'PUT','/v1/groups/'+gid+'/organisation',{pinned:true,archived:true,markedUnread:true})).status,200);assert.equal((await f.req(b,'GET','/v1/groups/'+gid)).data.conversation.archived,true);assert.equal((await f.req(a,'GET','/v1/groups/'+gid)).data.conversation.archived,false);await f.req(a,'DELETE','/v1/groups/'+gid+'/members/'+b.user.id);assert.equal((await f.req(b,'GET','/v1/groups/'+gid+'/search?kind=link')).status,404);assert.equal((await f.req(b,'PUT','/v1/groups/'+gid+'/organisation',{pinned:true,archived:false,markedUnread:false})).status,404);});
+test('35 support pagination has stable tie ordering and never accepts another account cursor',async t=>{const f=await fixture(t),a=await f.user('page35a'),b=await f.user('page35b'),stamp=new Date().toISOString();for(let i=0;i<55;i++)await f.db.query('INSERT INTO tomi_support_tickets(id,user_id,subject,body,created_at,updated_at,request_id) VALUES(?,?,?,?,?,?,?)',[randomUUID(),a.user.id,'ticket'+i,'body',stamp,stamp,randomUUID()]);const first=(await f.req(a,'GET','/v1/me/support')).data;assert.equal(first.items.length,50);assert.ok(first.nextCursor);const second=(await f.req(a,'GET','/v1/me/support?cursor='+first.nextCursor)).data;assert.equal(second.items.length,5);assert.equal(new Set([...first.items,...second.items].map(i=>i.id)).size,55);assert.equal((await f.req(b,'GET','/v1/me/support?cursor='+first.nextCursor)).status,400);});

@@ -1,6 +1,6 @@
 import {randomUUID,createHash} from 'node:crypto';
 import {ApiError} from './security.mjs';
-import {prepareIntent,uploadWithDigest} from './media_intents.mjs';
+import {cleanupVideoDerivatives,abortMultipartUpload,prepareIntent,uploadWithDigest} from './media_intents.mjs';
 import {maxImageBytes,imageTypes} from './images.mjs';
 import {maxAudioBytes,maxAudioDurationMs} from './audio.mjs';
 import {maxVideoBytes} from './video.mjs';
@@ -39,7 +39,7 @@ export function createPrivateMedia({database,storage}){
   const r=await db.query("UPDATE tomi_private_uploads SET state='attached',width=?,height=?,duration_ms=? WHERE id=? AND user_id=? AND thread_id=? AND state='pending' AND expires_at>?",[u.width,u.height,u.duration_ms,u.id,u.user_id,u.thread_id,stamp()]);
   if(r.changes!==1)fail('UPLOAD_INVALID','المرفق انتهى أو استُخدم.',409);
  }
- async function cleanup(){if(!storage)return;for(const u of (await database.query("SELECT id,object_key FROM tomi_private_uploads WHERE state<>'attached' AND expires_at<=? LIMIT 20",[stamp()])).rows){try{await storage.delete(u.object_key);await database.query("DELETE FROM tomi_private_uploads WHERE id=? AND state<>'attached'",[u.id]);await database.query('DELETE FROM tomi_upload_digests WHERE upload_id=?',[u.id]);}catch{console.error('Private attachment cleanup deferred');}}}
+ async function cleanup(){if(!storage)return;for(const u of (await database.query("SELECT id,object_key FROM tomi_private_uploads WHERE state<>'attached' AND expires_at<=? LIMIT 20",[stamp()])).rows){try{await cleanupVideoDerivatives(database,storage,u.id,u.object_key);await abortMultipartUpload(database,storage,u.id,u.object_key);await storage.delete(u.object_key);await database.query("DELETE FROM tomi_private_uploads WHERE id=? AND state<>'attached'",[u.id]);await database.query('DELETE FROM tomi_upload_digests WHERE upload_id=?',[u.id]);}catch{console.error('Private attachment cleanup deferred');}}}
  return{prepare,verify,attach,cleanup};
 }
 async function verifyDocument(storage,u){

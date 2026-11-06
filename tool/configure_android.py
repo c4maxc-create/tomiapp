@@ -52,6 +52,19 @@ def configure_android(root: Path = ROOT) -> None:
     for name,value in [('firebase_messaging_auto_init_enabled','false'),('com.google.firebase.messaging.default_notification_channel_id','tomi_updates'),('com.google.firebase.messaging.default_notification_icon','@drawable/tomi_notification')]:
         if not any(item.get(f'{{{ANDROID_NS}}}name')==name for item in application.findall('meta-data')):
             ET.SubElement(application,'meta-data',{f'{{{ANDROID_NS}}}name':name,f'{{{ANDROID_NS}}}'+('resource' if value.startswith('@') else 'value'):value})
+    activity = next((a for a in application.findall('activity') if a.get(f'{{{ANDROID_NS}}}name') in ['.MainActivity','com.tomi.tomi_app.MainActivity']),None)
+    if activity is not None and not any(d.get(f'{{{ANDROID_NS}}}scheme')=='tomi' for f in activity.findall('intent-filter') for d in f.findall('data')):
+        link_filter=ET.SubElement(activity,'intent-filter')
+        ET.SubElement(link_filter,'action',{f'{{{ANDROID_NS}}}name':'android.intent.action.VIEW'})
+        for category in ['android.intent.category.DEFAULT','android.intent.category.BROWSABLE']:
+            ET.SubElement(link_filter,'category',{f'{{{ANDROID_NS}}}name':category})
+        ET.SubElement(link_filter,'data',{f'{{{ANDROID_NS}}}scheme':'tomi'})
+    if not any(p.get(f'{{{ANDROID_NS}}}authorities')=='${applicationId}.tomi.files' for p in application.findall('provider')):
+        provider=ET.SubElement(application,'provider',{f'{{{ANDROID_NS}}}name':'androidx.core.content.FileProvider',f'{{{ANDROID_NS}}}authorities':'${applicationId}.tomi.files',f'{{{ANDROID_NS}}}exported':'false',f'{{{ANDROID_NS}}}grantUriPermissions':'true'})
+        ET.SubElement(provider,'meta-data',{f'{{{ANDROID_NS}}}name':'android.support.FILE_PROVIDER_PATHS',f'{{{ANDROID_NS}}}resource':'@xml/tomi_share_paths'})
+    share_paths=root/'android/app/src/main/res/xml/tomi_share_paths.xml'
+    share_paths.parent.mkdir(parents=True,exist_ok=True)
+    share_paths.write_text('<paths xmlns:android="http://schemas.android.com/apk/res/android"><cache-path name="qr" path="qr/" /></paths>')
     # Source lives outside generated android/ so bootstrap cannot overwrite it.
     native = root / 'native/mobile'
     java = root / 'android/app/src/main/java/com/tomi/tomi_app'
@@ -109,6 +122,13 @@ def configure_android(root: Path = ROOT) -> None:
             replacement = "minSdk = maxOf(flutter.minSdkVersion, 23)" if filename.endswith(".kts") else "minSdkVersion Math.max(flutter.minSdkVersion, 23)"
             source = re.sub(r"\bminSdk(?:Version)?\s*(?:=\s*)?(?:flutter\.minSdkVersion|\d+)", replacement, source)
             gradle.write_text(source, encoding="utf-8")
+    for filename in ['android/app/build.gradle.kts','android/app/build.gradle']:
+        gradle=root/filename
+        if gradle.exists():
+            source=gradle.read_text()
+            if 'com.google.zxing:core:3.5.3' not in source:
+                source += '\ndependencies { implementation("com.google.zxing:core:3.5.3") }\n' if filename.endswith('.kts') else '\ndependencies { implementation "com.google.zxing:core:3.5.3" }\n'
+                gradle.write_text(source)
     # Flutter disables AGP built-in Kotlin; apply its pinned plugin explicitly.
     for filename in ["android/app/build.gradle.kts", "android/app/build.gradle"]:
         gradle = root / filename

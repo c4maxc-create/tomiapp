@@ -26,5 +26,15 @@ export async function prepareIntent({database,viewer,scope,table,d,create,storag
   if(d.requestId)await db.query('INSERT INTO tomi_media_intents(user_id,request_id,scope,payload_hash,upload_id,created_at) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id,request_id) DO UPDATE SET upload_id=excluded.upload_id',[viewer,d.requestId,scope,fingerprint,fresh.id,new Date().toISOString()]);
   return fresh;
  });
- return {uploadId:u.id,...storage.prepare(u)};
+ return {uploadId:u.id,...storage.prepare(u),...(storage.supportsMultipart&&Number(u.byte_length)>5*1024*1024?{resumablePath:`/v1/media/resumable/${table.replace('tomi_','')}/${u.id}`}:{})};
+}
+
+export async function abortMultipartUpload(database,storage,id,key){
+ const row=(await database.query('SELECT provider_id,completed FROM tomi_multipart_uploads WHERE upload_id=?',[id])).rows[0];
+ if(row){if(!Number(row.completed)){if(!storage.abortMultipart)throw Error('MULTIPART_CLEANUP_UNAVAILABLE');await storage.abortMultipart(key,row.provider_id);}await database.query('DELETE FROM tomi_multipart_uploads WHERE upload_id=?',[id]);}
+}
+
+export async function cleanupVideoDerivatives(database,storage,id,key){
+ const job=(await database.query('SELECT object_key FROM tomi_video_jobs WHERE upload_id=?',[id])).rows[0];
+ if(job){if(job.object_key!==key)throw Error('VIDEO_CLEANUP_KEY');for(const height of [540,720])await storage.delete(key+'.'+height+'.mp4');await database.query('DELETE FROM tomi_video_renditions WHERE upload_id=?',[id]);await database.query('DELETE FROM tomi_video_jobs WHERE upload_id=?',[id]);}
 }

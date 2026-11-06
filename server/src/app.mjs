@@ -1,3 +1,4 @@
+import {createResumable} from './resumable.mjs';
 import {adminPage} from './admin_page.mts';
 import {createCommunity} from './community.mts';
 import {createExperience} from './experience.mts';
@@ -164,6 +165,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   const games=createGames({database,readJson,respond:json,limit,usersByIds,emit:chat.emit,accountGate:requestGuard.gate,clock:gamesClock,autoTick:gamesAutoTick,unbound:requestGuard.unbound});
   const deletion=createAccountDeletion({database,guard:requestGuard,ownerUserId,storage,chatStorage,readJson,respond:json,limit,session,rooms,calls,chat,dummyHash,autoSweep:deletionAutoSweep,clock:deletionClock});
   const privacy=createPrivacy(privacyConfig);
+  const resumable=createResumable({database,storage,chatStorage,readJson,respond:json,limit});
   const community=createCommunity({database,readJson,respond:json,limit,role:moderation.role,configured:{calls:!!iceProvider,rooms:!!roomProvider,live:!!liveProvider,media:!!storage}});
   const server = createServer(async (request, response) => {
     operations.track(request,response);
@@ -279,6 +281,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       if(await deletion.handle(request,response,url,{ip}))return;
       const current = await session(request);
       await requestGuard.run(current,async()=>{
+      if(await resumable.handle(request,response,url,current))return;
       if(await community.handle(request,response,url,current))return;
       if(await experience.handle(request,response,url,current))return;
       if(await videoPosters.handle(request,response,url,current))return;

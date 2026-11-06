@@ -1,0 +1,4 @@
+00:00 +0: loading /workspace/tomiapp/test/links35_test.dart
+00:00 +0: TOMI links accept only exact profile room and game targets and reject arbitrary navigation
+00:00 +1: QR share page remains usable without native QR support at doubled text
+00:01 +2: All tests passed!

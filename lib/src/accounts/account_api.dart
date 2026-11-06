@@ -373,6 +373,87 @@ class AccountApi {
           },
         ),
       );
+  Future<void> uploadResumable(
+    String token,
+    ImageUpload upload,
+    ImageDraft image,
+  ) async {
+    final path = upload.resumablePath;
+    if (path == null ||
+        !RegExp(
+          r'^/v1/media/resumable/(image_uploads|audio_uploads|video_uploads|private_uploads)/[a-f0-9-]{36}$',
+        ).hasMatch(path))
+      throw const AccountFailure('INVALID_UPLOAD', 'بيانات استكمال غير صحيحة.');
+    final transfer = UploadTransfer.owners[image] ?? UploadTransfer();
+    try {
+      final plan = await chatRequest(token, 'POST', path, body: {});
+      if (plan['completed'] == true) return;
+      final chunk = (plan['chunkSize'] as num).toInt(),
+          parts = (plan['parts'] as List).cast<Map<String, dynamic>>();
+      if (chunk != 5 * 1024 * 1024 ||
+          plan['total'] != image.bytes.length ||
+          parts.length != (image.bytes.length / chunk).ceil())
+        throw const AccountFailure('INVALID_UPLOAD', 'حجم الرفع تغير.');
+      int committed = 0;
+      for (var i = 0; i < parts.length; i++) {
+        if (transfer.cancelled) throw http.RequestAbortedException(upload.url);
+        final part = parts[i],
+            start = i * chunk,
+            end = (start + chunk).clamp(0, image.bytes.length),
+            url = Uri.parse(part['url'] as String);
+        if (part['number'] != i + 1 ||
+            part['size'] != end - start ||
+            url.scheme != 'https' ||
+            !url.host.endsWith('.r2.cloudflarestorage.com') ||
+            url.userInfo.isNotEmpty ||
+            url.host != upload.url.host)
+          throw const AccountFailure('INVALID_UPLOAD', 'وجهة رفع غير صحيحة.');
+        if (part['uploaded'] != true) {
+          final bytes = image.bytes.sublist(start, end),
+              segment = UploadTransfer();
+          void changed() =>
+              transfer.update(committed + segment.sent, image.bytes.length);
+          segment.addListener(changed);
+          unawaited(transfer.abort.future.then((_) => segment.cancel()));
+          try {
+            final request = ProgressUploadRequest('PUT', url, bytes, segment);
+            final r = await _client
+                .send(request)
+                .then(http.Response.fromStream)
+                .timeout(const Duration(minutes: 2));
+            if (r.statusCode < 200 || r.statusCode >= 300)
+              throw const AccountFailure(
+                'IMAGE_UPLOAD',
+                'تعذّر رفع الجزء؛ الأجزاء المكتملة محفوظة.',
+              );
+          } finally {
+            segment.removeListener(changed);
+          }
+        }
+        committed = end;
+        transfer.update(committed, image.bytes.length);
+      }
+      if (transfer.cancelled) throw http.RequestAbortedException(upload.url);
+      await chatRequest(token, 'POST', path + '/complete', body: {});
+    } on http.RequestAbortedException {
+      throw const AccountFailure(
+        'UPLOAD_CANCELLED',
+        'توقف الرفع؛ الأجزاء المكتملة محفوظة وتگدر تكمل.',
+      );
+    } on TimeoutException {
+      transfer.cancel();
+      throw const AccountFailure(
+        'IMAGE_NETWORK',
+        'انقطع الرفع؛ أعد المحاولة لاستكمال الأجزاء المتبقية.',
+      );
+    } on http.ClientException {
+      throw const AccountFailure(
+        'IMAGE_NETWORK',
+        'انقطع الاتصال؛ الأجزاء المكتملة محفوظة.',
+      );
+    }
+  }
+
   Future<void> uploadImage(ImageUpload upload, ImageDraft image) async {
     if (upload.url.scheme != 'https' ||
         upload.url.userInfo.isNotEmpty ||

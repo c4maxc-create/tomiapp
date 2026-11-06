@@ -97,21 +97,24 @@ class _CommunityPageState extends State<CommunityPage> {
     load();
   }
 
-  Future<void> load() async {
+  Future<void> load({bool more = false}) async {
+    if (more && (busy || data?['nextCursor'] == null)) return;
     final e = ++epoch;
     setState(() => busy = true);
     try {
       final result = await widget.accounts.chatRequest(
         'GET',
         path,
-        query: widget.kind == 'polls' && widget.roomId != null
-            ? {'roomId': widget.roomId!}
-            : null,
+        query: {
+          if (widget.kind == 'polls' && widget.roomId != null)
+            'roomId': widget.roomId!,
+          if (more) 'cursor': data!['nextCursor'] as String,
+        },
       );
       if (!mounted || e != epoch) return;
       if (widget.kind == 'diagnostics') {
         try {
-          if (!Platform.isAndroid ||
+          if (!(Platform.isAndroid || Platform.isIOS) ||
               Platform.environment.containsKey('FLUTTER_TEST'))
             throw MissingPluginException();
           result['device'] = await const MethodChannel(
@@ -123,6 +126,11 @@ class _CommunityPageState extends State<CommunityPage> {
         result['previewBytes'] = await MediaPreferences.instance.previewBytes();
       }
       if (!mounted || e != epoch) return;
+      if (more)
+        result['items'] = [
+          ...data?['items'] as List? ?? [],
+          ...result['items'] as List? ?? [],
+        ];
       setState(() {
         data = result;
         error = null;
@@ -445,6 +453,11 @@ class _CommunityPageState extends State<CommunityPage> {
                   child: entry(item),
                 ),
               ),
+            if (data?['nextCursor'] != null)
+              TextButton(
+                onPressed: busy ? null : () => load(more: true),
+                child: const Text('عناصر أقدم'),
+              ),
             if (items.isEmpty &&
                 data != null &&
                 !['diagnostics', 'explore'].contains(widget.kind))
@@ -692,7 +705,7 @@ class _CommunityPageState extends State<CommunityPage> {
           title: Text(key.value),
           subtitle: Text(
             device == null
-                ? 'الفحص الأصلي متاح في Android بعد تثبيت النسخة الجديدة'
+                ? 'الفحص الأصلي متاح في نسخة الهاتف بعد تثبيت النسخة الجديدة'
                 : device[key.key] == true
                 ? 'الإذن مسموح'
                 : 'اسمح بالإذن من إعدادات الهاتف عند حاجتك للميزة',

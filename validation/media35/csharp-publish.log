@@ -1,0 +1,31 @@
+
+Welcome to .NET 8.0!
+---------------------
+SDK Version: 8.0.427
+
+Telemetry
+---------
+The .NET tools collect usage data in order to help us improve your experience. It is collected by Microsoft and shared with the community. You can opt-out of telemetry by setting the DOTNET_CLI_TELEMETRY_OPTOUT environment variable to '1' or 'true' using your favorite shell.
+
+Read more about .NET CLI Tools telemetry: https://aka.ms/dotnet-cli-telemetry
+
+----------------
+Installed an ASP.NET Core HTTPS development certificate.
+To trust the certificate, view the instructions: https://aka.ms/dotnet-https-linux
+
+----------------
+Write your first app: https://aka.ms/dotnet-hello-world
+Find out what's new: https://aka.ms/dotnet-whats-new
+Explore documentation: https://aka.ms/dotnet-docs
+Report issues and find source on GitHub: https://github.com/dotnet/core
+Use 'dotnet --help' to see available commands or visit: https://aka.ms/dotnet-cli
+--------------------------------------------------------------------------------------
+  Determining projects to restore...
+  Restored /workspace/tomiapp/previews/Tomi.BlazorPreview/Tomi.BlazorPreview.csproj (in 8.27 sec).
+  Tomi.BlazorPreview -> /workspace/tomiapp/previews/Tomi.BlazorPreview/bin/Release/net8.0/Tomi.BlazorPreview.dll
+  Tomi.BlazorPreview (Blazor output) -> /workspace/tomiapp/previews/Tomi.BlazorPreview/bin/Release/net8.0/wwwroot
+  Optimizing assemblies for size may change the behavior of the app. Be sure to test after publishing. See: https://aka.ms/dotnet-illink
+  Optimizing assemblies for size. This process might take a while.
+  Publishing without optimizations. Although it's optional for Blazor, we strongly recommend using `wasm-tools` workload! You can install it by running `dotnet workload install wasm-tools` from the command line.
+  Tomi.BlazorPreview -> /tmp/tomi-csharp-79a09yu6/
+Packaged 45 C# runtime/assets into assets/tomi_games

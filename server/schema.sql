@@ -843,3 +843,7 @@ CREATE TABLE IF NOT EXISTS tomi_invitations(id TEXT PRIMARY KEY,sender_id TEXT N
 CREATE INDEX IF NOT EXISTS tomi_invitations_recipient ON tomi_invitations(recipient_id,expires_at,created_at);
 CREATE INDEX IF NOT EXISTS tomi_support_user ON tomi_support_tickets(user_id,created_at);
 CREATE INDEX IF NOT EXISTS tomi_polls_room ON tomi_polls(room_id,created_at);
+CREATE TABLE IF NOT EXISTS tomi_multipart_uploads(upload_id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,provider_id TEXT NOT NULL,object_key TEXT NOT NULL,completed INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS tomi_group_organisation(user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,group_id TEXT NOT NULL REFERENCES tomi_groups(id) ON DELETE CASCADE,pinned INTEGER NOT NULL DEFAULT 0,archived INTEGER NOT NULL DEFAULT 0,marked_unread INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(user_id,group_id));
+CREATE TABLE IF NOT EXISTS tomi_video_jobs(upload_id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,source_table TEXT NOT NULL,object_key TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'pending',attempts INTEGER NOT NULL DEFAULT 0,lease_until BIGINT NOT NULL DEFAULT 0,next_at BIGINT NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS tomi_video_renditions(upload_id TEXT NOT NULL,height INTEGER NOT NULL,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,object_key TEXT NOT NULL,byte_length BIGINT NOT NULL,PRIMARY KEY(upload_id,height));

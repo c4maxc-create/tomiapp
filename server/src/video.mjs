@@ -1,3 +1,4 @@
+import {cleanupVideoDerivatives,abortMultipartUpload} from './media_intents.mjs';
 import {ApiError} from './security.mjs';
 export const maxVideoBytes=25*1024*1024,maxVideoDurationMs=180000;
 const invalid=()=>{throw new ApiError(400,'INVALID_VIDEO','اختَر MP4 بترميز H.264 وصوت AAC، حتى1080p وثلاث دقائق و25 MB.');};
@@ -65,6 +66,6 @@ const cleaning=new WeakSet();
 export async function cleanupVideos(database,storage,prefix){
  if(!storage||cleaning.has(storage))return;cleaning.add(storage);
  try{const rows=(await database.query("SELECT id,object_key FROM tomi_video_uploads WHERE state<>'attached' AND expires_at<=? AND object_key LIKE ? ORDER BY expires_at LIMIT 20",[new Date().toISOString(),prefix+'%'])).rows;
-  for(const u of rows)try{await storage.delete(u.object_key);await database.query("DELETE FROM tomi_video_uploads WHERE id=? AND state<>'attached' AND expires_at<=?",[u.id,new Date().toISOString()]);await database.query('DELETE FROM tomi_upload_digests WHERE upload_id=?',[u.id]);}catch{console.error('Video cleanup deferred');}
+  for(const u of rows)try{await cleanupVideoDerivatives(database,storage,u.id,u.object_key);await abortMultipartUpload(database,storage,u.id,u.object_key);await storage.delete(u.object_key);await database.query("DELETE FROM tomi_video_uploads WHERE id=? AND state<>'attached' AND expires_at<=?",[u.id,new Date().toISOString()]);await database.query('DELETE FROM tomi_upload_digests WHERE upload_id=?',[u.id]);}catch{console.error('Video cleanup deferred');}
  }finally{cleaning.delete(storage);}
 }

@@ -1150,7 +1150,9 @@ class ChatThreadController extends ChangeNotifier {
       await refreshMessage(id);
       if (imageUpdatedAt[id] == loaded) return null;
     }
-    final value = url();
+    final value = kind == 'video' && cache[id]?.video != null
+        ? await cache[id]!.video!.playbackUrl()
+        : url();
     return value == null ? null : Uri.tryParse(value);
   }
 

@@ -1,0 +1,60 @@
+name: TOMI iOS Simulator verification
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: Public HTTPS TOMI API URL
+        type: string
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: tomi-ios-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  simulator:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.7'
+          cache: true
+      - name: Configure public app endpoint
+        env:
+          TOMI_BUILD_MODE: accounts
+          TOMI_API_URL: ${{ inputs.api_url || vars.TOMI_API_URL || 'https://tomiapp.onrender.com' }}
+        run: python3 tool/check_build_config.py
+      - name: Generate native iOS project and Swift bridge
+        env:
+          TOMI_IOS_GOOGLE_SERVICES_PLIST: ${{ secrets.TOMI_IOS_GOOGLE_SERVICES_PLIST }}
+        run: |
+          flutter config --no-enable-swift-package-manager
+          bash tool/bootstrap_ios.sh
+      - name: Compile actual CSharp game interface
+        run: python3 tool/build_csharp_games.py
+      - name: Resolve native dependencies
+        run: flutter pub get
+      - name: Analyze shared app
+        run: flutter analyze
+      - name: Compile Swift and plugins for iPhone Simulator
+        run: flutter build ios --simulator --debug --no-pub --build-name=1.7.0 --build-number=35 --dart-define="TOMI_API_URL=$TOMI_API_URL" --dart-define="TOMI_PREVIEW_MODE=false"
+      - name: Launch the simulator app and capture its first screen
+        run: |
+          python3 tool/smoke_ios_simulator.py
+      - name: Package simulator application
+        run: ditto -c -k --sequesterRsrc --keepParent build/ios/iphonesimulator/Runner.app build/TOMI-iPhone-Simulator.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TOMI-iPhone-Simulator-unsigned
+          path: |
+            build/TOMI-iPhone-Simulator.zip
+            build/TOMI-iPhone-Simulator.png
+          retention-days: 7

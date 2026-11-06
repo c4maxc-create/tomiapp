@@ -126,6 +126,7 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> Function(String threadId, String accountId)? onOpen;
   Future<void> Function(String callId, String accountId)? onOpenCall;
   Future<void> Function(String accountId)? onOpenActivity;
+  Future<void> Function(String accountId, String url)? onOpenTomiLink;
   Future<void> Function(String accountId, String activityId)?
   onOpenActivityItem;
   void notify() {
@@ -375,6 +376,22 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
       } catch (_) {}
   }
 
+  Future<void> drainDeepLink() async {
+    if (!accounts.mobile.supported ||
+        disposed ||
+        identity == null ||
+        onOpenTomiLink == null)
+      return;
+    final gen = generation, account = accounts.user?.id;
+    try {
+      final url = await notificationChannel.invokeMethod<String>(
+        'takeDeepLink',
+      );
+      if (url != null && !disposed && gen == generation && account != null)
+        unawaited(onOpenTomiLink?.call(account, url).catchError((Object _) {}));
+    } catch (_) {}
+  }
+
   Future<void> drainNotification() async {
     if (!accounts.mobile.supported || disposed || identity == null) return;
     try {
@@ -387,6 +404,10 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
 
   void nativeEvent(Map<String, dynamic> data) {
     if (disposed || identity == null) return;
+    if (data['type'] == 'deepLink') {
+      unawaited(drainDeepLink());
+      return;
+    }
     if (data['type'] == 'notification') {
       unawaited(drainNotification());
       return;
@@ -417,6 +438,7 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
     draining = true;
     final gen = generation;
     try {
+      await drainDeepLink();
       await drainNotification();
       final data = await accounts.mobile.takeAction();
       if (data == null ||

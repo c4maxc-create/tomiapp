@@ -101,7 +101,7 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
   }
 
   Future<void> open(DirectConversation c) async {
-    if (c.markedUnread && !c.isGroup) await organise(c, unread: false);
+    if (c.markedUnread) await organise(c, unread: false);
     if (!mounted) return;
     await Navigator.push<void>(
       context,
@@ -120,7 +120,7 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
     try {
       await widget.accounts.chatRequest(
         'PUT',
-        '/v1/chats/${c.id}/organisation',
+        '/v1/${c.isGroup ? 'groups' : 'chats'}/${c.id}/organisation',
         body: {
           'pinned': pinned ?? c.personalPinned,
           'archived': archived ?? c.archived,
@@ -136,7 +136,6 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
   }
 
   Future<void> organiseMenu(DirectConversation c) async {
-    if (c.isGroup) return;
     final action = await showModalBottomSheet<String>(
       context: context,
       builder: (d) => SafeArea(
@@ -502,9 +501,7 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
                                 InkWell(
                                   key: ValueKey('chat-row-${c.id}'),
                                   onTap: () => open(c),
-                                  onLongPress: c.isGroup
-                                      ? null
-                                      : () => organiseMenu(c),
+                                  onLongPress: () => organiseMenu(c),
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 18,

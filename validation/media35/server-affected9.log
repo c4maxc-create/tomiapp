@@ -1,0 +1,17 @@
+✔ 35 group search filters links, media and dates and organisation remains private after member removal (4461.970335ms)
+✔ 35 support pagination has stable tie ordering and never accepts another account cursor (3601.110472ms)
+✔ 35 multipart checkpoints survive retries, enforce upload ownership and complete only with every part (2613.671201ms)
+✔ 35 lost completion reply recovers from the verified object without uploading another copy (1311.067919ms)
+✔ 35 expired uploads cannot be resumed and cleanup aborts incomplete provider data (1073.998524ms)
+✔ 35 account deletion aborts pending multipart data through the durable erasure outbox (1950.240993ms)
+✔ 35 S3 signatures bind multipart query and provider XML is validated (4.941456ms)
+✔ 35 actual FFmpeg produces bounded playable 540 and 720 H264/AAC variants and strips metadata (1524.287806ms)
+✔ 35 video queue routes private media privately, persists both variants and cancels erased users before upload (167.122778ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8444.108153

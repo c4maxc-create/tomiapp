@@ -24,7 +24,10 @@ class NativeMobileRuntime implements MobileRuntime {
   bool get supported =>
       !kIsWeb &&
       !Platform.environment.containsKey('FLUTTER_TEST') &&
-      defaultTargetPlatform == TargetPlatform.android;
+      const [
+        TargetPlatform.android,
+        TargetPlatform.iOS,
+      ].contains(defaultTargetPlatform);
   Future<T?> invoke<T>(String method, [Map<String, dynamic>? args]) async {
     if (!supported) return null;
     try {

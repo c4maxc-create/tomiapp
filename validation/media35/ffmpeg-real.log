@@ -1,0 +1,10 @@
+✔ 35 actual FFmpeg produces bounded playable 540 and 720 H264/AAC variants and strips metadata (3562.370369ms)
+✔ 35 video queue routes private media privately, persists both variants and cancels erased users before upload (73.512854ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3958.28338

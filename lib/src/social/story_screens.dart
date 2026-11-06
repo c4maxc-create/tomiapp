@@ -690,7 +690,7 @@ class _StorySequenceState extends State<StorySequence>
       );
       if (!mounted || gen != generation) return;
       final fresh = StoryItem(d['story'] as Map<String, dynamic>);
-      final url = fresh.video?.url;
+      final url = await fresh.video?.playbackUrl();
       if (url == null) throw StateError('missing video');
       candidate = VideoPlayerController.networkUrl(
         Uri.parse(url),

@@ -1,3 +1,4 @@
+import {cleanupVideoDerivatives} from './media_intents.mjs';
 import {eraseChatExtras} from './chat_extras.mjs';
 import {ApiError,digest,newToken,validateUsername,verifyPassword,isUniqueConflict} from './security.mjs';
 
@@ -60,7 +61,7 @@ export function createAccountDeletion({database,guard,ownerUserId,readJson,respo
       for(const table of ['tomi_roulette_access','tomi_roulette_daily','tomi_roulette_spins','tomi_contribution_credits'])await db.query('DELETE FROM '+table+' WHERE user_id=?',[row.id]);
       await db.query('DELETE FROM tomi_roulette_requests WHERE actor_id=?',[row.id]);
       for(const table of ['tomi_live_roulette_bets','tomi_live_roulette_requests','tomi_live_roulette_last','tomi_live_roulette_daily','tomi_live_roulette_awards'])await db.query('DELETE FROM '+table+' WHERE user_id=?',[row.id]);
-      for(const table of ['tomi_chat_organisation','tomi_explore_preferences','tomi_explore_hidden','tomi_support_tickets'])await db.query('DELETE FROM '+table+' WHERE user_id=?',[row.id]);
+      for(const table of ['tomi_group_organisation','tomi_chat_organisation','tomi_explore_preferences','tomi_explore_hidden','tomi_support_tickets'])await db.query('DELETE FROM '+table+' WHERE user_id=?',[row.id]);
       await db.query('DELETE FROM tomi_contact_exceptions WHERE user_id=? OR target_id=?',[row.id,row.id]);
       await db.query('DELETE FROM tomi_invitations WHERE sender_id=? OR recipient_id=?',[row.id,row.id]);
       await db.query('DELETE FROM tomi_polls WHERE owner_id=?',[row.id]);
@@ -149,6 +150,9 @@ export function createAccountDeletion({database,guard,ownerUserId,readJson,respo
         for(const job of jobs){if(closed)break;const claimed=await database.query('UPDATE tomi_erasure_media SET lease_until=?,attempts=attempts+1 WHERE id=? AND lease_until<=? AND next_at<=?',[now(60000),job.id,now(),now()]);if(claimed.changes!==1)continue;
           try{
             const store=job.scope==='private'?chatStorage:storage;if(!store||!job.object_key.startsWith('tomi/'))throw Error('STORAGE_UNAVAILABLE');
+            const multipart=(await database.query('SELECT provider_id FROM tomi_multipart_uploads WHERE upload_id=?',[job.upload_id])).rows[0];
+            if(multipart){if(!store.abortMultipart)throw Error('MULTIPART_CLEANUP_UNAVAILABLE');await store.abortMultipart(job.object_key,multipart.provider_id);await database.query('DELETE FROM tomi_multipart_uploads WHERE upload_id=?',[job.upload_id]);}
+            await cleanupVideoDerivatives(database,store,job.upload_id,job.object_key);
             await store.delete(job.object_key);
             if(job.final_after>now())await database.query("UPDATE tomi_erasure_media SET next_at=final_after,lease_until='' WHERE id=?",[job.id]);
             else await database.transaction(async db=>{await db.query('DELETE FROM '+tables[job.media_type]+' WHERE id=? AND user_id=?',[job.upload_id,job.user_id]);await db.query('DELETE FROM tomi_upload_digests WHERE upload_id=?',[job.upload_id]);await db.query('DELETE FROM tomi_erasure_media WHERE id=?',[job.id]);});

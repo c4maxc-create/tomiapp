@@ -1,3 +1,4 @@
+import '../experience/share_code_page.dart';
 import '../experience/community_pages.dart';
 import '../experience/experience_pages.dart';
 import '../preferences/preferences_page.dart';
@@ -461,9 +462,15 @@ class _SocialProfileViewState extends State<SocialProfileView> {
                               ),
                               onPressed: widget.own
                                   ? () async {
-                                      await shareSocialText(
+                                      await Navigator.push(
                                         context,
-                                        '${user.displayName}\n@${user.username} على TOMI',
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => ShareCodePage(
+                                            url: 'tomi://profile/${user.id}',
+                                            title:
+                                                'مشاركة ملف ${user.displayName}',
+                                          ),
+                                        ),
                                       );
                                     }
                                   : () => openPrivateChat(

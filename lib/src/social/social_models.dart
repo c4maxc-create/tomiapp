@@ -1,3 +1,5 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
+import '../preferences/media_preferences.dart';
 import '../identity/identity_models.dart';
 
 import 'dart:convert';
@@ -226,6 +228,30 @@ class VideoDraft extends ImageDraft {
 
 class PostVideo {
   PostVideo(this.data);
+  Future<String?> playbackUrl() async {
+    final preferences = MediaPreferences.instance;
+    await preferences.restore();
+    final variants = (data['renditions'] as List? ?? []).cast<Map>();
+    if (variants.isEmpty || !preferences.smartQuality && !preferences.dataSaver)
+      return url;
+    bool low = preferences.dataSaver;
+    if (preferences.smartQuality) {
+      try {
+        final c = await Connectivity().checkConnectivity();
+        low =
+            low ||
+            !c.contains(ConnectivityResult.wifi) &&
+                !c.contains(ConnectivityResult.ethernet);
+      } catch (_) {
+        low = true;
+      }
+    }
+    final target = low ? 540 : 720;
+    return variants.where((v) => v['height'] == target).firstOrNull?['url']
+            as String? ??
+        url;
+  }
+
   final Map<String, dynamic> data;
   String? get url => data['url'] as String?;
   String? get poster => data['poster'] as String?;
@@ -253,17 +279,21 @@ class ImageUpload {
     required this.id,
     required this.url,
     required this.headers,
+    this.resumablePath,
   });
   final String id;
+  final String? resumablePath;
   final Uri url;
   final Map<String, String> headers;
   Map<String, dynamic> toJson() => {
     'uploadId': id,
     'uploadUrl': url.toString(),
     'headers': headers,
+    if (resumablePath != null) 'resumablePath': resumablePath,
   };
   factory ImageUpload.fromJson(Map<String, dynamic> d) => ImageUpload(
     id: d['uploadId'] as String,
+    resumablePath: d['resumablePath'] as String?,
     url: Uri.parse(d['uploadUrl'] as String),
     headers: (d['headers'] as Map<String, dynamic>).map(
       (k, v) => MapEntry(k, v as String),

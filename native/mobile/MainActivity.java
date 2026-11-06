@@ -31,6 +31,13 @@ public class MainActivity extends FlutterActivity {
             try {
                 String id = call.argument("id");
                 switch (call.method) {
+                    case "qrCode":
+                        result.success(TomiLinks.png(call.argument("url")));break;
+                    case "shareQr":
+                        TomiLinks.share(this,call.argument("url"));result.success(null);break;
+                    case "takeDeepLink":
+                        String link=getPreferences(0).getString("pendingLink",null);
+                        getPreferences(0).edit().remove("pendingLink").apply();result.success(link);break;
                     case "deviceCheck":
                         result.success(TomiDeviceTools.inspect(this));break;
                     case "screenPrivacy":
@@ -130,6 +137,11 @@ public class MainActivity extends FlutterActivity {
     }
     @Override protected void onDestroy() { cancelAudioStart();super.onDestroy(); }
     private void capture(Intent intent) {
+        String link=intent.getDataString();
+        if(Intent.ACTION_VIEW.equals(intent.getAction()) && TomiLinks.valid(link)){
+            getPreferences(0).edit().putString("pendingLink",link).apply();intent.setData(null);
+            Map<String,Object> linkEvent=new HashMap<>();linkEvent.put("type","deepLink");dispatch(linkEvent);
+        }
         String notification=intent.getStringExtra("tomiNotification");
         if(notification!=null){
             String secret=getSharedPreferences("tomi.actions",0).getString("secret",null);

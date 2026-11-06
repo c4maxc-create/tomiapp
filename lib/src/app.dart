@@ -1,3 +1,5 @@
+import 'experience/share_code_page.dart';
+import 'gaming/csharp_games_page.dart';
 import 'experience/performance_monitor.dart';
 import 'experience/experience_pages.dart';
 import 'design/tomi_theme.dart';
@@ -72,6 +74,7 @@ class _TomiAppState extends State<TomiApp> {
     accounts?.addListener(accountChanged);
     if (accounts != null) {
       accounts!.calls.onShow = showCall;
+      accounts!.push.onOpenTomiLink = openTomiLink;
       accounts!.push.onOpen = openPushChat;
       accounts!.push.onOpenCall = openPushCall;
       accounts!.push.onOpenActivity = openPushActivity;
@@ -109,6 +112,71 @@ class _TomiAppState extends State<TomiApp> {
             }),
       );
     });
+  }
+
+  Future<void> openTomiLink(String accountId, String url) async {
+    final a = accounts,
+        link = TomiLink.parse(url),
+        nav = navigator.currentState;
+    if (!mounted || a?.user?.id != accountId || link == null || nav == null)
+      return;
+    final revision = a!.sessionRevision;
+    final ok = await showDialog<bool>(
+      context: nav.context,
+      builder: (c) => AlertDialog(
+        title: const Text('فتح رابط TOMI'),
+        content: Text(
+          'تريد تفتح ${link.kind == 'profile'
+              ? 'الملف الشخصي'
+              : link.kind == 'room'
+              ? 'الغرفة الصوتية'
+              : 'طاولة اللعبة'}؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('فتح'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true ||
+        !mounted ||
+        a.user?.id != accountId ||
+        a.sessionRevision != revision)
+      return;
+    try {
+      if (link.kind == 'profile') {
+        final user = await a.userById(link.target);
+        if (mounted && a.user?.id == accountId && a.sessionRevision == revision)
+          await nav.push(
+            MaterialPageRoute<void>(
+              builder: (_) => UserAccountPage(accounts: a, initialUser: user),
+            ),
+          );
+      } else if (link.kind == 'game') {
+        await nav.push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                CSharpGamesPage(accounts: a, initialCode: link.target),
+          ),
+        );
+      } else {
+        await openLinkedRoom(nav.context, a, link.target);
+      }
+    } on AccountFailure catch (f) {
+      if (mounted && a.user?.id == accountId) showNote(nav.context, f.message);
+    } catch (_) {
+      if (mounted && a.user?.id == accountId)
+        showNote(
+          nav.context,
+          'تعذّر فتح الرابط؛ تأكد من صلاحياتك وتوفر الغرفة أو اللعبة.',
+        );
+    }
   }
 
   Future<void> openPushActivity(String accountId, [String? activityId]) async {
@@ -288,6 +356,7 @@ class _TomiAppState extends State<TomiApp> {
   void dispose() {
     accounts?.removeListener(accountChanged);
     if (accounts != null) {
+      accounts!.push.onOpenTomiLink = null;
       accounts!.push.onOpen = null;
       accounts!.push.onOpenCall = null;
       accounts!.push.onOpenActivity = null;

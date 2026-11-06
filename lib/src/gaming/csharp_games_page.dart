@@ -1,3 +1,5 @@
+import '../experience/share_code_page.dart';
+import '../social/social_models.dart' show newRequestId;
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
@@ -212,6 +214,17 @@ class _CSharpGamesPageState extends State<CSharpGamesPage>
         await Clipboard.setData(
           ClipboardData(text: games.match!['code'] as String),
         );
+      } else if (command == 'shareCode' &&
+          games.match?['status'] == 'waiting') {
+        await Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => ShareCodePage(
+              url: 'tomi://game/${games.match!['code']}',
+              title: 'دعوة لطاولة اللعبة',
+            ),
+          ),
+        );
       } else if (command == 'invite' && games.match?['status'] == 'waiting') {
         final matchId = games.match!['id'],
             code = games.match!['code'],
@@ -226,6 +239,34 @@ class _CSharpGamesPageState extends State<CSharpGamesPage>
             foreground &&
             games.match?['id'] == matchId &&
             games.match?['status'] == 'waiting') {
+          final owner = widget.accounts.draftOwnerId!,
+              revision = widget.accounts.sessionRevision,
+              key = 'native-game-invite-$matchId-$uid';
+          bool valid() =>
+              mounted &&
+              widget.accounts.draftOwnerId == owner &&
+              widget.accounts.sessionRevision == revision;
+          final saved =
+              await widget.accounts.draftStore.read(owner, key) ??
+              {'requestId': newRequestId()};
+          if (!await widget.accounts.draftStore.write(
+            owner,
+            key,
+            saved,
+            valid: valid,
+          ))
+            return;
+          await widget.accounts.chatRequest(
+            'POST',
+            '/v1/me/invitations',
+            body: {
+              'requestId': saved['requestId'],
+              'recipientId': uid,
+              'kind': 'game',
+              'targetId': matchId,
+            },
+          );
+          if (!valid()) return;
           final conversation = await widget.accounts.chats.open(uid);
           final thread = widget.accounts.chats.thread(conversation);
           await thread.restored;
@@ -233,6 +274,15 @@ class _CSharpGamesPageState extends State<CSharpGamesPage>
             thread.enqueue(
               'دعوة للعب ${gameName(kind as String)} • كود الغرفة: $code\nافتح قسم الألعاب ثم انضم بكود الطاولة.',
               null,
+              requestId: saved['requestId'] as String,
+            );
+            if (!await thread.persist())
+              throw StateError('دعوة محفوظة تنتظر إعادة المحاولة');
+            await widget.accounts.draftStore.write(
+              owner,
+              key,
+              null,
+              valid: valid,
             );
             if (mounted)
               ScaffoldMessenger.of(context).showSnackBar(

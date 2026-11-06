@@ -83,7 +83,8 @@ class MediaPreferences extends ChangeNotifier {
   }
 
   Future<void> applyPrivacy(bool value) async {
-    if (Platform.isAndroid && !Platform.environment.containsKey('FLUTTER_TEST'))
+    if ((Platform.isAndroid || Platform.isIOS) &&
+        !Platform.environment.containsKey('FLUTTER_TEST'))
       await const MethodChannel(
         'tomi/mobile',
       ).invokeMethod<void>('screenPrivacy', {'enabled': value});

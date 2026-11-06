@@ -823,7 +823,8 @@ class RealPostCard extends StatelessWidget {
                 final p = SocialPost.fromJson(
                   d['post'] as Map<String, dynamic>,
                 );
-                return p.video?.url == null ? null : Uri.parse(p.video!.url!);
+                final url = await p.video?.playbackUrl();
+                return url == null ? null : Uri.parse(url);
               },
             ),
           if (post.image != null)

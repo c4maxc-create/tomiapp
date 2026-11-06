@@ -23,6 +23,12 @@ type Dependencies = Pick<ExperienceDependencies, 'database' | 'readJson' | 'resp
 };
 export function createCommunity(deps: Dependencies) {
     const { database: db, readJson, respond, limit } = deps;
+    async function pageRows(table: string, condition: string, args: unknown[], url: URL, size: number) {
+        const cursor=url.searchParams.get('cursor');let tail='',values=[...args];
+        if(cursor){if(!uuid(cursor))fail(400,'VALIDATION','صفحة غير صحيحة.');const prior=(await db.query('SELECT id,created_at FROM '+table+' WHERE id=? AND '+condition,[cursor,...args])).rows[0];if(!prior)fail(400,'VALIDATION','حدّث القائمة.');tail=' AND (created_at<? OR (created_at=? AND id<?))';values.push(prior.created_at,prior.created_at,prior.id);}
+        const rows=(await db.query('SELECT * FROM '+table+' WHERE '+condition+tail+' ORDER BY created_at DESC,id DESC LIMIT '+(size+1),values)).rows;
+        return {items:rows.slice(0,size),nextCursor:rows.length>size?rows[size-1].id:null};
+    }
     async function staff(c: CurrentUser) { if (await deps.role(db, c.id) !== 'owner')
         fail(403, 'FORBIDDEN', 'الرد للإدارة المالكة فقط.'); }
     async function roomAccess(database: Database, room: string, user: string, owner = false) { const row = (await database.query("SELECT owner_id FROM tomi_voice_rooms WHERE id=? AND state='open'", [room])).rows[0]; if (!row || owner && row.owner_id !== user || !owner && row.owner_id !== user && !(await database.query("SELECT 1 FROM tomi_voice_members WHERE room_id=? AND user_id=? AND state='active'", [room, user])).rows.length)
@@ -135,11 +141,8 @@ export function createCommunity(deps: Dependencies) {
                 respond(res, 200, { ok: true });
                 return true;
             }
-            if (p === '/v1/me/support' && m === 'GET') {
-                respond(res, 200, { items: (await db.query('SELECT id,subject,body,status,reply,revision,created_at,updated_at FROM tomi_support_tickets WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT 50', [c.id])).rows });
-                return true;
-            }
-            if (p === '/v1/me/support' && m === 'POST') {
+            if(p==='/v1/me/support'&&m==='GET'){respond(res,200,await pageRows('tomi_support_tickets','user_id=?',[c.id],url,50));return true;}
+        if (p === '/v1/me/support' && m === 'POST') {
                 await limit('support:' + c.id, 5);
                 const d = fields(await readJson(req), ['subject', 'body', 'requestId']);
                 if (!uuid(d.requestId))
@@ -151,12 +154,8 @@ export function createCommunity(deps: Dependencies) {
                 respond(res, 201, { ticket: r });
                 return true;
             }
-            if (p === '/v1/admin/support' && m === 'GET') {
-                await staff(c);
-                respond(res, 200, { items: (await db.query('SELECT * FROM tomi_support_tickets ORDER BY updated_at DESC,id DESC LIMIT 100')).rows });
-                return true;
-            }
-            const ticket = /^\/v1\/admin\/support\/([a-f0-9-]{36})$/.exec(p);
+            if(p==='/v1/admin/support'&&m==='GET'){await staff(c);respond(res,200,await pageRows('tomi_support_tickets','1=1',[],url,100));return true;}
+        const ticket = /^\/v1\/admin\/support\/([a-f0-9-]{36})$/.exec(p);
             if (ticket && m === 'PUT') {
                 await staff(c);
                 await limit('support-reply:' + c.id, 60);
@@ -219,14 +218,7 @@ export function createCommunity(deps: Dependencies) {
                 respond(res, 200, { poll: await poll(vote[1], c) });
                 return true;
             }
-            if (p === '/v1/me/gift-history' && m === 'GET') {
-                const before = url.searchParams.get('before') ?? now();
-                if (!Number.isFinite(Date.parse(before)))
-                    fail(400, 'VALIDATION', 'تاريخ غير صحيح.');
-                const rows = (await db.query('SELECT id,sender_id,recipient_id,gift_id,quantity,total,created_at FROM tomi_room_all_gifts WHERE (sender_id=? OR recipient_id=?) AND created_at<? ORDER BY created_at DESC,id DESC LIMIT 51', [c.id, c.id, before])).rows;
-                respond(res, 200, { trial: true, purchasesEnabled: false, items: rows.slice(0, 50), nextBefore: rows.length > 50 ? rows[49].created_at : null });
-                return true;
-            }
-            return false;
+            if(p==='/v1/me/gift-history'&&m==='GET'){respond(res,200,{trial:true,purchasesEnabled:false,...await pageRows('tomi_room_all_gifts','(sender_id=? OR recipient_id=?)',[c.id,c.id],url,50)});return true;}
+        return false;
         } };
 }

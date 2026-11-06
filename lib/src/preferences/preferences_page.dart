@@ -133,9 +133,9 @@ class _PreferencesPageState extends State<PreferencesPage> {
           ),
         const Divider(),
         SwitchListTile(
-          title: const Text('حماية الشاشة على Android'),
+          title: const Text('حماية المحتوى وقت مشاركة الشاشة'),
           subtitle: const Text(
-            'يمنع لقطات الشاشة وعرض المحتوى في تسجيل أو مشاركة الشاشة عند تفعيله. عطّله إذا تريد مشاركة التطبيق.',
+            'Android يمنع الالتقاط؛ iPhone يخفي المحتوى أثناء تسجيل الشاشة وفي معاينة التطبيقات، ولا يمنع لقطة الشاشة اليدوية.',
           ),
           value: media.screenPrivacy,
           onChanged: busy
@@ -174,9 +174,9 @@ class _PreferencesPageState extends State<PreferencesPage> {
               : (v) => operation(() => media.update(saver: v)),
         ),
         SwitchListTile(
-          title: const Text('جودة ذكية للرفع'),
+          title: const Text('جودة ذكية للوسائط'),
           subtitle: const Text(
-            'تخفيف الفيديو على بيانات الهاتف والحفاظ على جودة أعلى عبر Wi-Fi.',
+            'تخفيف الرفع واختيار نسخة مشاهدة أخف على بيانات الهاتف؛ تعطيله يختار الأصل عند المشاهدة.',
           ),
           value: media.smartQuality,
           onChanged: busy

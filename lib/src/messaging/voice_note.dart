@@ -10,7 +10,7 @@ import 'chat_models.dart';
 import 'audio_focus.dart';
 
 Future<void> prepareVoiceAudio({required bool recording}) async {
-  if (!Platform.isAndroid) return;
+  if (!(Platform.isAndroid || Platform.isIOS)) return;
   try {
     await const MethodChannel(
       'tomi/mobile',

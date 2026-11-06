@@ -56,10 +56,13 @@ Path("README.md").write_text("template readme")
         assert not (project/'android/app/src/main/kotlin/com/tomi/tomi_app/MainActivity.kt').exists()
         assert (project/'android/app/src/main/kotlin/com/tomi/tomi_app/TomiVoiceAudio.kt').exists()
         assert (project/'android/app/src/main/kotlin/com/tomi/tomi_app/TomiDeviceTools.kt').exists()
+        assert (project/'android/app/src/main/kotlin/com/tomi/tomi_app/TomiLinks.kt').exists()
+        assert (project/'android/app/src/main/res/xml/tomi_share_paths.xml').read_text().count('path="qr/"')==1
         generated_gradle=(project/'android/app/build.gradle.kts').read_text()
         assert generated_gradle.count('org.jetbrains.kotlin.android')==1
         assert generated_gradle.count('// TOMI Kotlin JVM target')==1
         assert generated_gradle.count('com.google.firebase:firebase-messaging')==1
+        assert generated_gradle.count('com.google.zxing:core:3.5.3')==1
         assert generated_gradle.count('firebase-bom:34.19.0')==1
         manifest = ET.parse(project / "android/app/src/main/AndroidManifest.xml")
         app = manifest.getroot().find("application")

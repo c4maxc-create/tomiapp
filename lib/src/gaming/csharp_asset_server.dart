@@ -11,7 +11,9 @@ class CSharpAssetServer {
   final String _nonce;
   final Set<String> _assets;
   final AssetBundle _bundle;
-  Uri get origin => Uri.parse('http://127.0.0.1:${_server.port}');
+  Uri get origin => Uri.parse(
+    'http://${Platform.isIOS ? 'localhost' : '127.0.0.1'}:${_server.port}',
+  );
   Uri get entry => origin.resolve('/$_nonce/index.html?native=1');
   bool allows(Uri uri) =>
       uri.origin == origin.origin && uri.path.startsWith('/$_nonce/');
