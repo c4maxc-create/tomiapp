@@ -1,3 +1,4 @@
+import '../preferences/network_media_image.dart';
 import '../identity/identity_avatar.dart';
 
 import 'package:flutter/material.dart';
@@ -68,7 +69,7 @@ class AccountAvatar extends StatelessWidget {
           width: size,
           height: size,
           child: ClipOval(
-            child: Image.network(
+            child: NetworkMediaImage(
               user.avatarUrl!,
               key: ValueKey(user.avatarId),
               width: size,

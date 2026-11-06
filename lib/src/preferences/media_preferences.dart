@@ -92,8 +92,7 @@ class MediaPreferences extends ChangeNotifier {
 
   Future<bool> allowNetworkMedia() async {
     await restore();
-    if (!wifiOnly || Platform.environment.containsKey('FLUTTER_TEST'))
-      return true;
+    if (!wifiOnly) return true;
     final kinds = await Connectivity().checkConnectivity();
     return kinds.contains(ConnectivityResult.wifi) ||
         kinds.contains(ConnectivityResult.ethernet);

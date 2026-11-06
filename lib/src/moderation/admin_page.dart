@@ -1,3 +1,4 @@
+import '../preferences/network_media_image.dart';
 import '../experience/community_pages.dart';
 import '../roulette/roulette_admin.dart';
 import 'dart:async';
@@ -686,7 +687,7 @@ class _AdminReportPageState extends State<AdminReportPage> {
                             ),
                           ),
                           if (showImage)
-                            Image.network(
+                            NetworkMediaImage(
                               live['imageUrl'] as String,
                               fit: BoxFit.contain,
                               errorBuilder: (_, _, _) => const Text(

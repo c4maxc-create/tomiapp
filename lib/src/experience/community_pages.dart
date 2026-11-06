@@ -1,3 +1,4 @@
+import 'camera_check_page.dart';
 import '../messaging/voice_note.dart';
 import '../gaming/csharp_games_page.dart';
 import '../voice_rooms/room_screens.dart';
@@ -792,6 +793,18 @@ class _CommunityPageState extends State<CommunityPage> {
       ),
       if (widget.accounts.liveAudioBusy)
         const Text('أنهِ المكالمة أو غادر الغرفة قبل فحص المايك.'),
+      OutlinedButton.icon(
+        icon: const Icon(Icons.camera_alt_outlined),
+        label: const Text('فحص صورة الكاميرا محلياً'),
+        onPressed: widget.accounts.liveAudioBusy
+            ? null
+            : () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => CameraCheckPage(accounts: widget.accounts),
+                ),
+              ),
+      ),
       for (final key in const {
         'microphone': 'الميكروفون',
         'camera': 'الكاميرا',

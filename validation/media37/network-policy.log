@@ -1,0 +1,4 @@
+00:00 +0: loading /workspace/tomiapp/test/network_media37_test.dart
+00:00 +0: Wi-Fi only images do not create a network image until allowed and respond to connectivity changes
+00:00 +1: Wi-Fi only voice playback refuses remote audio before allocating a player
+00:00 +2: All tests passed!

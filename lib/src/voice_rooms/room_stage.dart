@@ -924,7 +924,7 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
                   context: context,
                   builder: (context) => Dialog(
                     child: InteractiveViewer(
-                      child: Image.network(
+                      child: NetworkMediaImage(
                         e.image!['url'] as String,
                         errorBuilder: (_, _, _) => const Padding(
                           padding: EdgeInsets.all(20),
@@ -936,7 +936,7 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
+                  child: NetworkMediaImage(
                     e.image!['url'] as String,
                     width: 160,
                     height: 120,
@@ -1324,7 +1324,7 @@ class _RoomPicture extends StatelessWidget {
     if (r.image?['url'] != null)
       return ClipRRect(
         borderRadius: BorderRadius.circular(size * .28),
-        child: Image.network(
+        child: NetworkMediaImage(
           r.image!['url'] as String,
           width: size,
           height: size,

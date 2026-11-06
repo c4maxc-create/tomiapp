@@ -143,9 +143,9 @@ class _PreferencesPageState extends State<PreferencesPage> {
               : (v) => operation(() => media.update(privacy: v)),
         ),
         SwitchListTile(
-          title: const Text('فتح الفيديو عبر Wi-Fi فقط'),
+          title: const Text('الصور والصوت والفيديو عبر Wi-Fi فقط'),
           subtitle: const Text(
-            'يمنع تنزيل وتشغيل الفيديو الشبكي على بيانات الهاتف.',
+            'يمنع فتح الصور والتسجيلات الصوتية والفيديو من الشبكة على بيانات الهاتف؛ الملفات المحلية تبقى متاحة.',
           ),
           value: media.wifiOnly,
           onChanged: busy

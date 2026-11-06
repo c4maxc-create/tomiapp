@@ -1,3 +1,4 @@
+import '../preferences/media_preferences.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:io';
@@ -77,6 +78,12 @@ class VoicePlayback extends ChangeNotifier with WidgetsBindingObserver {
       final uri = await source();
       if (disposed || gen != generation) return;
       if (uri == null) throw StateError('Unavailable voice');
+      if ((uri.scheme == 'https' || uri.scheme == 'http') &&
+          !await MediaPreferences.instance.allowNetworkMedia()) {
+        error =
+            'تشغيل الصوت متوقف: فعّلت الوسائط عبر Wi-Fi فقط. اتصل بالواي فاي أو غيّر الإعداد.';
+        return;
+      }
       final previous = activeId == id ? positionMs : 0;
       await prepareVoiceAudio(recording: false);
       player ??= AudioPlayer();

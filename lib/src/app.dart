@@ -1,3 +1,4 @@
+import 'preferences/network_media_image.dart';
 import 'social/story_screens.dart';
 import 'social/home_controller.dart';
 import 'social/social_models.dart';
@@ -459,7 +460,7 @@ class _TomiAppState extends State<TomiApp> {
                       padding: const EdgeInsetsDirectional.only(start: 10),
                       child: ClipOval(
                         child: c.active!.image?['url'] != null
-                            ? Image.network(
+                            ? NetworkMediaImage(
                                 c.active!.image!['url'] as String,
                                 width: 30,
                                 height: 30,

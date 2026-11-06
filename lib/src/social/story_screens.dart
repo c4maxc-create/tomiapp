@@ -1,3 +1,4 @@
+import '../preferences/network_media_image.dart';
 import '../messaging/video_editor.dart';
 import '../messaging/chat_models.dart' show PendingChatMessage;
 import '../messaging/upload_transfer.dart';
@@ -92,7 +93,7 @@ class StoryAvatar extends StatelessWidget {
                     name: user.displayName,
                     child: ClipOval(
                       child: user.avatarUrl != null
-                          ? Image.network(
+                          ? NetworkMediaImage(
                               user.avatarUrl!,
                               width: double.infinity,
                               height: double.infinity,
@@ -162,7 +163,7 @@ Future<void> openProfilePicture(BuildContext context, AccountUser user) async {
           child: user.avatarUrl == null
               ? StoryAvatar(user: user, size: 180)
               : InteractiveViewer(
-                  child: Image.network(
+                  child: NetworkMediaImage(
                     user.avatarUrl!,
                     fit: BoxFit.contain,
                     errorBuilder: (_, _, _) => const Text('تعذّر تحميل الصورة'),
@@ -932,7 +933,7 @@ class _StorySequenceState extends State<StorySequence>
                       )
                     : const CircularProgressIndicator()
               : item.image?.url != null
-              ? Image.network(
+              ? NetworkMediaImage(
                   item.image!.url!,
                   fit: BoxFit.contain,
                   frameBuilder: (c, child, frame, sync) {

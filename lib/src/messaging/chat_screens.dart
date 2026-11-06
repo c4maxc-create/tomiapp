@@ -1,3 +1,4 @@
+import '../preferences/network_media_image.dart';
 import 'video_editor.dart';
 import '../gaming/chat_game_invite.dart';
 import '../gaming/csharp_games_page.dart';
@@ -2278,7 +2279,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(9),
-                            child: Image.network(
+                            child: NetworkMediaImage(
                               m.image!.url!,
                               height: 190,
                               width: 280,
@@ -3721,7 +3722,7 @@ class ChatImagePage extends StatelessWidget {
               : InteractiveViewer(
                   minScale: .5,
                   maxScale: 5,
-                  child: Image.network(
+                  child: NetworkMediaImage(
                     m!.image!.url!,
                     errorBuilder: (_, _, _) => TextButton(
                       onPressed: () => thread.refreshMessage(messageId),

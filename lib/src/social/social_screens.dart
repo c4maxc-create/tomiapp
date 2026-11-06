@@ -1,3 +1,4 @@
+import '../preferences/network_media_image.dart';
 import '../messaging/video_editor.dart';
 import '../experience/experience_pages.dart';
 import '../design/async_content.dart';
@@ -841,7 +842,7 @@ class RealPostCard extends StatelessWidget {
                     ),
                     body: Center(
                       child: InteractiveViewer(
-                        child: Image.network(
+                        child: NetworkMediaImage(
                           post.image!.url ?? '',
                           fit: BoxFit.contain,
                           errorBuilder: (_, _, _) =>
@@ -861,7 +862,7 @@ class RealPostCard extends StatelessWidget {
                         color: socialSurface,
                         child: Icon(Icons.image_not_supported_outlined),
                       )
-                    : Image.network(
+                    : NetworkMediaImage(
                         post.image!.url!,
                         fit: BoxFit.cover,
                         cacheWidth: 1200,

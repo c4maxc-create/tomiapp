@@ -1,3 +1,4 @@
+import '../preferences/network_media_image.dart';
 import '../experience/share_code_page.dart';
 import '../experience/community_pages.dart';
 import '../experience/experience_pages.dart';
@@ -566,7 +567,7 @@ class _SocialProfileViewState extends State<SocialProfileView> {
                       fit: StackFit.expand,
                       children: [
                         if (p.image?.url != null)
-                          Image.network(
+                          NetworkMediaImage(
                             p.image!.url!,
                             fit: BoxFit.cover,
                             cacheWidth: 450,

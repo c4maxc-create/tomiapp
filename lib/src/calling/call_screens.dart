@@ -1,3 +1,4 @@
+import '../preferences/network_media_image.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -28,7 +29,7 @@ class CallAvatar extends StatelessWidget {
       child: peer.avatarUrl == null
           ? fallback
           : ClipOval(
-              child: Image.network(
+              child: NetworkMediaImage(
                 peer.avatarUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => fallback,
