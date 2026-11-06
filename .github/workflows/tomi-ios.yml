@@ -45,7 +45,13 @@ jobs:
       - name: Analyze shared app
         run: flutter analyze
       - name: Compile Swift and plugins for iPhone Simulator
-        run: flutter build ios --simulator --debug --no-pub --build-name=1.7.0 --build-number=35 --dart-define="TOMI_API_URL=$TOMI_API_URL" --dart-define="TOMI_PREVIEW_MODE=false"
+        run: |
+          mkdir -p build
+          set -o pipefail
+          flutter build ios --simulator --debug --no-pub --build-name=1.7.0 --build-number=35 --dart-define="TOMI_API_URL=$TOMI_API_URL" --dart-define="TOMI_PREVIEW_MODE=false" 2>&1 | tee build/tomi-ios-build.log
+      - name: Report bounded iOS compiler diagnostics
+        if: failure()
+        run: python3 tool/report_ios_build.py
       - name: Launch the simulator app and capture its first screen
         run: |
           python3 tool/smoke_ios_simulator.py
