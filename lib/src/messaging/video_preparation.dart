@@ -8,13 +8,22 @@ import '../accounts/account_api.dart';
 
 /// Native codec conversion happens before creating any upload/nonce. Never
 /// changes an uncertain request or deletes the user's gallery original.
+class VideoEditOptions {
+  const VideoEditOptions({
+    required this.startSeconds,
+    required this.durationSeconds,
+    this.posterMillis = 0,
+  });
+  final int startSeconds, durationSeconds, posterMillis;
+}
+
 class VideoPreparation {
   static Future<void> tail = Future.value();
-  static Future<XFile> prepare(XFile source) {
+  static Future<XFile> prepare(XFile source, {VideoEditOptions? edit}) {
     final done = Completer<XFile>();
     tail = tail.catchError((Object _) {}).then((_) async {
       try {
-        done.complete(await convert(source));
+        done.complete(await convert(source, edit: edit));
       } catch (e, s) {
         done.completeError(e, s);
       }
@@ -22,7 +31,7 @@ class VideoPreparation {
     return done.future;
   }
 
-  static Future<XFile> convert(XFile source) async {
+  static Future<XFile> convert(XFile source, {VideoEditOptions? edit}) async {
     if (!Platform.isAndroid && !Platform.isIOS) return source;
     if (await source.length() > 512 * 1024 * 1024)
       throw const AccountFailure(
@@ -31,7 +40,16 @@ class VideoPreparation {
       );
     final info = await VideoCompress.getMediaInfo(source.path);
     final duration = info.duration ?? 0;
-    if (duration < 100 || duration > 180000)
+    if (duration < 100 ||
+        !duration.isFinite ||
+        (edit == null && duration > 180000) ||
+        (edit != null &&
+            (edit.startSeconds < 0 ||
+                edit.durationSeconds < 1 ||
+                edit.durationSeconds > 180 ||
+                edit.startSeconds * 1000 >= duration ||
+                (edit.startSeconds + edit.durationSeconds) * 1000 >
+                    duration + 1000)))
       throw const AccountFailure(
         'VIDEO_DURATION',
         'اختار فيديو مدته حتى ثلاث دقائق.',
@@ -60,6 +78,8 @@ class VideoPreparation {
         includeAudio: true,
         deleteOrigin: false,
         frameRate: 30,
+        startTime: edit == null || duration < 1000 ? null : edit.startSeconds,
+        duration: edit == null || duration < 1000 ? null : edit.durationSeconds,
       );
       if (out?.path == null) continue;
       final file = File(out!.path!);

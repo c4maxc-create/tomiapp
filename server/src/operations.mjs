@@ -42,8 +42,9 @@ export function createOperations(){
         (SELECT COALESCE(SUM(byte_length),0) FROM tomi_video_uploads) video_bytes`)).rows[0];
       cache=Object.fromEntries(Object.entries(row).map(([k,v])=>[k,Number(v)]));cachedAt=Date.now();
     }
+    const clientPerformance=(await db.query('SELECT day,kind,area,bucket,build,total FROM tomi_client_metrics WHERE day>=? ORDER BY day DESC,total DESC LIMIT 100',[new Date(Date.now()-7*86400000).toISOString().slice(0,10)])).rows;
     const memory=process.memoryUsage();
-    return {serverTime:new Date().toISOString(),startedAt,windowMinutes:60,scope:'this_api_process',
+    return {clientPerformance,serverTime:new Date().toISOString(),startedAt,windowMinutes:60,scope:'this_api_process',
       requests:{count:total.requests,serverErrors:total.errors,clientErrors:total.clientErrors,averageMs:total.requests?Math.round(total.durationMs/total.requests):0,p95UpperMs,p95OverFiveSeconds:total.requests>0&&p95UpperMs===null,groups:total.groups},
       process:{uptimeSeconds:Math.floor(process.uptime()),rssBytes:memory.rss,heapUsedBytes:memory.heapUsed,eventLoopP95Ms:Number((lag.percentile(95)/1e6).toFixed(2))},
       database:cache,databaseSampleAt:new Date(cachedAt).toISOString(),usageNote:'Recorded media sizes estimate stored objects; these are not provider invoices or participant-minute totals.'};

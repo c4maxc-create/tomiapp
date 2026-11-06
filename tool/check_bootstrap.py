@@ -54,7 +54,10 @@ Path("README.md").write_text("template readme")
         assert not (project / "test/widget_test.dart").exists()
         configure_android(project)
         assert not (project/'android/app/src/main/kotlin/com/tomi/tomi_app/MainActivity.kt').exists()
+        assert (project/'android/app/src/main/kotlin/com/tomi/tomi_app/TomiVoiceAudio.kt').exists()
         generated_gradle=(project/'android/app/build.gradle.kts').read_text()
+        assert generated_gradle.count('org.jetbrains.kotlin.android')==1
+        assert generated_gradle.count('// TOMI Kotlin JVM target')==1
         assert generated_gradle.count('com.google.firebase:firebase-messaging')==1
         assert generated_gradle.count('firebase-bom:34.19.0')==1
         manifest = ET.parse(project / "android/app/src/main/AndroidManifest.xml")

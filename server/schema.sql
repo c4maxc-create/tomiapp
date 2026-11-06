@@ -814,3 +814,19 @@ CREATE TABLE IF NOT EXISTS tomi_private_video_posters (
  upload_id TEXT PRIMARY KEY REFERENCES tomi_private_uploads(id) ON DELETE CASCADE,
  poster TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS tomi_session_devices (
+ id TEXT PRIMARY KEY,session_hash TEXT NOT NULL UNIQUE REFERENCES tomi_sessions(token_hash) ON DELETE CASCADE,
+ user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,label TEXT NOT NULL,platform TEXT NOT NULL,last_seen_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tomi_session_devices_user ON tomi_session_devices(user_id);
+CREATE TABLE IF NOT EXISTS tomi_saved_collections (
+ id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,name TEXT NOT NULL,created_at TEXT NOT NULL,UNIQUE(id,user_id)
+);
+CREATE TABLE IF NOT EXISTS tomi_collection_items (
+ collection_id TEXT NOT NULL,user_id TEXT NOT NULL,post_id TEXT NOT NULL,PRIMARY KEY(collection_id,user_id,post_id),
+ FOREIGN KEY(collection_id,user_id) REFERENCES tomi_saved_collections(id,user_id) ON DELETE CASCADE,
+ FOREIGN KEY(post_id,user_id) REFERENCES tomi_post_saves(post_id,user_id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS tomi_client_metrics (
+ day TEXT NOT NULL,kind TEXT NOT NULL,area TEXT NOT NULL,bucket INTEGER NOT NULL,build INTEGER NOT NULL,total BIGINT NOT NULL,PRIMARY KEY(day,kind,area,bucket,build)
+);

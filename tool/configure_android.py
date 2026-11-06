@@ -58,6 +58,10 @@ def configure_android(root: Path = ROOT) -> None:
     java.mkdir(parents=True, exist_ok=True)
     for source in native.glob('*.java'):
         shutil.copyfile(source, java/source.name)
+    kotlin_target = root/'android/app/src/main/kotlin/com/tomi/tomi_app'
+    kotlin_target.mkdir(parents=True, exist_ok=True)
+    for source in native.glob('*.kt'):
+        shutil.copyfile(source, kotlin_target/source.name)
     # flutter create generates a Kotlin MainActivity: keep one implementation.
     kotlin = root/'android/app/src/main/kotlin/com/tomi/tomi_app/MainActivity.kt'
     kotlin.unlink(missing_ok=True)
@@ -105,6 +109,22 @@ def configure_android(root: Path = ROOT) -> None:
             replacement = "minSdk = maxOf(flutter.minSdkVersion, 23)" if filename.endswith(".kts") else "minSdkVersion Math.max(flutter.minSdkVersion, 23)"
             source = re.sub(r"\bminSdk(?:Version)?\s*(?:=\s*)?(?:flutter\.minSdkVersion|\d+)", replacement, source)
             gradle.write_text(source, encoding="utf-8")
+    # Flutter disables AGP built-in Kotlin; apply its pinned plugin explicitly.
+    for filename in ["android/app/build.gradle.kts", "android/app/build.gradle"]:
+        gradle = root / filename
+        if not gradle.exists():
+            continue
+        source = gradle.read_text(encoding="utf-8")
+        if 'org.jetbrains.kotlin.android' not in source and 'kotlin-android' not in source:
+            plugin = '    id("org.jetbrains.kotlin.android")\n' if filename.endswith('.kts') else '    id "org.jetbrains.kotlin.android"\n'
+            flutter_plugin = '    id("dev.flutter.flutter-gradle-plugin")' if filename.endswith('.kts') else '    id "dev.flutter.flutter-gradle-plugin"'
+            if flutter_plugin in source:
+                source = source.replace(flutter_plugin, plugin + flutter_plugin, 1)
+            else:
+                source = source.replace('plugins {', 'plugins {\n' + plugin, 1)
+        if '// TOMI Kotlin JVM target' not in source:
+            source += '\n// TOMI Kotlin JVM target\nkotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }\n'
+        gradle.write_text(source, encoding="utf-8")
     icon = root / "android/app/src/main/res/drawable/tomi_launcher.xml"
     icon.parent.mkdir(parents=True, exist_ok=True)
     icon.write_text('''<?xml version="1.0" encoding="utf-8"?>

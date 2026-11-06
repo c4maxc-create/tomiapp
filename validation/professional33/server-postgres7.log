@@ -1,0 +1,15 @@
+✔ 33 session devices use opaque IDs, enforce ownership and revoke one other login immediately (4405.78393ms)
+✔ 33 revoking all other devices leaves the current device and labels are validated (3786.280049ms)
+✔ 33 unified search finds public content and rooms but excludes follower-only, hidden and blocked content with literal wildcard escaping (2164.36025ms)
+✔ 33 saved collections are private, idempotent and unsaving removes membership without deleting the post (3017.05514ms)
+✔ 33 diagnostics accept only bounded aggregate counters and never store message or account content (1116.136982ms)
+✔ 33 TypeScript admin dashboard is CSP protected and ordinary accounts cannot read administration metrics (1368.492379ms)
+✔ 33 new login alerts target existing account sockets and revocation closes the revoked session (2251.532124ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18482.43289

@@ -199,6 +199,10 @@ class _RoomMembers extends StatelessWidget {
               .where((m) => !requests || m.requestedAt != null)
               .toList() ??
           [];
+      if (requests)
+        members.sort(
+          (a, b) => (a.requestedAt ?? '').compareTo(b.requestedAt ?? ''),
+        );
       return SafeArea(
         child: SizedBox(
           height: MediaQuery.sizeOf(context).height * .65,
@@ -207,7 +211,9 @@ class _RoomMembers extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.all(14),
                 child: Text(
-                  requests ? 'طلبات المايك' : 'الأعضاء • ${members.length}',
+                  requests
+                      ? 'انتظار المايك • ${members.length}'
+                      : 'الأعضاء • ${members.length}',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -227,7 +233,11 @@ class _RoomMembers extends StatelessWidget {
                         leading: MediaQuery.withNoTextScaling(
                           child: AccountAvatar(m.user, size: 40),
                         ),
-                        title: Text(m.user.displayName),
+                        title: Text(
+                          requests
+                              ? '${members.indexOf(m) + 1}. ${m.user.displayName}'
+                              : m.user.displayName,
+                        ),
                         subtitle: Text(
                           m.role == 'owner'
                               ? 'المالك'

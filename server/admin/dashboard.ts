@@ -1,0 +1,128 @@
+type Data = Record<string, unknown>;
+const form = document.querySelector<HTMLFormElement>('#login')!, panel = document.querySelector<HTMLElement>('#panel')!, content = document.querySelector<HTMLElement>('#content')!, note = document.querySelector<HTMLElement>('#note')!;
+let token: string | null = null, generation = 0, section = 'overview', controller: AbortController | null = null;
+const record = (v: unknown): Data => v && typeof v === 'object' && !Array.isArray(v) ? v as Data : {};
+const number = (v: unknown) => Number.isFinite(Number(v)) ? Number(v) : 0;
+function element(tag: string, text: string, className?: string): HTMLElement {
+    const node = document.createElement(tag);
+    node.textContent = text;
+    if (className)
+        node.className = className;
+    return node;
+}
+class AdminResponseError extends Error {
+    status: number;
+    constructor(status: number, message: string) { super(message); this.status = status; }
+}
+async function request(path: string, body?: Data, auth = token, signal?: AbortSignal): Promise<Data> {
+    const r = await fetch(path, { method: body ? 'POST' : 'GET', headers: { accept: 'application/json', ...(body ? { 'content-type': 'application/json' } : {}), ...(auth ? { authorization: 'Bearer ' + auth } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), signal, cache: 'no-store', redirect: 'error', credentials: 'omit' });
+    const data = record(await r.json());
+    if (!r.ok)
+        throw new AdminResponseError(r.status, r.status === 403 ? 'حسابك لا يملك صلاحية هذا القسم.' : r.status === 401 ? 'انتهت الجلسة؛ سجّل الدخول مجددًا.' : String(record(data.error).message ?? 'تعذّر التحميل؛ أعد المحاولة.'));
+    return data;
+}
+function cards(values: Record<string, string | number>): void {
+    const grid = element('div', '', 'grid');
+    for (const [label, value] of Object.entries(values)) {
+        const card = element('article', '', 'card');
+        card.append(element('span', label), element('strong', String(value)));
+        grid.append(card);
+    }
+    content.replaceChildren(grid);
+}
+async function refresh(): Promise<void> {
+    if (!token)
+        return;
+    const gen = ++generation;
+    controller?.abort();
+    controller = new AbortController();
+    note.textContent = 'جارٍ التحديث…';
+    try {
+        if (section === 'reports') {
+            const d = await request('/v1/admin/reports', undefined, token, controller.signal);
+            if (gen !== generation)
+                return;
+            const rows = Array.isArray(d.items) ? d.items : Array.isArray(d.reports) ? d.reports : [];
+            const list = element('div', '', 'list');
+            for (const item of rows) {
+                const r = record(item);
+                list.append(element('article', `${String(r.reason ?? r.category ?? 'بلاغ')} • ${String(r.status ?? '')} • ${String(r.createdAt ?? '')}`, 'card'));
+            }
+            if (!rows.length)
+                list.append(element('p', 'لا توجد بلاغات معروضة.'));
+            content.replaceChildren(list);
+        }
+        else {
+            const [d, h] = await Promise.all([request('/v1/admin/metrics', undefined, token, controller.signal), request('/health', undefined, token, controller.signal)]);
+            if (gen !== generation)
+                return;
+            const db = record(d.database), r = record(d.requests), features = record(h.features);
+            if (section === 'services')
+                cards({ 'الإشعارات': features.phoneNotifications ? 'الإعداد موجود' : 'تحتاج إعدادًا', 'المكالمات': features.phoneCalls ? 'الإعداد موجود' : 'تحتاج TURN', 'الغرف': features.voiceRooms ? 'الإعداد موجود' : 'تحتاج LiveKit', 'البث': features.liveBroadcasts ? 'الإعداد موجود' : 'يحتاج LiveKit' });
+            else {
+                const metrics = Array.isArray(d.clientPerformance) ? d.clientPerformance.map(record) : [];
+                cards({ 'طلبات آخر ساعة': number(r.count), 'أخطاء الخادم': number(r.serverErrors), 'متوسط الاستجابة ms': number(r.averageMs), 'الحسابات': number(db.users), 'الغرف المفتوحة': number(db.open_rooms), 'مكالمات جارية': number(db.active_calls), 'بلاغات تنتظر': number(db.pending_reports), 'تقارير أخطاء اختيارية': metrics.filter(m => m.kind === 'flutter_error').reduce((n, m) => n + number(m.total), 0), 'تقارير بطء الرسم': metrics.filter(m => m.kind === 'slow_frame').reduce((n, m) => n + number(m.total), 0) });
+            }
+        }
+        if (gen === generation)
+            note.textContent = 'آخر تحديث: ' + new Date().toLocaleTimeString('ar-IQ');
+    }
+    catch (e) {
+        if (gen === generation && e instanceof AdminResponseError && [401, 403].includes(e.status)) {
+            content.replaceChildren();
+            if (e.status === 401) {
+                token = null;
+                form.hidden = false;
+                panel.hidden = true;
+            }
+        }
+        if (gen === generation && !(e instanceof DOMException && e.name === 'AbortError'))
+            note.textContent = e instanceof Error ? e.message : 'تعذّر التحميل.';
+    }
+}
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const button = form.querySelector<HTMLButtonElement>('button')!, username = form.querySelector<HTMLInputElement>('#username')!, password = form.querySelector<HTMLInputElement>('#password')!;
+    button.disabled = true;
+    try {
+        const d = await request('/v1/auth/login', { username: username.value, password: password.value }, null);
+        if (typeof d.token !== 'string')
+            throw new Error('تعذّر تسجيل الدخول.');
+        token = d.token;
+        form.hidden = true;
+        panel.hidden = false;
+        password.value = '';
+        await refresh();
+    }
+    catch (e) {
+        note.textContent = e instanceof Error ? e.message : 'تعذّر تسجيل الدخول.';
+    }
+    finally {
+        button.disabled = false;
+        password.value = '';
+    }
+});
+document.querySelector('#logout')!.addEventListener('click', () => {
+    const old = token;
+    token = null;
+    generation++;
+    controller?.abort();
+    form.hidden = false;
+    panel.hidden = true;
+    content.replaceChildren();
+    note.textContent = 'تم تسجيل الخروج.';
+    if (old)
+        void request('/v1/auth/logout', {}, old).catch(() => { note.textContent = 'خرجت من الصفحة؛ تعذّر تأكيد إنهاء الجلسة. راجع الأجهزة من التطبيق.'; });
+});
+document.querySelector('#refresh')!.addEventListener('click', () => void refresh());
+for (const b of document.querySelectorAll<HTMLButtonElement>('[data-section]'))
+    b.addEventListener('click', () => {
+        section = b.dataset.section ?? 'overview';
+        for (const other of document.querySelectorAll('[data-section]'))
+            other.setAttribute('aria-pressed', String(other === b));
+        void refresh();
+    });
+window.setInterval(() => {
+    if (!document.hidden && token)
+        void refresh();
+}, 30000);

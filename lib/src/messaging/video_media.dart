@@ -15,8 +15,11 @@ import 'audio_focus.dart';
 import 'video_preparation.dart';
 import 'voice_note.dart' show voiceTime;
 
-Future<VideoDraft> readPickedVideo(XFile original) async {
-  final file = await VideoPreparation.prepare(original);
+Future<VideoDraft> readPickedVideo(
+  XFile original, {
+  VideoEditOptions? edit,
+}) async {
+  final file = await VideoPreparation.prepare(original, edit: edit);
   if (await file.length() > 25 * 1024 * 1024)
     throw const AccountFailure(
       'INVALID_VIDEO',
@@ -60,7 +63,9 @@ Future<VideoDraft> readPickedVideo(XFile original) async {
         final bytes = await VideoCompress.getByteThumbnail(
           file.path,
           quality: 40,
-          position: 0,
+          position:
+              (edit?.posterMillis ?? 0).clamp(0, (ms > 100 ? ms - 100 : 0)) *
+              1000,
         );
         if (bytes != null) {
           for (final side in [160, 96]) {

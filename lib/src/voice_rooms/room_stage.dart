@@ -1021,6 +1021,14 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
                     ),
                   ],
                 ),
+              if (c.microphoneOn)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'مدة فتح المايك • ${c.microphoneSeconds ~/ 60}:${(c.microphoneSeconds % 60).toString().padLeft(2, '0')}',
+                    style: const TextStyle(color: _roomCyan, fontSize: 12),
+                  ),
+                ),
               Row(
                 children: [
                   _roomTool(Icons.grid_view_rounded, 'وظائف الغرفة', tools),

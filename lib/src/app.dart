@@ -1,3 +1,5 @@
+import 'experience/performance_monitor.dart';
+import 'experience/experience_pages.dart';
 import 'design/tomi_theme.dart';
 import 'social/activity_screen.dart';
 import 'messaging/chat_screens.dart';
@@ -408,11 +410,44 @@ class AccountShell extends StatefulWidget {
 
 class _AccountShellState extends State<AccountShell> {
   final store = TomiStore();
+  StreamSubscription<Map<String, dynamic>>? securityEvents;
+  final telemetryOwner = Object();
   @override
   void initState() {
     super.initState();
     synchronize();
     widget.accounts.addListener(synchronize);
+    PerformanceMonitor.instance.bind((metrics) async {
+      if (widget.accounts.user != null)
+        await widget.accounts.chatRequest(
+          'POST',
+          '/v1/diagnostics/metrics',
+          body: {'metrics': metrics},
+        );
+    }, owner: telemetryOwner);
+    securityEvents = widget.accounts.chats.realtimeEvents.stream.listen((
+      event,
+    ) {
+      if (event['type'] == 'security.new-login' &&
+          mounted &&
+          widget.accounts.user != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('تسجيل دخول جديد لحسابك. راجع أجهزتك.'),
+            action: SnackBarAction(
+              label: 'الأجهزة',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      SessionSecurityPage(accounts: widget.accounts),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    });
   }
 
   void synchronize() {
@@ -427,6 +462,8 @@ class _AccountShellState extends State<AccountShell> {
 
   @override
   void dispose() {
+    securityEvents?.cancel();
+    PerformanceMonitor.instance.unbind(telemetryOwner);
     widget.accounts.removeListener(synchronize);
     store.dispose();
     super.dispose();

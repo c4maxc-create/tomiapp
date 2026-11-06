@@ -7,7 +7,10 @@ import 'package:path_provider/path_provider.dart';
 
 class MediaPreferences extends ChangeNotifier {
   static final instance = MediaPreferences();
-  bool dataSaver = false, autoplay = false, smartQuality = true;
+  bool dataSaver = false,
+      autoplay = false,
+      smartQuality = true,
+      performanceReports = false;
   bool loaded = false;
   Future<void>? loading;
   final storage = const FlutterSecureStorage();
@@ -22,6 +25,7 @@ class MediaPreferences extends ChangeNotifier {
             dataSaver = d['dataSaver'] == true;
             autoplay = d['autoplay'] == true;
             smartQuality = d['smartQuality'] != false;
+            performanceReports = d['performanceReports'] == true;
           }
         }
       } finally {
@@ -38,12 +42,18 @@ class MediaPreferences extends ChangeNotifier {
         : 100 * 1024 * 1024;
   }
 
-  Future<void> update({bool? saver, bool? auto, bool? smart}) async {
+  Future<void> update({
+    bool? saver,
+    bool? auto,
+    bool? smart,
+    bool? reports,
+  }) async {
     await restore();
     final next = {
       'dataSaver': saver ?? dataSaver,
       'autoplay': auto ?? autoplay,
       'smartQuality': smart ?? smartQuality,
+      'performanceReports': reports ?? performanceReports,
     };
     if (!Platform.environment.containsKey('FLUTTER_TEST'))
       await storage.write(
@@ -53,6 +63,7 @@ class MediaPreferences extends ChangeNotifier {
     dataSaver = next['dataSaver']!;
     autoplay = next['autoplay']!;
     smartQuality = next['smartQuality']!;
+    performanceReports = next['performanceReports']!;
     applyCacheLimit();
     notifyListeners();
   }

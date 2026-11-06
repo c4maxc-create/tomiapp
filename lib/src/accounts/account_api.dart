@@ -1,3 +1,4 @@
+import '../experience/performance_monitor.dart';
 import '../messaging/upload_transfer.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -54,6 +55,7 @@ class AccountApi {
     Map<String, String>? query,
   }) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
+    final clock = Stopwatch()..start();
     try {
       final request = http.Request(method, uri)
         ..headers['accept'] = 'application/json'
@@ -113,6 +115,13 @@ class AccountApi {
         'UNAVAILABLE',
         'تعذّر قراءة البيانات؛ جرّب مرة ثانية.',
       );
+    } finally {
+      if (!path.startsWith('/v1/diagnostics'))
+        PerformanceMonitor.instance.record(
+          'api_latency',
+          PerformanceMonitor.instance.area(path),
+          clock.elapsedMilliseconds,
+        );
     }
   }
 

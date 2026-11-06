@@ -114,7 +114,20 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
       me?.micAllowed == true &&
       audio?.canPublish == true;
   bool valid(int gen) => !disposed && generation == gen && sessionKey != null;
+  final Map<String, DateTime> openMicSince = {};
+  int get microphoneSeconds {
+    final since = identity == null ? null : openMicSince[identity];
+    return since == null
+        ? 0
+        : DateTime.now().difference(since).inSeconds.clamp(0, 86400);
+  }
+
   void notify() {
+    final open = audio?.openMics ?? <String>{};
+    openMicSince.removeWhere((key, _) => !open.contains(key));
+    for (final id in open) {
+      openMicSince.putIfAbsent(id, DateTime.now);
+    }
     if (!disposed) notifyListeners();
   }
 

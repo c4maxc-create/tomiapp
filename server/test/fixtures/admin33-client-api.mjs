@@ -1,0 +1,12 @@
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {randomUUID} from 'node:crypto';
+import {once} from 'node:events';
+import {openDatabase} from '../../src/database.mjs';
+import {createApp} from '../../src/app.mjs';
+import {hashPassword,digest,newToken} from '../../src/security.mjs';
+const dir=await mkdtemp(join(tmpdir(),'tomi-admin33-')),db=await openDatabase({sqliteFile:join(dir,'test.sqlite')}),id=randomUUID(),password=newToken(),username='admin_fixture33',stamp=new Date().toISOString();
+await db.query('INSERT INTO tomi_users(id,username,display_name,password_hash,recovery_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',[id,username,'مدير الاختبار',await hashPassword(password),digest(newToken()),stamp,stamp]);
+const server=await createApp({database:db,ownerUserId:id,callAutoSweep:false,roomAutoSweep:false,liveAutoTick:false});server.listen(0,'127.0.0.1');await once(server,'listening');process.stdout.write(JSON.stringify({base:'http://127.0.0.1:'+server.address().port,username,password})+'\n');
+process.once('SIGTERM',async()=>{const done=once(server,'close');server.close();server.closeIdleConnections();await done;await db.close();await rm(dir,{recursive:true,force:true});process.exit(0);});

@@ -783,6 +783,10 @@ class _OperationsView extends StatelessWidget {
         process = _map(data['process']),
         db = _map(data['database']);
     final labels = <String, String>{
+      'تقارير أخطاء اختيارية':
+          '${(data['clientPerformance'] as List? ?? []).where((r) => r['kind'] == 'flutter_error').fold<num>(0, (n, r) => n + (num.tryParse('${r['total']}') ?? 0))}',
+      'تقارير بطء الرسم الاختيارية':
+          '${(data['clientPerformance'] as List? ?? []).where((r) => r['kind'] == 'slow_frame').fold<num>(0, (n, r) => n + (num.tryParse('${r['total']}') ?? 0))}',
       'طلبات آخر ساعة': '${requests['count'] ?? 0}',
       'أخطاء الخادم': '${requests['serverErrors'] ?? 0}',
       'متوسط الاستجابة': '${requests['averageMs'] ?? 0} ms',

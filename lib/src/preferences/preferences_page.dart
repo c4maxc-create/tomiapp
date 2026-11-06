@@ -133,6 +133,16 @@ class _PreferencesPageState extends State<PreferencesPage> {
           ),
         const Divider(),
         SwitchListTile(
+          title: const Text('تقارير أداء اختيارية'),
+          subtitle: const Text(
+            'عدادات أخطاء وأوقات تحميل عامة فقط؛ بدون رسائل أو تسجيلات أو صور أو مواقع.',
+          ),
+          value: media.performanceReports,
+          onChanged: busy
+              ? null
+              : (v) => operation(() => media.update(reports: v)),
+        ),
+        SwitchListTile(
           title: const Text('توفير البيانات'),
           subtitle: const Text(
             'فيديو أصغر عند الإرسال وذاكرة صور أقل؛ التشغيل التلقائي متوقف.',

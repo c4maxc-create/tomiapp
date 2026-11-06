@@ -1,3 +1,5 @@
+import {adminPage} from './admin_page.mts';
+import {createExperience} from './experience.mts';
 import {createVideoPosters} from './video_posters.mjs';
 import {createContactPreferences} from './contact_preferences.mjs';
 import {createPostShares} from './post_shares.mjs';
@@ -28,6 +30,7 @@ import {
   normalizeRecoveryCode, validateUsername, validatePassword, validateProfile, isUniqueConflict,
 } from './security.mjs';
 
+const sessionSeen = new Map();
 const sessionLifetime = 30 * 24 * 60 * 60 * 1000;
 const nowText = () => new Date().toISOString();
 
@@ -120,6 +123,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       WHERE s.token_hash = ? AND s.expires_at > ?`, [tokenHash, nowText()]);
     if (!result.rows[0]) throw new ApiError(401, 'UNAUTHORIZED', 'انتهت الجلسة؛ سجّل دخولك مرة ثانية.');
     await moderation.active(database,result.rows[0].user_id);
+    if ((sessionSeen.get(tokenHash)??0)<Date.now()-60000) {await database.query('UPDATE tomi_session_devices SET last_seen_at=? WHERE session_hash=?',[nowText(),tokenHash]);sessionSeen.set(tokenHash,Date.now());if(sessionSeen.size>5000)sessionSeen.delete(sessionSeen.keys().next().value);}
     return { id: result.rows[0].user_id, tokenHash };
   }
 
@@ -129,7 +133,9 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
     const expires = new Date(Date.now() + sessionLifetime).toISOString();
     await db.query(`INSERT INTO tomi_sessions (token_hash, user_id, auth_version, created_at, expires_at)
       VALUES (?, ?, ?, ?, ?)`, [digest(token), userId, version, created, expires]);
-    return { token, expiresAt: expires };
+    const sessionId=randomUUID();
+    await db.query('INSERT INTO tomi_session_devices(id,session_hash,user_id,label,platform,last_seen_at) VALUES(?,?,?,?,?,?)',[sessionId,digest(token),userId,'جهاز TOMI','unknown',created]);
+    return { token, expiresAt: expires,sessionId };
   }
 
   const videoPosters=createVideoPosters({database,readJson,respond:json,limit});
@@ -150,6 +156,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   const contentTools=createContentTools({database,readJson,respond:json,limit,social,emit:chat.emit});
   const calls=createCalls({database,iceProvider,readJson,respond:json,limit,userById,emit:chat.emit,enqueuePush:push.enqueueCall,autoSweep:callAutoSweep});
   const operations=createOperations();
+  const experience=createExperience({database,readJson,respond:json,limit,usersByIds,getPost:social.getPost,invalidateSession:chat.invalidateSession,afterRevoke:()=>requestGuard.unbound(async()=>{await calls.sweep();await rooms.sweep();})});
   const moderation=createModeration({database,ownerUserId,storage,readJson,respond:json,limit,userById,usersByIds,rooms,calls,chat,operations,accountGate:requestGuard.gate});
   const roulette=createRoulette({database,ownerUserId,readJson,respond:json,limit,accountGate:requestGuard.gate});
   const liveRoulette=createLiveRoulette({database,ownerUserId,readJson,respond:json,limit,usersByIds,emit:chat.emit,clock:liveRouletteClock,autoTick:liveRouletteAutoTick,unbound:requestGuard.unbound});
@@ -181,6 +188,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       if (trustProxy && request.headers['x-forwarded-for']) {
         ip = String(request.headers['x-forwarded-for']).split(',').at(-1).trim();
       }
+      if(await adminPage(request,response,url))return;
       if(privacy.handle(request,response,url))return;
       if (method === 'GET' && (path === '/health' || path === '/')) {
         await database.query('SELECT 1 AS ready');
@@ -231,6 +239,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
           await moderation.active(db,row.id);
           return {...(await grant(db,row.id,fresh.auth_version)),user:await userById(row.id,row.id,db)};
         });
+        chat.emit([row.id],{type:'security.new-login',sessionId:result.sessionId,at:nowText()});
         json(response, 200, result);
         return;
       }
@@ -268,6 +277,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       if(await deletion.handle(request,response,url,{ip}))return;
       const current = await session(request);
       await requestGuard.run(current,async()=>{
+      if(await experience.handle(request,response,url,current))return;
       if(await videoPosters.handle(request,response,url,current))return;
       if(await contactPreferences.handle(request,response,url,current))return;
       if(await moderation.handle(request,response,url,current))return;

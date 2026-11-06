@@ -1,4 +1,6 @@
-import '../accounts/account_search.dart';
+import '../messaging/video_editor.dart';
+import '../experience/experience_pages.dart';
+import '../design/async_content.dart';
 import 'post_share_screens.dart';
 import '../identity/charisma_badge.dart';
 import '../messaging/voice_note.dart' show voiceTime;
@@ -9,7 +11,6 @@ import 'activity_screen.dart';
 import 'package:flutter/services.dart';
 
 import '../messaging/gallery_intent.dart';
-import '../messaging/video_media.dart';
 import 'post_draft_controller.dart';
 import '../messaging/chat_screens.dart';
 import '../messaging/chat_models.dart';
@@ -363,7 +364,7 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                               onPressed: () => Navigator.push(
                                 context,
                                 MaterialPageRoute<void>(
-                                  builder: (_) => AccountSearchPage(
+                                  builder: (_) => UnifiedSearchPage(
                                     accounts: widget.accounts,
                                   ),
                                 ),
@@ -430,7 +431,7 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                       ),
                     ),
                   if (feed.loading && feed.posts.isEmpty)
-                    const LinearProgressIndicator(minHeight: 2),
+                    const TomiSkeleton(rows: 2),
                   if (feed.posts.isEmpty && !feed.loading && feed.error == null)
                     const Padding(
                       padding: EdgeInsets.symmetric(
@@ -906,6 +907,20 @@ class RealPostCard extends StatelessWidget {
                       onPressed: busy ? null : () => editPost(c),
                       icon: const Icon(Icons.edit_outlined),
                     ),
+                  if (post.saved)
+                    IconButton(
+                      tooltip: 'أضف إلى مجموعة',
+                      icon: const Icon(Icons.create_new_folder_outlined),
+                      onPressed: () => Navigator.push(
+                        c,
+                        MaterialPageRoute<void>(
+                          builder: (_) => SavedCollectionsPage(
+                            accounts: accounts,
+                            postId: post.id,
+                          ),
+                        ),
+                      ),
+                    ),
                   IconButton(
                     key: Key('save-${post.id}'),
                     tooltip: post.saved ? 'إلغاء الحفظ' : 'حفظ المنشور',
@@ -1096,11 +1111,15 @@ class _SocialComposerState extends State<SocialComposer> {
     }
     try {
       final media = video
-          ? await readPickedVideo(file)
+          ? await editPickedVideo(
+              context,
+              file,
+              audioBusy: () => widget.accounts.liveAudioBusy,
+            )
           : await readPickedImage(file);
-      if (!mounted || !draft.current) return;
+      if (!mounted || !draft.current || media == null) return;
       await draft.attachment(media);
-      videoPath = video ? file.path : null;
+      videoPath = null;
       pickerError = null;
     } on AccountFailure catch (e) {
       pickerError = e.message;
@@ -1268,7 +1287,20 @@ class _SocialComposerState extends State<SocialComposer> {
                   Padding(
                     padding: const EdgeInsets.all(20),
                     child: videoPath == null
-                        ? Text('🎬 فيديو • ${voiceTime(media.durationMs)}')
+                        ? Column(
+                            children: [
+                              if (media.posterBytes != null)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Image.memory(
+                                    media.posterBytes!,
+                                    height: 180,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                              Text('🎬 فيديو • ${voiceTime(media.durationMs)}'),
+                            ],
+                          )
                         : InlineSocialVideo(
                             key: ValueKey(videoPath),
                             video: PostVideo({
@@ -1538,7 +1570,10 @@ class _RealCommentsSheetState extends State<RealCommentsSheet> {
         child: LayoutBuilder(
           builder: (context, constraints) => SingleChildScrollView(
             child: SizedBox(
-              height: constraints.maxHeight.clamp(320.0, double.infinity),
+              height: constraints.maxHeight.clamp(
+                MediaQuery.textScalerOf(c).scale(280).clamp(360.0, 840.0),
+                double.infinity,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -1575,8 +1610,7 @@ class _RealCommentsSheetState extends State<RealCommentsSheet> {
                         icon: const Icon(Icons.close),
                       ),
                     ),
-                  if (loading || sending)
-                    const LinearProgressIndicator(minHeight: 2),
+                  if (loading || sending) const TomiSkeleton(rows: 2),
                   Expanded(
                     child: ListView(
                       children: [

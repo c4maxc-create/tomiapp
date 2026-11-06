@@ -1,3 +1,4 @@
+import '../experience/experience_pages.dart';
 import '../preferences/preferences_page.dart';
 import '../identity/progress_cards.dart';
 
@@ -743,6 +744,18 @@ class AccountSettingsPage extends StatelessWidget {
     body: ListView(
       padding: const EdgeInsets.symmetric(vertical: 12),
       children: [
+        ListTile(
+          key: const Key('session-security'),
+          leading: const Icon(Icons.devices),
+          title: const Text('الأجهزة وأمان الحساب'),
+          onTap: () => page(context, SessionSecurityPage(accounts: accounts)),
+        ),
+        ListTile(
+          key: const Key('saved-collections'),
+          leading: const Icon(Icons.folder_outlined),
+          title: const Text('مجموعات المحفوظات'),
+          onTap: () => page(context, SavedCollectionsPage(accounts: accounts)),
+        ),
         ListTile(
           key: const Key('contact-media-settings'),
           leading: const Icon(Icons.tune),

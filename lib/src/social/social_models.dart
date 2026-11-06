@@ -207,6 +207,20 @@ class VideoDraft extends ImageDraft {
     this.poster,
   }) : super(bytes, 'video/mp4');
   final String? poster;
+  late final Uint8List? posterBytes = _decodePoster();
+  Uint8List? _decodePoster() {
+    final raw = poster;
+    if (raw == null ||
+        raw.length > 44000 ||
+        !raw.startsWith('data:image/png;base64,'))
+      return null;
+    try {
+      return base64Decode(raw.substring(22));
+    } catch (_) {
+      return null;
+    }
+  }
+
   final int durationMs, width, height;
 }
 

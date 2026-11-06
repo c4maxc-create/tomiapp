@@ -1,3 +1,4 @@
+import '../messaging/video_editor.dart';
 import '../messaging/chat_models.dart' show PendingChatMessage;
 import '../messaging/upload_transfer.dart';
 import '../identity/identity_avatar.dart';
@@ -16,7 +17,6 @@ import '../accounts/account_models.dart';
 import '../accounts/account_widgets.dart';
 import '../messaging/audio_focus.dart';
 import '../messaging/gallery_intent.dart';
-import '../messaging/video_media.dart';
 import '../messaging/chat_screens.dart';
 import '../widgets.dart';
 import 'home_controller.dart';
@@ -1256,8 +1256,14 @@ class _StoryComposerPageState extends State<StoryComposerPage>
     setState(() => picking = true);
     try {
       final next = video
-          ? await readPickedVideo(file)
+          ? await editPickedVideo(
+              context,
+              file,
+              maxSeconds: 60,
+              audioBusy: () => widget.accounts.liveAudioBusy,
+            )
           : await readPickedImage(file);
+      if (next == null) return;
       if (next is VideoDraft && next.durationMs > 60000)
         throw const AccountFailure(
           'STORY_DURATION',
@@ -1266,7 +1272,7 @@ class _StoryComposerPageState extends State<StoryComposerPage>
       if (mounted)
         setState(() {
           media = next;
-          videoPath = video ? file.path : null;
+          videoPath = null;
           upload = null;
           uploaded = false;
           requestId = newRequestId();
@@ -1537,6 +1543,12 @@ class _StoryComposerPageState extends State<StoryComposerPage>
                               }),
                               source: () async => Uri.file(videoPath!),
                               preview: true,
+                            )
+                          : media is VideoDraft &&
+                                (media! as VideoDraft).posterBytes != null
+                          ? Image.memory(
+                              (media! as VideoDraft).posterBytes!,
+                              fit: BoxFit.contain,
                             )
                           : media is VideoDraft
                           ? const Column(

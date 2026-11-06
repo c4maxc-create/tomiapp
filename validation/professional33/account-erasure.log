@@ -1,0 +1,9 @@
+✔ 33 saved collections are private, idempotent and unsaving removes membership without deleting the post (3362.941616ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3729.644153

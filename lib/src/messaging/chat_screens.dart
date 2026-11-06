@@ -1,3 +1,4 @@
+import 'video_editor.dart';
 import '../gaming/chat_game_invite.dart';
 import '../gaming/csharp_games_page.dart';
 import '../social/post_share_screens.dart';
@@ -759,8 +760,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
 
   Future<void> loadVideo(XFile file) async {
     try {
-      final v = await readPickedVideo(file);
-      if (!mounted || !thread.current) return;
+      final v = await editPickedVideo(
+        context,
+        file,
+        audioBusy: () => widget.chats.accounts.liveAudioBusy,
+      );
+      if (!mounted || !thread.current || v == null) return;
       await thread.setAttachment(v);
       if (mounted)
         setState(() {
