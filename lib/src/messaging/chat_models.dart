@@ -10,6 +10,9 @@ class DirectConversation {
   factory DirectConversation.fromJson(Map<String, dynamic> data) =>
       DirectConversation(data);
   String get id => data['id'] as String;
+  bool get personalPinned => data['personalPinned'] == true;
+  bool get archived => data['archived'] == true;
+  bool get markedUnread => data['markedUnread'] == true;
   bool get isGroup => data['type'] == 'group';
   bool get isOwner => data['isOwner'] == true;
   int get memberCount => (data['memberCount'] as num?)?.toInt() ?? 2;

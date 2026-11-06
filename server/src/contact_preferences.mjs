@@ -3,6 +3,8 @@ const kinds={messages:'messages',calls:'calls',roomInvites:'room_invites'};
 export async function contactAllowed(db,recipient,sender,kind){
  if(recipient===sender)return true;
  if((await db.query('SELECT 1 FROM tomi_user_blocks WHERE (blocker_id=? AND blocked_id=?) OR (blocker_id=? AND blocked_id=?)',[recipient,sender,sender,recipient])).rows.length)return false;
+ const exception=(await db.query('SELECT allowed FROM tomi_contact_exceptions WHERE user_id=? AND target_id=? AND kind=?',[recipient,sender,kind])).rows[0];
+ if(exception)return Number(exception.allowed)===1;
  const r=(await db.query('SELECT '+kinds[kind]+' AS policy FROM tomi_contact_preferences WHERE user_id=?',[recipient])).rows[0];
  if(!r||r.policy==='everyone')return true;
  if(r.policy==='nobody')return false;

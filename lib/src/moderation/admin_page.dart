@@ -1,3 +1,4 @@
+import '../experience/community_pages.dart';
 import '../roulette/roulette_admin.dart';
 import 'dart:async';
 
@@ -134,6 +135,22 @@ class _AdminPageState extends State<AdminPage> {
             ),
           ),
       if (model.role == 'owner') ...[
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.support_agent),
+            title: const Text('طلبات دعم المستخدمين'),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => CommunityPage(
+                  accounts: widget.accounts,
+                  kind: 'adminSupport',
+                  title: 'طلبات الدعم',
+                ),
+              ),
+            ),
+          ),
+        ),
         Card(
           child: ListTile(
             key: const Key('admin-roulette'),

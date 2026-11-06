@@ -90,6 +90,8 @@ export function createHome({database,storage,readJson,respond,limit,userById}) {
    AND NOT EXISTS(SELECT 1 FROM tomi_user_blocks b WHERE (b.blocker_id=? AND b.blocked_id=${peer}) OR (b.blocker_id=${peer} AND b.blocked_id=?)) ORDER BY ${peer} LIMIT ?`,[fm[1],cursor??'',viewer,viewer,n+1])).rows;
   const users=[];for(const r of rows.slice(0,n))users.push(await userById(r.user_id,viewer));respond(response,200,{users,nextCursor:rows.length>n?rows[n-1].user_id:null});return true;
  }
+ const singleActivity=/^\/v1\/activity\/([a-f0-9-]{36})$/.exec(path);
+ if(method==='GET'&&singleActivity){const r=(await database.query('SELECT n.* FROM tomi_activity n WHERE n.id=? AND n.recipient_id=? AND '+activityVisible,[singleActivity[1],viewer])).rows[0];if(!r)throw new ApiError(404,'ACTIVITY_NOT_FOUND','الإشعار لم يعد متاحاً.');respond(response,200,{item:{id:r.id,kind:r.kind,targetId:r.target_id,createdAt:r.created_at,read:r.read_at!==null,actor:await userById(r.actor_id,viewer)}});return true;}
  if(method==='GET'&&path==='/v1/activity'){
   const n=size(url),cursor=url.searchParams.get('cursor');if(cursor&&!validUuid(cursor))throw new ApiError(400,'VALIDATION','الصفحة غير صحيحة.');let condition='';const values=[viewer];
   if(cursor){const r=(await database.query('SELECT created_at,id FROM tomi_activity WHERE id=? AND recipient_id=?',[cursor,viewer])).rows[0];if(!r)throw new ApiError(400,'VALIDATION','حدّث الإشعارات.');condition=' AND (n.created_at<? OR (n.created_at=? AND n.id<?))';values.push(r.created_at,r.created_at,r.id);}values.push(n+1);

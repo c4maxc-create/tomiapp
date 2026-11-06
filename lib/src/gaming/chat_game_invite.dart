@@ -43,6 +43,17 @@ class _ChatGameInviteState extends State<ChatGameInvite> {
       );
       if (!valid()) return;
       final match = d['match'] as Map;
+      if (!thread.conversation.isGroup)
+        await accounts.chatRequest(
+          'POST',
+          '/v1/me/invitations',
+          body: {
+            'requestId': saved['messageRequestId'],
+            'recipientId': thread.conversation.peer.id,
+            'kind': 'game',
+            'targetId': match['id'],
+          },
+        );
       await thread.restored;
       thread.enqueue(
         'دعوة للعب ${gameName(saved['kind'] as String)} • كود الغرفة: ${match['code']}\nاضغط «انضم للعبة» داخل الرسالة.',

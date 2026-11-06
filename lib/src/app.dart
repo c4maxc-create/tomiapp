@@ -75,6 +75,8 @@ class _TomiAppState extends State<TomiApp> {
       accounts!.push.onOpen = openPushChat;
       accounts!.push.onOpenCall = openPushCall;
       accounts!.push.onOpenActivity = openPushActivity;
+      accounts!.push.onOpenActivityItem = (id, activity) =>
+          openPushActivity(id, activity);
     }
     if (accounts?.phase == AccountPhase.restoring)
       unawaited(accounts!.restore());
@@ -109,13 +111,16 @@ class _TomiAppState extends State<TomiApp> {
     });
   }
 
-  Future<void> openPushActivity(String accountId) async {
+  Future<void> openPushActivity(String accountId, [String? activityId]) async {
     final a = accounts;
     if (!mounted || a?.user?.id != accountId) return;
     final nav = navigator.currentState;
     if (nav == null) return;
     await nav.push(
-      MaterialPageRoute<void>(builder: (_) => ActivityPage(accounts: a!)),
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            ActivityPage(accounts: a!, initialActivityId: activityId),
+      ),
     );
   }
 
@@ -286,6 +291,7 @@ class _TomiAppState extends State<TomiApp> {
       accounts!.push.onOpen = null;
       accounts!.push.onOpenCall = null;
       accounts!.push.onOpenActivity = null;
+      accounts!.push.onOpenActivityItem = null;
       accounts!.calls.onShow = null;
     }
     if (widget.accounts == null) accounts?.dispose();

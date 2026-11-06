@@ -264,6 +264,7 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
     await old?.dispose();
     VideoPlayerController? next;
     try {
+      if(!await MediaPreferences.instance.allowNetworkMedia()) throw StateError('Wi-Fi required');
       final uri = await widget.source();
       if (!mounted || e != epoch) return;
       if (uri == null || !['https', 'http'].contains(uri.scheme))
@@ -293,7 +294,7 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
     } catch (_) {
       await next?.dispose();
       if (mounted && e == epoch)
-        error = 'تعذّر فتح الفيديو؛ حدّث الرابط وجرّب مرة ثانية.';
+        error = MediaPreferences.instance.wifiOnly ? 'تعذّر فتح الفيديو؛ تأكد من Wi-Fi أو غيّر خيار تنزيل الوسائط في الإعدادات.' : 'تعذّر فتح الفيديو؛ حدّث الرابط وجرّب مرة ثانية.';
     } finally {
       if (mounted && e == epoch) setState(() => loading = false);
     }

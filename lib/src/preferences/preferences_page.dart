@@ -133,6 +133,27 @@ class _PreferencesPageState extends State<PreferencesPage> {
           ),
         const Divider(),
         SwitchListTile(
+          title: const Text('حماية الشاشة على Android'),
+          subtitle: const Text(
+            'يمنع لقطات الشاشة وعرض المحتوى في تسجيل أو مشاركة الشاشة عند تفعيله. عطّله إذا تريد مشاركة التطبيق.',
+          ),
+          value: media.screenPrivacy,
+          onChanged: busy
+              ? null
+              : (v) => operation(() => media.update(privacy: v)),
+        ),
+        SwitchListTile(
+          title: const Text('فتح الفيديو عبر Wi-Fi فقط'),
+          subtitle: const Text(
+            'يمنع تنزيل وتشغيل الفيديو الشبكي على بيانات الهاتف.',
+          ),
+          value: media.wifiOnly,
+          onChanged: busy
+              ? null
+              : (v) => operation(() => media.update(wifi: v)),
+        ),
+
+        SwitchListTile(
           title: const Text('تقارير أداء اختيارية'),
           subtitle: const Text(
             'عدادات أخطاء وأوقات تحميل عامة فقط؛ بدون رسائل أو تسجيلات أو صور أو مواقع.',

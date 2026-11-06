@@ -100,12 +100,81 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
       );
   }
 
-  Future<void> open(DirectConversation c) => Navigator.push<void>(
-    context,
-    MaterialPageRoute(
-      builder: (_) => PrivateChatPage(chats: chats, conversation: c),
-    ),
-  );
+  Future<void> open(DirectConversation c) async {
+    if (c.markedUnread && !c.isGroup) await organise(c, unread: false);
+    if (!mounted) return;
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PrivateChatPage(chats: chats, conversation: c),
+      ),
+    );
+  }
+
+  Future<void> organise(
+    DirectConversation c, {
+    bool? pinned,
+    bool? archived,
+    bool? unread,
+  }) async {
+    try {
+      await widget.accounts.chatRequest(
+        'PUT',
+        '/v1/chats/${c.id}/organisation',
+        body: {
+          'pinned': pinned ?? c.personalPinned,
+          'archived': archived ?? c.archived,
+          'markedUnread': unread ?? c.markedUnread,
+        },
+      );
+      await chats.refresh();
+    } on AccountFailure catch (f) {
+      if (mounted) showNote(context, f.message);
+    } catch (_) {
+      if (mounted) showNote(context, 'تعذّر تنظيم المحادثة.');
+    }
+  }
+
+  Future<void> organiseMenu(DirectConversation c) async {
+    if (c.isGroup) return;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (d) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(
+                c.personalPinned ? 'إلغاء تثبيت المحادثة' : 'تثبيت المحادثة',
+              ),
+              leading: const Icon(Icons.push_pin_outlined),
+              onTap: () => Navigator.pop(d, 'pin'),
+            ),
+            ListTile(
+              title: Text(c.archived ? 'إخراج من الأرشيف' : 'أرشفة المحادثة'),
+              leading: const Icon(Icons.archive_outlined),
+              onTap: () => Navigator.pop(d, 'archive'),
+            ),
+            ListTile(
+              title: Text(
+                c.markedUnread ? 'إلغاء علامة غير مقروء' : 'تحديد غير مقروء',
+              ),
+              leading: const Icon(Icons.mark_chat_unread_outlined),
+              onTap: () => Navigator.pop(d, 'unread'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    await organise(
+      c,
+      pinned: action == 'pin' ? !c.personalPinned : null,
+      archived: action == 'archive' ? !c.archived : null,
+      unread: action == 'unread' ? !c.markedUnread : null,
+    );
+  }
+
   PendingChatMessage? pending(DirectConversation c) =>
       chats.threads[c.id]?.pending.lastOrNull;
   DateTime activity(DirectConversation c) =>
@@ -144,6 +213,12 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
                         .where(
                           (c) =>
                               (filter != 'groups' || c.isGroup) &&
+                              (filter == 'archived'
+                                  ? c.archived
+                                  : !c.archived) &&
+                              (filter != 'unread' ||
+                                  c.unreadCount > 0 ||
+                                  c.markedUnread) &&
                               (q.isEmpty ||
                                   c.peer.displayName.toLowerCase().contains(
                                     q,
@@ -152,7 +227,11 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
                                   preview(c).toLowerCase().contains(q)),
                         )
                         .toList()
-                      ..sort((a, b) => activity(b).compareTo(activity(a)));
+                      ..sort(
+                        (a, b) => a.personalPinned != b.personalPinned
+                            ? (a.personalPinned ? -1 : 1)
+                            : activity(b).compareTo(activity(a)),
+                      );
             return Material(
               color: p.surface,
               child: Stack(
@@ -290,6 +369,8 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
                                     for (final item in [
                                       ('all', 'الكل'),
                                       ('groups', 'المجموعات'),
+                                      ('unread', 'غير مقروءة'),
+                                      ('archived', 'الأرشيف'),
                                     ])
                                       ChoiceChip(
                                         key: ValueKey('chat-filter-${item.$1}'),
@@ -421,6 +502,9 @@ class _PrivateChatsScreenState extends State<PrivateChatsScreen> {
                                 InkWell(
                                   key: ValueKey('chat-row-${c.id}'),
                                   onTap: () => open(c),
+                                  onLongPress: c.isGroup
+                                      ? null
+                                      : () => organiseMenu(c),
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 18,
@@ -3386,6 +3470,8 @@ class ChatSearchPage extends StatefulWidget {
 class _ChatSearchPageState extends State<ChatSearchPage> {
   final input = TextEditingController();
   List<ChatMessage> rows = [];
+  String kind = 'all';
+  DateTime? date;
   int? before;
   int epoch = 0;
   bool loading = false;
@@ -3393,7 +3479,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   Future<void> search({bool more = false}) async {
     if (more && (loading || before == null)) return;
     final q = input.text.trim(), e = ++epoch;
-    if (q.runes.length < 2) {
+    if (q.runes.length < 2 && kind == 'all' && date == null) {
       setState(() => error = 'اكتب حرفين على الأقل.');
       return;
     }
@@ -3406,7 +3492,12 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       }
     });
     try {
-      final d = await widget.thread.search(q, before: more ? before : null);
+      final d = await widget.thread.search(
+        q,
+        before: more ? before : null,
+        kind: kind,
+        date: date?.toIso8601String().substring(0, 10),
+      );
       if (!mounted || e != epoch) return;
       final found = (d['messages'] as List).map(
         (x) => ChatMessage.fromJson(x as Map<String, dynamic>),
@@ -3453,6 +3544,67 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
                   icon: const Icon(Icons.search),
                 ),
               ),
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final item in const {
+                  'all': 'الكل',
+                  'image': 'صور',
+                  'video': 'فيديو',
+                  'audio': 'صوت',
+                  'link': 'روابط',
+                  'file': 'ملفات',
+                }.entries)
+                  Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: ChoiceChip(
+                      label: Text(item.value),
+                      selected: kind == item.key,
+                      onSelected: loading
+                          ? null
+                          : (_) {
+                              setState(() => kind = item.key);
+                              if (input.text.trim().length >= 2 ||
+                                  kind != 'all' ||
+                                  date != null)
+                                search();
+                            },
+                    ),
+                  ),
+                TextButton.icon(
+                  icon: const Icon(Icons.calendar_month),
+                  label: Text(
+                    date == null
+                        ? 'التاريخ'
+                        : date!.toIso8601String().substring(0, 10),
+                  ),
+                  onPressed: loading
+                      ? null
+                      : () async {
+                          final value = await showDatePicker(
+                            context: c,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                            initialDate: date ?? DateTime.now(),
+                          );
+                          if (value != null && mounted) {
+                            setState(() => date = value);
+                            search();
+                          }
+                        },
+                ),
+                if (date != null)
+                  IconButton(
+                    tooltip: 'إلغاء التاريخ',
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      setState(() => date = null);
+                    },
+                  ),
+              ],
             ),
           ),
           if (loading) const LinearProgressIndicator(),

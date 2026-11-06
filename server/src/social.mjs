@@ -48,7 +48,12 @@ export function createSocial({database,storage,readJson,respond,limit,userById,c
    const scope=url.searchParams.get('scope')||'all',userId=url.searchParams.get('userId');if(!['all','explore','following','mine','saved'].includes(scope)||(userId&&!uuid.test(userId)))throw new ApiError(400,'VALIDATION','قائمة المنشورات غير صحيحة.');
    const{size,cursor}=page(url),values=[viewer,viewer],conditions=[visiblePost];
    if(userId||scope==='mine'){conditions.push('p.user_id=?');values.push(userId||viewer);}else if(scope==='following'){conditions.push('(p.user_id=? OR EXISTS(SELECT 1 FROM tomi_follows f WHERE f.follower_id=? AND f.following_id=p.user_id))');values.push(viewer,viewer);}
-   if(scope==='explore'&&!userId){conditions.push("COALESCE((SELECT o.audience FROM tomi_post_options o WHERE o.post_id=p.id),'public')='public'");}
+   if(scope==='explore'&&!userId){
+ conditions.push("NOT EXISTS(SELECT 1 FROM tomi_explore_hidden h WHERE h.user_id=? AND ((h.target_type='post' AND h.target_id=p.id) OR (h.target_type='user' AND h.target_id=p.user_id)))");values.push(viewer);
+ const prefs=(await database.query('SELECT keywords,topics FROM tomi_explore_preferences WHERE user_id=?',[viewer])).rows[0];
+ for(const word of JSON.parse(prefs?.keywords??'[]')){conditions.push("LOWER(p.body) NOT LIKE LOWER(?) ESCAPE '!'");values.push('%'+word.replace(/[!%_]/g,'!$&')+'%');}
+ const topics=JSON.parse(prefs?.topics??'[]');if(topics.length){conditions.push('('+topics.map(()=>"LOWER(p.body) LIKE LOWER(?) ESCAPE '!'").join(' OR ')+')');values.push(...topics.map(t=>'%'+t.replace(/[!%_]/g,'!$&')+'%'));}
+ conditions.push("COALESCE((SELECT o.audience FROM tomi_post_options o WHERE o.post_id=p.id),'public')='public'");}
    if(!userId&&!['mine','saved'].includes(scope)){conditions.push("(COALESCE((SELECT o.audience FROM tomi_post_options o WHERE o.post_id=p.id),'public')='public' OR p.user_id=? OR EXISTS(SELECT 1 FROM tomi_follows f WHERE f.follower_id=? AND f.following_id=p.user_id))");values.push(viewer,viewer);}
    if(scope==='saved'){conditions.push('EXISTS(SELECT 1 FROM tomi_post_saves z WHERE z.post_id=p.id AND z.user_id=?)');values.push(viewer);}
    if(cursor){conditions.push('(p.created_at<? OR (p.created_at=? AND p.id<?))');values.push(cursor.time,cursor.time,cursor.id);}values.push(size+1);

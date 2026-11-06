@@ -31,6 +31,10 @@ public class MainActivity extends FlutterActivity {
             try {
                 String id = call.argument("id");
                 switch (call.method) {
+                    case "deviceCheck":
+                        result.success(TomiDeviceTools.inspect(this));break;
+                    case "screenPrivacy":
+                        TomiDeviceTools.privacy(this,Boolean.TRUE.equals(call.argument("enabled")));result.success(null);break;
                     case "prepareVoiceAudio":
                         String voiceStatus=TomiVoiceAudio.prepare(this,Boolean.TRUE.equals(call.argument("recording")));
                         if("busy".equals(voiceStatus)){result.error("AUDIO_BUSY","أنه المكالمة أو غادر الغرفة قبل التسجيل.",null);break;}
@@ -105,7 +109,7 @@ public class MainActivity extends FlutterActivity {
             } catch (Exception e) { result.error("MOBILE_UNAVAILABLE", "تعذّر تفعيل خدمة الصوت أو الإشعار.", null); }
         });
     }
-    @Override protected void onCreate(Bundle state) { super.onCreate(state); TomiUpdateNotifications.channels(this); capture(getIntent()); }
+    @Override protected void onCreate(Bundle state) { super.onCreate(state); TomiDeviceTools.restore(this); TomiUpdateNotifications.channels(this); capture(getIntent()); }
     @Override protected void onNewIntent(@NonNull Intent intent) { super.onNewIntent(intent); setIntent(intent); capture(intent); }
     @Override protected void onResume() { super.onResume(); TomiCallNotifications.visible=true;resumeAudioStart(); }
     @Override protected void onPause() { TomiCallNotifications.visible=false; super.onPause(); }

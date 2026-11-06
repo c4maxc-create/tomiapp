@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../preferences/media_preferences.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -107,6 +108,8 @@ class _InlineSocialVideoState extends State<InlineSocialVideo>
     });
     VideoPlayerController? candidate;
     try {
+      if (!await MediaPreferences.instance.allowNetworkMedia())
+        throw StateError('Wi-Fi required');
       final uri = await widget.source();
       if (uri == null) throw StateError('missing video');
       if (!mounted || gen != generation) return;

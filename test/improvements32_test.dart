@@ -1,5 +1,6 @@
 import 'package:tomi_app/src/gaming/chat_game_invite.dart';
-import 'package:tomi_app/src/accounts/account_api.dart' show AccountFailure, AccountApi;
+import 'package:tomi_app/src/accounts/account_api.dart'
+    show AccountFailure, AccountApi;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -163,6 +164,7 @@ void main() {
           await Future<void>.delayed(const Duration(milliseconds: 10));
       });
       expect(api.rows.length, 1);
+      expect(api.invitations.single['targetId'], 'room-test');
       expect(api.rows.single['text'], contains('ABCDEF12'));
       expect(t.takeException(), isNull);
       await t.pumpWidget(const SizedBox());
@@ -242,6 +244,7 @@ class PreferencesFake extends chats.ChatFakeApi {
 
 class InviteFake extends chats.ChatFakeApi {
   final creations = <String>[];
+  final invitations = <Map<String, dynamic>>[];
   @override
   Future<Map<String, dynamic>> chatRequest(
     String token,
@@ -250,6 +253,12 @@ class InviteFake extends chats.ChatFakeApi {
     Map<String, dynamic>? body,
     Map<String, String>? query,
   }) async {
+    if (path == '/v1/me/invitations' && method == 'POST') {
+      invitations.add({...body!});
+      return {
+        'invitation': {'id': 'invite-test'},
+      };
+    }
     if (path == '/v1/games/matches' && method == 'POST') {
       creations.add(body!['requestId'] as String);
       if (creations.length == 1)

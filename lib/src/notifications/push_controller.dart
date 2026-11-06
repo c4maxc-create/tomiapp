@@ -126,6 +126,8 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> Function(String threadId, String accountId)? onOpen;
   Future<void> Function(String callId, String accountId)? onOpenCall;
   Future<void> Function(String accountId)? onOpenActivity;
+  Future<void> Function(String accountId, String activityId)?
+  onOpenActivityItem;
   void notify() {
     if (!disposed) notifyListeners();
   }
@@ -473,7 +475,13 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
         identity != null &&
         data['type'] == 'activity' &&
         data['accountId'] == accounts.user?.id) {
-      final work = onOpenActivity?.call(accounts.user!.id);
+      final activity = data['activityId'];
+      final work =
+          activity is String &&
+              RegExp(r'^[a-f0-9-]{36}$').hasMatch(activity) &&
+              onOpenActivityItem != null
+          ? onOpenActivityItem!(accounts.user!.id, activity)
+          : onOpenActivity?.call(accounts.user!.id);
       if (work != null) unawaited(work.catchError((Object _) {}));
       return;
     }

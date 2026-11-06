@@ -1300,10 +1300,22 @@ class ChatThreadController extends ChangeNotifier {
     }
   }
 
-  Future<Map<String, dynamic>> search(String text, {int? before}) => request(
+  Future<Map<String, dynamic>> search(
+    String text, {
+    int? before,
+    String kind = 'all',
+    String? date,
+  }) => request(
     'GET',
     '/search',
-    query: {'q': text, if (before != null) 'before': '$before'},
+    query: {
+      'q': text,
+      'kind': kind,
+      if (date != null) 'date': date,
+      if (date != null)
+        'tzOffsetMinutes': '${DateTime.now().timeZoneOffset.inMinutes}',
+      if (before != null) 'before': '$before',
+    },
   );
   void enqueue(
     String text,

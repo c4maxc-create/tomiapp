@@ -1,0 +1,19 @@
+00:00 +0: loading /workspace/tomiapp/test/home11_test.dart
+00:00 +0: story labels fit at 320.0x640.0 with text scale 1.0
+00:01 +1: story labels fit at 320.0x640.0 with text scale 1.5
+00:01 +2: story labels fit at 320.0x640.0 with text scale 2.0
+00:01 +3: story labels fit at 800.0x420.0 with text scale 1.0
+00:01 +4: story labels fit at 800.0x420.0 with text scale 1.5
+00:02 +5: story labels fit at 800.0x420.0 with text scale 2.0
+00:02 +6: disabled realtime keeps manual story refresh available
+00:02 +7: live home polling refreshes and stops on logout
+00:02 +8: old story/activity responses after logout cannot restore another session
+00:02 +9: view receipts update the shared ring and expired items do not count
+00:02 +10: story metadata stays compatible with older users and posts
+00:02 +11: social push opening is bound to the signed-in account
+00:02 +12: avatar opens an active story and no-story avatar opens its full picture
+00:02 +13: story tap advances and long hold pauses automatic progress
+00:03 +14: profile menu exposes settings and the four upcoming subscriptions
+00:04 +15: following count opens actual accounts instead of a decorative number
+00:05 +16: home saving uses the authenticated endpoint
+00:08 +17: All tests passed!

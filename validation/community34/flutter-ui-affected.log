@@ -1,0 +1,34 @@
+00:00 +0: loading /workspace/tomiapp/test/improvements32_test.dart
+00:00 +0: /workspace/tomiapp/test/improvements32_test.dart: upload streams bytes with progress, cancellation interrupts consumption and sends no account bearer
+00:00 +1: /workspace/tomiapp/test/improvements32_test.dart: story draft restores text and audience after leaving and reopening without publishing
+00:01 +2: /workspace/tomiapp/test/improvements32_test.dart: story draft restores text and audience after leaving and reopening without publishing
+00:02 +3: /workspace/tomiapp/test/improvements32_test.dart: story draft restores text and audience after leaving and reopening without publishing
+00:02 +4: /workspace/tomiapp/test/improvements32_test.dart: story draft restores text and audience after leaving and reopening without publishing
+00:02 +5: /workspace/tomiapp/test/improvements32_test.dart: story draft restores text and audience after leaving and reopening without publishing
+00:02 +6: /workspace/tomiapp/test/improvements32_test.dart: story draft restores text and audience after leaving and reopening without publishing
+00:02 +7: /workspace/tomiapp/test/improvements32_test.dart: story draft restores text and audience after leaving and reopening without publishing
+00:02 +8: /workspace/tomiapp/test/home11_test.dart: disabled realtime keeps manual story refresh available
+00:02 +9: /workspace/tomiapp/test/improvements32_test.dart: chat game invitation recovers the same private table after a lost creation response and sends one invitation
+00:02 +10: /workspace/tomiapp/test/improvements32_test.dart: chat game invitation recovers the same private table after a lost creation response and sends one invitation
+00:02 +11: /workspace/tomiapp/test/improvements32_test.dart: chat game invitation recovers the same private table after a lost creation response and sends one invitation
+00:02 +12: /workspace/tomiapp/test/improvements32_test.dart: chat game invitation recovers the same private table after a lost creation response and sends one invitation
+00:02 +13: /workspace/tomiapp/test/improvements32_test.dart: chat game invitation recovers the same private table after a lost creation response and sends one invitation
+00:02 +14: /workspace/tomiapp/test/improvements32_test.dart: chat game invitation recovers the same private table after a lost creation response and sends one invitation
+00:02 +15: /workspace/tomiapp/test/home11_test.dart: avatar opens an active story and no-story avatar opens its full picture
+00:03 +16: /workspace/tomiapp/test/home11_test.dart: avatar opens an active story and no-story avatar opens its full picture
+00:03 +17: /workspace/tomiapp/test/home11_test.dart: story tap advances and long hold pauses automatic progress
+00:03 +18: /workspace/tomiapp/test/home11_test.dart: profile menu exposes settings and the four upcoming subscriptions
+00:04 +19: /workspace/tomiapp/test/home11_test.dart: following count opens actual accounts instead of a decorative number
+00:04 +20: /workspace/tomiapp/test/community34_test.dart: support shows actual private reply and polls commit a choice then refresh counts
+00:05 +21: /workspace/tomiapp/test/community34_test.dart: support shows actual private reply and polls commit a choice then refresh counts
+00:06 +22: /workspace/tomiapp/test/community34_test.dart: community pages fit 320 pixels with doubled Arabic text including loading diagnostic fallback
+00:07 +23: /workspace/tomiapp/test/notification_room132_test.dart: (setUpAll)
+00:07 +23: /workspace/tomiapp/test/notification_room132_test.dart: Firebase native initialization shares an active attempt and retries a failed attempt
+00:07 +24: /workspace/tomiapp/test/notification_room132_test.dart: notification refresh recovers native setup and registers the device with its session binding
+00:07 +25: /workspace/tomiapp/test/notification_room132_test.dart: a server that declines registration cannot show notifications as activated
+00:07 +26: /workspace/tomiapp/test/notification_room132_test.dart: enabling requests phone permission and disabling unregisters the existing token
+00:07 +27: /workspace/tomiapp/test/notification_room132_test.dart: missing notification setup remains retryable and explains client and server states
+00:08 +28: /workspace/tomiapp/test/notification_room132_test.dart: plus opens immediately during slow room and wallet reads; form survives the late balance
+00:09 +29: /workspace/tomiapp/test/notification_room132_test.dart: unconfigured service never makes plus inert; a definitive 503 clears the uncharged intent
+00:10 +30: /workspace/tomiapp/test/notification_room132_test.dart: (tearDownAll)
+00:10 +30: All tests passed!

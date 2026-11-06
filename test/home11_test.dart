@@ -315,6 +315,26 @@ void main() {
     push.handleOpen({'type': 'activity', 'accountId': a.user!.id});
     await Future<void>.delayed(Duration.zero);
     expect(opened, 1);
+    String? exactActivity;
+    push.onOpenActivityItem = (id, activity) async {
+      expect(id, a.user!.id);
+      exactActivity = activity;
+    };
+    push.handleOpen({
+      'type': 'activity',
+      'accountId': peerId,
+      'activityId': peerId,
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(exactActivity, isNull);
+    push.handleOpen({
+      'type': 'activity',
+      'accountId': a.user!.id,
+      'activityId': peerId,
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(exactActivity, peerId);
+    expect(opened, 1);
   });
   testWidgets(
     'avatar opens an active story and no-story avatar opens its full picture',

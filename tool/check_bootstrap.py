@@ -55,6 +55,7 @@ Path("README.md").write_text("template readme")
         configure_android(project)
         assert not (project/'android/app/src/main/kotlin/com/tomi/tomi_app/MainActivity.kt').exists()
         assert (project/'android/app/src/main/kotlin/com/tomi/tomi_app/TomiVoiceAudio.kt').exists()
+        assert (project/'android/app/src/main/kotlin/com/tomi/tomi_app/TomiDeviceTools.kt').exists()
         generated_gradle=(project/'android/app/build.gradle.kts').read_text()
         assert generated_gradle.count('org.jetbrains.kotlin.android')==1
         assert generated_gradle.count('// TOMI Kotlin JVM target')==1

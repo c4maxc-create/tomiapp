@@ -1,3 +1,4 @@
+import '../experience/community_pages.dart';
 import '../experience/experience_pages.dart';
 import '../preferences/preferences_page.dart';
 import '../identity/progress_cards.dart';
@@ -744,6 +745,12 @@ class AccountSettingsPage extends StatelessWidget {
     body: ListView(
       padding: const EdgeInsets.symmetric(vertical: 12),
       children: [
+        ListTile(
+          key: const Key('community-tools'),
+          leading: const Icon(Icons.dashboard_customize_outlined),
+          title: const Text('أدوات TOMI والدعم'),
+          onTap: () => page(context, CommunityToolsPage(accounts: accounts)),
+        ),
         ListTile(
           key: const Key('session-security'),
           leading: const Icon(Icons.devices),

@@ -1,0 +1,13 @@
+✔ 34 support tickets are private, idempotent, bounded and only owner can reply (3078.152746ms)
+✔ 34 polls persist one vote per account, reject invalid choices and closed polls (3442.442735ms)
+✔ 34 explore hides posts and authors, escapes keywords and leaves profile and following unchanged (4427.661375ms)
+✔ 34 contact exceptions respect blocks and chat organisation cannot change another member preferences (5959.851977ms)
+✔ 34 chat search supports media, dates and literal text without exposing another thread (4848.013801ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 22252.972022

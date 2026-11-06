@@ -753,6 +753,41 @@ class RealPostCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  PopupMenuButton<String>(
+                    tooltip: 'تخصيص الاستكشاف',
+                    icon: const Icon(Icons.tune),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: 'post',
+                        child: Text('مو مهتم بهذا المنشور'),
+                      ),
+                      PopupMenuItem(
+                        value: 'user',
+                        child: Text('إخفاء هذا الحساب من الاستكشاف'),
+                      ),
+                    ],
+                    onSelected: (kind) async {
+                      try {
+                        await accounts.chatRequest(
+                          'PUT',
+                          '/v1/me/explore-hidden',
+                          body: {
+                            'type': kind,
+                            'id': kind == 'post' ? post.id : post.author.id,
+                          },
+                        );
+                        if (c.mounted)
+                          showNote(
+                            c,
+                            'تم إخفاؤه من الاستكشاف؛ اسحب لتحديث القائمة.',
+                          );
+                      } on AccountFailure catch (f) {
+                        if (c.mounted) showNote(c, f.message);
+                      } catch (_) {
+                        if (c.mounted) showNote(c, 'تعذّر الحفظ.');
+                      }
+                    },
+                  ),
                   IconButton(
                     key: post.isMine
                         ? Key('delete-post-${post.id}')
@@ -1013,9 +1048,11 @@ class SocialPostPage extends StatefulWidget {
     super.key,
     required this.accounts,
     required this.initialPost,
+    this.showComments = false,
   });
   final AccountController accounts;
   final SocialPost initialPost;
+  final bool showComments;
   @override
   State<SocialPostPage> createState() => _SocialPostPageState();
 }
@@ -1023,6 +1060,27 @@ class SocialPostPage extends StatefulWidget {
 class _SocialPostPageState extends State<SocialPostPage> {
   late SocialPost post = widget.initialPost;
   bool busy = false;
+  @override
+  void initState() {
+    super.initState();
+    if (widget.showComments)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted)
+          showModalBottomSheet<void>(
+            context: context,
+            showDragHandle: true,
+            isScrollControlled: true,
+            builder: (_) => RealCommentsSheet(
+              accounts: widget.accounts,
+              post: post,
+              onUpdated: (p) {
+                if (mounted) setState(() => post = p);
+              },
+            ),
+          );
+      });
+  }
+
   Future<void> mutate(bool delete) async {
     if (busy) return;
     setState(() => busy = true);

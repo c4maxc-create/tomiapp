@@ -830,3 +830,16 @@ CREATE TABLE IF NOT EXISTS tomi_collection_items (
 CREATE TABLE IF NOT EXISTS tomi_client_metrics (
  day TEXT NOT NULL,kind TEXT NOT NULL,area TEXT NOT NULL,bucket INTEGER NOT NULL,build INTEGER NOT NULL,total BIGINT NOT NULL,PRIMARY KEY(day,kind,area,bucket,build)
 );
+
+-- Build34: personal tools. Trial currency only.
+CREATE TABLE IF NOT EXISTS tomi_chat_organisation(user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,thread_id TEXT NOT NULL REFERENCES tomi_chat_threads(id) ON DELETE CASCADE,pinned INTEGER NOT NULL DEFAULT 0,archived INTEGER NOT NULL DEFAULT 0,marked_unread INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(user_id,thread_id));
+CREATE TABLE IF NOT EXISTS tomi_explore_preferences(user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,keywords TEXT NOT NULL DEFAULT '[]',topics TEXT NOT NULL DEFAULT '[]');
+CREATE TABLE IF NOT EXISTS tomi_explore_hidden(user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,target_type TEXT NOT NULL CHECK(target_type IN('post','user')),target_id TEXT NOT NULL,PRIMARY KEY(user_id,target_type,target_id));
+CREATE TABLE IF NOT EXISTS tomi_contact_exceptions(user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,target_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,kind TEXT NOT NULL CHECK(kind IN('messages','calls','roomInvites')),allowed INTEGER NOT NULL,PRIMARY KEY(user_id,target_id,kind));
+CREATE TABLE IF NOT EXISTS tomi_support_tickets(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,subject TEXT NOT NULL,body TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'open',reply TEXT NOT NULL DEFAULT '',revision INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,request_id TEXT NOT NULL,UNIQUE(user_id,request_id));
+CREATE TABLE IF NOT EXISTS tomi_polls(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,room_id TEXT REFERENCES tomi_voice_rooms(id) ON DELETE CASCADE,question TEXT NOT NULL,options TEXT NOT NULL,ends_at TEXT NOT NULL,created_at TEXT NOT NULL,request_id TEXT NOT NULL,UNIQUE(owner_id,request_id));
+CREATE TABLE IF NOT EXISTS tomi_poll_votes(poll_id TEXT NOT NULL REFERENCES tomi_polls(id) ON DELETE CASCADE,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,choice INTEGER NOT NULL,PRIMARY KEY(poll_id,user_id));
+CREATE TABLE IF NOT EXISTS tomi_invitations(id TEXT PRIMARY KEY,sender_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,recipient_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,kind TEXT NOT NULL CHECK(kind IN('room','game','live')),target_id TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'pending',created_at TEXT NOT NULL,expires_at TEXT NOT NULL,request_id TEXT NOT NULL,UNIQUE(sender_id,request_id));
+CREATE INDEX IF NOT EXISTS tomi_invitations_recipient ON tomi_invitations(recipient_id,expires_at,created_at);
+CREATE INDEX IF NOT EXISTS tomi_support_user ON tomi_support_tickets(user_id,created_at);
+CREATE INDEX IF NOT EXISTS tomi_polls_room ON tomi_polls(room_id,created_at);

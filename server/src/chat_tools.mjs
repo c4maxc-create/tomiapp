@@ -30,10 +30,20 @@ export function createChatTools({database,thread,lock,sending,notify,id,fields,m
   m=/^\/v1\/chats\/([a-f0-9-]{36})\/search$/.exec(path);
   if(m&&method==='GET'){
    const tid=id(m[1]),r=await thread(viewer,tid),q=(url.searchParams.get('q')??'').trim(),before=url.searchParams.get('before');
-   if([...q].length<2||[...q].length>80||before!==null&&(!/^\d{1,16}$/.test(before)||!Number.isSafeInteger(Number(before))||Number(before)<1))fail(400,'VALIDATION','اكتب من حرفين إلى80 حرفًا للبحث.');
+   const kind=url.searchParams.get('kind')??'all',date=url.searchParams.get('date'),offset=Number(url.searchParams.get('tzOffsetMinutes')??0);
+   if(!Number.isInteger(offset)||Math.abs(offset)>840)fail(400,'VALIDATION','منطقة زمنية غير صحيحة.');
+   if(!['all','image','video','audio','link','file'].includes(kind)||q&&([...q].length<2||[...q].length>80)||!q&&kind==='all'&&!date||date&&(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date)))||before!==null&&(!/^\d{1,16}$/.test(before)||!Number.isSafeInteger(Number(before))||Number(before)<1))fail(400,'VALIDATION','اختر كلمة أو تاريخاً أو نوع وسائط للبحث.');
    await limit('chat-search:'+viewer,60);
-   const values=[tid,'%'+q.replace(/[!%_]/g,'!$&')+'%'];if(before!==null)values.push(Number(before));
-   const rows=(await database.query(messagesSql+"WHERE m.thread_id=? AND m.deleted_at IS NULL AND LOWER(m.body) LIKE LOWER(?) ESCAPE '!'"+(before!==null?' AND m.sequence<?':'')+' ORDER BY m.sequence DESC LIMIT 31',values)).rows;
+   const values=[tid],conditions=['m.thread_id=?','m.deleted_at IS NULL'];
+   if(q){conditions.push("LOWER(m.body) LIKE LOWER(?) ESCAPE '!'");values.push('%'+q.replace(/[!%_]/g,'!$&')+'%');}
+   if(before!==null){conditions.push('m.sequence<?');values.push(Number(before));}
+   if(date){conditions.push('m.created_at>=? AND m.created_at<?');values.push(new Date(Date.parse(date)-offset*60000).toISOString(),new Date(Date.parse(date)-offset*60000+86400000).toISOString());}
+   if(kind==='image')conditions.push('m.image_upload_id IS NOT NULL');
+   if(kind==='video')conditions.push('video.id IS NOT NULL');
+   if(kind==='audio')conditions.push('audio.id IS NOT NULL');
+   if(kind==='file')conditions.push('doc.id IS NOT NULL');
+   if(kind==='link')conditions.push("(LOWER(m.body) LIKE '%https://%' OR LOWER(m.body) LIKE '%http://%')");
+   const rows=(await database.query(messagesSql+'WHERE '+conditions.join(' AND ')+' ORDER BY m.sequence DESC LIMIT 31',values)).rows;
    respond(response,200,{messages:(await enrich(rows.slice(0,30),viewer)).map(x=>messageJson(x,viewer)),nextBefore:rows.length>30?Number(rows[29].sequence):null,conversation:threadJson(r,viewer)});return true;
   }
   m=/^\/v1\/chats\/([a-f0-9-]{36})\/messages\/([a-f0-9-]{36})\/(reaction|pin)$/.exec(path);

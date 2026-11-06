@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/services.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -10,7 +12,9 @@ class MediaPreferences extends ChangeNotifier {
   bool dataSaver = false,
       autoplay = false,
       smartQuality = true,
-      performanceReports = false;
+      performanceReports = false,
+      wifiOnly = false,
+      screenPrivacy = false;
   bool loaded = false;
   Future<void>? loading;
   final storage = const FlutterSecureStorage();
@@ -26,6 +30,9 @@ class MediaPreferences extends ChangeNotifier {
             autoplay = d['autoplay'] == true;
             smartQuality = d['smartQuality'] != false;
             performanceReports = d['performanceReports'] == true;
+            wifiOnly = d['wifiOnly'] == true;
+            screenPrivacy = d['screenPrivacy'] == true;
+            await applyPrivacy(screenPrivacy);
           }
         }
       } finally {
@@ -47,6 +54,8 @@ class MediaPreferences extends ChangeNotifier {
     bool? auto,
     bool? smart,
     bool? reports,
+    bool? wifi,
+    bool? privacy,
   }) async {
     await restore();
     final next = {
@@ -54,7 +63,10 @@ class MediaPreferences extends ChangeNotifier {
       'autoplay': auto ?? autoplay,
       'smartQuality': smart ?? smartQuality,
       'performanceReports': reports ?? performanceReports,
+      'wifiOnly': wifi ?? wifiOnly,
+      'screenPrivacy': privacy ?? screenPrivacy,
     };
+    if (privacy != null) await applyPrivacy(privacy);
     if (!Platform.environment.containsKey('FLUTTER_TEST'))
       await storage.write(
         key: 'tomi.media-preferences.v1',
@@ -64,8 +76,38 @@ class MediaPreferences extends ChangeNotifier {
     autoplay = next['autoplay']!;
     smartQuality = next['smartQuality']!;
     performanceReports = next['performanceReports']!;
+    wifiOnly = next['wifiOnly']!;
+    screenPrivacy = next['screenPrivacy']!;
     applyCacheLimit();
     notifyListeners();
+  }
+
+  Future<void> applyPrivacy(bool value) async {
+    if (Platform.isAndroid && !Platform.environment.containsKey('FLUTTER_TEST'))
+      await const MethodChannel(
+        'tomi/mobile',
+      ).invokeMethod<void>('screenPrivacy', {'enabled': value});
+  }
+
+  Future<bool> allowNetworkMedia() async {
+    await restore();
+    if (!wifiOnly || Platform.environment.containsKey('FLUTTER_TEST'))
+      return true;
+    final kinds = await Connectivity().checkConnectivity();
+    return kinds.contains(ConnectivityResult.wifi) ||
+        kinds.contains(ConnectivityResult.ethernet);
+  }
+
+  Future<int> previewBytes() async {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) return 0;
+    final root = await getTemporaryDirectory(),
+        dir = Directory('${root.path}/tomi-media-previews');
+    if (!await dir.exists()) return 0;
+    int total = 0;
+    await for (final item in dir.list(recursive: true, followLinks: false)) {
+      if (item is File) total += await item.length();
+    }
+    return total;
   }
 
   Future<void> clearPreviews() async {

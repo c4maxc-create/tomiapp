@@ -139,6 +139,25 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
               children: [
                 for (final item in <(IconData, String, VoidCallback)>[
                   (
+                    Icons.poll_outlined,
+                    'تصويت الغرفة',
+                    () {
+                      Navigator.pop(sheet);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => CommunityPage(
+                            accounts: c.accounts,
+                            kind: 'polls',
+                            title: 'تصويت الغرفة',
+                            roomId: c.active!.id,
+                            canCreate: c.me?.role == 'owner',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  (
                     Icons.casino_outlined,
                     'مدار الحظ',
                     () {

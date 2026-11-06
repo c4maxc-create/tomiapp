@@ -12,7 +12,12 @@ import 'social_screens.dart';
 import 'story_screens.dart';
 
 class ActivityPage extends StatefulWidget {
-  const ActivityPage({super.key, required this.accounts});
+  const ActivityPage({
+    super.key,
+    required this.accounts,
+    this.initialActivityId,
+  });
+  final String? initialActivityId;
   final AccountController accounts;
   @override
   State<ActivityPage> createState() => _ActivityPageState();
@@ -25,6 +30,22 @@ class _ActivityPageState extends State<ActivityPage> {
   void initState() {
     super.initState();
     unawaited(widget.accounts.home.loadActivity());
+    if (widget.initialActivityId != null) unawaited(openInitial());
+  }
+
+  Future<void> openInitial() async {
+    try {
+      final d = await widget.accounts.chatRequest(
+        'GET',
+        '/v1/activity/${widget.initialActivityId}',
+      );
+      if (mounted)
+        await open(ActivityItem((d['item'] as Map).cast<String, dynamic>()));
+    } on AccountFailure catch (f) {
+      if (mounted) showNote(context, f.message);
+    } catch (_) {
+      if (mounted) showNote(context, 'تعذّر فتح الإشعار.');
+    }
   }
 
   Future<void> open(ActivityItem item) async {
@@ -54,6 +75,7 @@ class _ActivityPageState extends State<ActivityPage> {
           MaterialPageRoute<void>(
             builder: (_) => SocialPostPage(
               accounts: widget.accounts,
+              showComments: item.kind == 'comment',
               initialPost: SocialPost.fromJson(
                 d['post'] as Map<String, dynamic>,
               ),
