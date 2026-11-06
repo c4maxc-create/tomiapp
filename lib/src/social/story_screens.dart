@@ -584,6 +584,7 @@ class _StorySequenceState extends State<StorySequence>
       failed = false;
   String? error;
   VideoPlayerController? player;
+  bool replying = false;
   StoryItem get item => widget.group.stories[index];
   int initialIndex() {
     final n = widget.group.stories.indexWhere((s) => !s.seen && s.active);
@@ -864,6 +865,36 @@ class _StorySequenceState extends State<StorySequence>
     }
   }
 
+  Future<void> quickReply(String emoji) async {
+    if (replying || item.isMine) return;
+    final story = item,
+        accounts = widget.accounts,
+        session = widget.accounts.sessionRevision;
+    setState(() => replying = true);
+    hold(true);
+    try {
+      final conversation = await accounts.chats.open(story.author.id),
+          thread = accounts.chats.thread(conversation);
+      await thread.restored;
+      if (!mounted || accounts.sessionRevision != session) return;
+      thread.enqueue(
+        '$emoji رد على ستوري ${story.author.displayName}${story.text.isEmpty ? '' : '\n${story.text}'}',
+        null,
+      );
+      if (!await thread.persist()) throw StateError('save');
+      if (mounted) showNote(context, 'التفاعل قيد الإرسال بالمحادثة.');
+    } on AccountFailure catch (f) {
+      if (mounted) showNote(context, f.message);
+    } catch (_) {
+      if (mounted) showNote(context, 'تعذّر حفظ التفاعل؛ أعد المحاولة.');
+    } finally {
+      if (mounted) {
+        setState(() => replying = false);
+        hold(false);
+      }
+    }
+  }
+
   @override
   void dispose() {
     generation++;
@@ -1053,7 +1084,7 @@ class _StorySequenceState extends State<StorySequence>
         Positioned(
           left: 20,
           right: 20,
-          bottom: 90,
+          bottom: item.isMine ? 90 : 150,
           child: IgnorePointer(
             child: Text(
               item.text,
@@ -1083,23 +1114,43 @@ class _StorySequenceState extends State<StorySequence>
                   style: TextStyle(color: Colors.white),
                 ),
               )
-            : OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white54),
-                  padding: const EdgeInsets.all(14),
-                ),
-                onPressed: () async {
-                  hold(true);
-                  await openPrivateChat(
-                    context,
-                    widget.accounts,
-                    item.author.id,
-                  );
-                  if (mounted) hold(false);
-                },
-                icon: const Icon(Icons.send_outlined, size: 20),
-                label: const Text('مراسلة صاحب الستوري'),
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 12,
+                    children: [
+                      for (final emoji in const ['❤️', '😂', '🔥'])
+                        IconButton(
+                          tooltip: 'رد $emoji',
+                          onPressed: replying ? null : () => quickReply(emoji),
+                          icon: Text(
+                            emoji,
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                        ),
+                    ],
+                  ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white54),
+                      padding: const EdgeInsets.all(14),
+                    ),
+                    onPressed: () async {
+                      hold(true);
+                      await openPrivateChat(
+                        context,
+                        widget.accounts,
+                        item.author.id,
+                      );
+                      if (mounted) hold(false);
+                    },
+                    icon: const Icon(Icons.send_outlined, size: 20),
+                    label: const Text('مراسلة صاحب الستوري'),
+                  ),
+                ],
               ),
       ),
     ],

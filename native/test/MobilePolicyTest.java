@@ -18,6 +18,8 @@ public final class MobilePolicyTest {
         String id="11111111-1111-4111-8111-111111111111";
         check(MobilePolicy.update(true,"alice","alice","chat",id),"foreground chat alert");
         check(MobilePolicy.update(true,"alice","alice","activity",id),"foreground social alert");
+        check(MobilePolicy.update(true,"alice","alice","notice",id),"foreground notice");
+        check(!MobilePolicy.update(true,"alice","bob","notice",id),"notice cannot cross accounts");
         check(!MobilePolicy.update(false,"alice","alice","chat",id),"foreground opt out");
         check(!MobilePolicy.update(true,"alice","bob","chat",id),"foreground old account");
         check(!MobilePolicy.update(true,"alice","alice","call",id),"calls keep their consent path");

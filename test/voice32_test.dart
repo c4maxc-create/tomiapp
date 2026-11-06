@@ -7,6 +7,59 @@ import 'package:tomi_app/src/messaging/voice_note.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets(
+    'microphone diagnostic starts only on request and returns no sendable recording',
+    (t) async {
+      final old = RecordPlatform.instance, fake = RecorderStub(-20);
+      RecordPlatform.instance = fake;
+      addTearDown(() => RecordPlatform.instance = old);
+      const paths = MethodChannel('plugins.flutter.io/path_provider');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(paths, (_) async => '/tmp');
+      addTearDown(() => messenger.setMockMethodCallHandler(paths, null));
+      Object? result = 'not closed';
+      await t.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  result = await showModalBottomSheet<Object?>(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (_) => const VoiceRecorderSheet(diagnostic: true),
+                  );
+                },
+                child: const Text('فحص'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await t.tap(find.text('فحص'));
+      await t.pumpAndSettle();
+      expect(fake.config, isNull);
+      await t.tap(find.text('بدء التسجيل'));
+      for (var i = 0; i < 8; i++)
+        await t.pump(const Duration(milliseconds: 200));
+      await t.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 550)),
+      );
+      await t.tap(find.byKey(const Key('voice-stop')));
+      await t.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await t.pumpAndSettle();
+      await t.ensureVisible(find.text('إنهاء الفحص'));
+      await t.tap(find.text('إنهاء الفحص'));
+      await t.pumpAndSettle();
+      expect(result, isNull);
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+      await t.pump();
+    },
+  );
   for (final db in [-120.0, -20.0])
     testWidgets(
       'voice recorder uses microphone input and ${db < -80 ? "warns before sending a silent capture" : "allows a capture with detected speech"}',

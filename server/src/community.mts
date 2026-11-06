@@ -1,3 +1,4 @@
+import {recordNotice} from './notices.mjs';
 import { randomUUID } from 'node:crypto';
 import { requireContact } from './contact_preferences.mjs';
 import { ApiError } from './security.mjs';
@@ -141,7 +142,7 @@ export function createCommunity(deps: Dependencies) {
                 respond(res, 200, { ok: true });
                 return true;
             }
-            if(p==='/v1/me/support'&&m==='GET'){respond(res,200,await pageRows('tomi_support_tickets','user_id=?',[c.id],url,50));return true;}
+            if(p==='/v1/me/support'&&m==='GET'){const target=url.searchParams.get('targetId');if(target&&!uuid(target))fail(400,'VALIDATION','طلب غير صحيح.');respond(res,200,await pageRows('tomi_support_tickets','user_id=?'+(target?' AND id=?':''),[c.id,...target?[target]:[]],url,50));return true;}
         if (p === '/v1/me/support' && m === 'POST') {
                 await limit('support:' + c.id, 5);
                 const d = fields(await readJson(req), ['subject', 'body', 'requestId']);
@@ -163,10 +164,16 @@ export function createCommunity(deps: Dependencies) {
                 if (!['open', 'answered', 'closed'].includes(String(d.status)) || !Number.isSafeInteger(d.revision))
                     fail(400, 'VALIDATION', 'طلب غير صحيح.');
                 const reply = str(d.reply, 3000);
-                const updated = await db.query('UPDATE tomi_support_tickets SET reply=?,status=?,revision=revision+1,updated_at=? WHERE id=? AND revision=? RETURNING id', [reply, d.status, now(), ticket[1], d.revision]);
-                if (!updated.rows.length)
-                    fail(409, 'CHANGED', 'حدّث الطلب وأعد المحاولة.');
-                respond(res, 200, { ok: true });
+                const recipient=(await db.query('SELECT user_id FROM tomi_support_tickets WHERE id=?',[ticket[1]])).rows[0];
+            if(!recipient)fail(404,'NOT_FOUND','الطلب غير موجود.');
+            await db.transaction(async tx=>{
+                await tx.query('UPDATE tomi_users SET updated_at=updated_at WHERE id=?',[recipient.user_id]);
+                if((await tx.query('SELECT 1 FROM tomi_deleted_accounts WHERE user_id=?',[recipient.user_id])).rows.length)fail(404,'NOT_FOUND','حُذف الحساب.');
+                const updated=await tx.query('UPDATE tomi_support_tickets SET reply=?,status=?,revision=revision+1,updated_at=? WHERE id=? AND revision=? RETURNING revision',[reply,d.status,now(),ticket[1],d.revision]);
+                if(!updated.rows.length)fail(409,'CHANGED','حدّث الطلب وأعد المحاولة.');
+                await recordNotice(tx,{recipientId:String(recipient.user_id),actorId:c.id,kind:'support',targetId:ticket[1],sourceKey:'support:'+ticket[1]+':'+updated.rows[0].revision});
+            });
+            respond(res, 200, { ok: true });
                 return true;
             }
             if (p === '/v1/polls' && m === 'POST') {

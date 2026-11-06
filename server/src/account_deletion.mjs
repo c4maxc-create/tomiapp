@@ -61,8 +61,9 @@ export function createAccountDeletion({database,guard,ownerUserId,readJson,respo
       for(const table of ['tomi_roulette_access','tomi_roulette_daily','tomi_roulette_spins','tomi_contribution_credits'])await db.query('DELETE FROM '+table+' WHERE user_id=?',[row.id]);
       await db.query('DELETE FROM tomi_roulette_requests WHERE actor_id=?',[row.id]);
       for(const table of ['tomi_live_roulette_bets','tomi_live_roulette_requests','tomi_live_roulette_last','tomi_live_roulette_daily','tomi_live_roulette_awards'])await db.query('DELETE FROM '+table+' WHERE user_id=?',[row.id]);
-      for(const table of ['tomi_group_organisation','tomi_chat_organisation','tomi_explore_preferences','tomi_explore_hidden','tomi_support_tickets'])await db.query('DELETE FROM '+table+' WHERE user_id=?',[row.id]);
+      for(const table of ['tomi_content_preferences','tomi_group_organisation','tomi_chat_organisation','tomi_explore_preferences','tomi_explore_hidden','tomi_support_tickets'])await db.query('DELETE FROM '+table+' WHERE user_id=?',[row.id]);
       await db.query('DELETE FROM tomi_contact_exceptions WHERE user_id=? OR target_id=?',[row.id,row.id]);
+      await db.query('DELETE FROM tomi_notices WHERE recipient_id=? OR actor_id=?',[row.id,row.id]);
       await db.query('DELETE FROM tomi_invitations WHERE sender_id=? OR recipient_id=?',[row.id,row.id]);
       await db.query('DELETE FROM tomi_polls WHERE owner_id=?',[row.id]);
       await db.query('DELETE FROM tomi_poll_votes WHERE user_id=?',[row.id]);

@@ -19,7 +19,7 @@ public final class TomiUpdateNotifications {
     static void show(Context context, Map<String,String> data) {
         String account=data.get("accountId"),type=data.get("type");
         android.content.SharedPreferences prefs=context.getSharedPreferences("tomi.mobile",0);
-        String id="chat".equals(type)?data.get("conversationId"):"activity".equals(type)?data.get("activityId"):null;
+        String id="chat".equals(type)?data.get("conversationId"):"activity".equals(type)?data.get("activityId"):"notice".equals(type)?data.get("noticeId"):null;
         if(!MobilePolicy.update(prefs.getBoolean("enabled",false),account,prefs.getString("accountId",null),type,id)) return;
         channels(context);
         android.content.SharedPreferences actions=context.getSharedPreferences("tomi.actions",0);
@@ -30,7 +30,7 @@ public final class TomiUpdateNotifications {
         PendingIntent open=PendingIntent.getActivity(context,0,intent,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
         Notification.Builder builder=Build.VERSION.SDK_INT>=26?new Notification.Builder(context,"tomi_updates"):new Notification.Builder(context);
         builder.setSmallIcon(R.drawable.tomi_notification).setContentTitle("TOMI")
-          .setContentText("chat".equals(type)?"وصلتك رسالة جديدة في TOMI":"عندك تفاعل جديد في TOMI")
+          .setContentText("chat".equals(type)?"وصلتك رسالة جديدة في TOMI":"عندك تنبيه جديد في TOMI")
           .setContentIntent(open).setAutoCancel(true).setVisibility(Notification.VISIBILITY_PRIVATE).setPriority(Notification.PRIORITY_HIGH);
         try {context.getSystemService(NotificationManager.class).notify("update-"+id,902,builder.build());}catch(SecurityException ignored){}
     }

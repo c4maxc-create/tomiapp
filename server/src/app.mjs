@@ -1,3 +1,5 @@
+import {createContentPreferences} from './content_preferences.mjs';
+import {createNotices} from './notices.mjs';
 import {createResumable} from './resumable.mjs';
 import {adminPage} from './admin_page.mts';
 import {createCommunity} from './community.mts';
@@ -143,7 +145,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   const videoPosters=createVideoPosters({database,readJson,respond:json,limit});
   const contactPreferences=createContactPreferences({database,readJson,respond:json,limit});
   const identity=createIdentity({database,readJson,respond:json,limit,userById,usersByIds});
-  const home=createHome({database,storage,readJson,respond:json,limit,userById});
+  const home=createHome({database,storage,accountGate:requestGuard.gate,readJson,respond:json,limit,userById});
   const social = createSocial({database, storage, readJson, respond: json, limit, userById, cleanupPrefix:chatStorage===storage?'tomi/':'tomi/posts/',accountGate:requestGuard.gate});
   const chatMedia=chatStorage===storage?null:createSocial({database,storage:chatStorage,readJson,respond:json,limit,userById,cleanupPrefix:'tomi/chat-images/'});
   const avatars=createAvatars({database,storage,readJson,respond:json,limit,userById});
@@ -155,7 +157,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   const postShares=createPostShares({database,readJson,respond:json,limit,userById,usersByIds,accountGate:requestGuard.gate,chat,social});
   const rooms=createVoiceRooms({database,provider:roomProvider,storage,readJson,respond:json,limit,usersByIds,autoSweep:roomAutoSweep,emit:chat.emit});
   const lives=createLives({database,provider:liveProvider,readJson,respond:json,limit,usersByIds,clock:liveClock,autoTick:liveAutoTick,emit:chat.emit});
-  const contentTools=createContentTools({database,readJson,respond:json,limit,social,emit:chat.emit});
+  const contentTools=createContentTools({database,accountGate:requestGuard.gate,readJson,respond:json,limit,social,emit:chat.emit});
   const calls=createCalls({database,iceProvider,readJson,respond:json,limit,userById,emit:chat.emit,enqueuePush:push.enqueueCall,autoSweep:callAutoSweep});
   const operations=createOperations();
   const experience=createExperience({database,readJson,respond:json,limit,usersByIds,getPost:social.getPost,invalidateSession:chat.invalidateSession,afterRevoke:()=>requestGuard.unbound(async()=>{await calls.sweep();await rooms.sweep();})});
@@ -166,6 +168,8 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   const deletion=createAccountDeletion({database,guard:requestGuard,ownerUserId,storage,chatStorage,readJson,respond:json,limit,session,rooms,calls,chat,dummyHash,autoSweep:deletionAutoSweep,clock:deletionClock});
   const privacy=createPrivacy(privacyConfig);
   const resumable=createResumable({database,storage,chatStorage,readJson,respond:json,limit});
+  const contentPreferences=createContentPreferences({database,readJson,respond:json,limit});
+  const notices=createNotices({database,readJson,respond:json,limit});
   const community=createCommunity({database,readJson,respond:json,limit,role:moderation.role,configured:{calls:!!iceProvider,rooms:!!roomProvider,live:!!liveProvider,media:!!storage}});
   const server = createServer(async (request, response) => {
     operations.track(request,response);
@@ -282,6 +286,8 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       const current = await session(request);
       await requestGuard.run(current,async()=>{
       if(await resumable.handle(request,response,url,current))return;
+      if(await contentPreferences.handle(request,response,url,current))return;
+      if(await notices.handle(request,response,url,current))return;
       if(await community.handle(request,response,url,current))return;
       if(await experience.handle(request,response,url,current))return;
       if(await videoPosters.handle(request,response,url,current))return;

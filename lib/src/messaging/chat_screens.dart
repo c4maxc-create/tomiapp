@@ -1175,40 +1175,86 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
   }
 
   Future<void> chooseWallpaper() async {
+    var preview = thread.wallpaper;
     final chosen = await showModalBottomSheet<int>(
       context: context,
       showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library_outlined),
-                title: const Text('صورة من الاستوديو'),
-                onTap: () => Navigator.pop(context, -1),
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) => SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('معاينة خلفية المحادثة'),
+                  const SizedBox(height: 12),
+                  Container(
+                    constraints: const BoxConstraints(minHeight: 150),
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: [
+                        Theme.of(context).scaffoldBackgroundColor,
+                        const Color(0xff21172f),
+                        const Color(0xff102b3b),
+                        const Color(0xff142d25),
+                        const Color(0xff35202f),
+                        const Color(0xff17191d),
+                      ][preview],
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Chip(label: Text('هلا، شلونك؟')),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Chip(label: Text('تمام، هاي معاينة الخلفية')),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 6,
+                    children: [
+                      for (final e in [
+                        'الافتراضية',
+                        'ليل بنفسجي',
+                        'محيط',
+                        'غابة',
+                        'وردي',
+                        'فحمي',
+                      ].asMap().entries)
+                        ChoiceChip(
+                          label: Text(e.value),
+                          selected: preview == e.key,
+                          onSelected: (_) => update(() => preview = e.key),
+                        ),
+                    ],
+                  ),
+                  const Text('محفوظة على جهازك لهذا الحساب فقط'),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context, preview),
+                    child: const Text('حفظ الخلفية'),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => Navigator.pop(context, -1),
+                    icon: const Icon(Icons.photo_library_outlined),
+                    label: const Text('صورة من الاستوديو'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('إلغاء'),
+                  ),
+                ],
               ),
-              const ListTile(
-                title: Text('خلفية هذه المحادثة'),
-                subtitle: Text('محفوظة على جهازك لهذا الحساب فقط'),
-              ),
-              for (final e in [
-                'الافتراضية',
-                'ليل بنفسجي',
-                'محيط',
-                'غابة',
-                'وردي',
-                'فحمي',
-              ].asMap().entries)
-                ListTile(
-                  title: Text(e.value),
-                  selected: thread.wallpaper == e.key,
-                  trailing: thread.wallpaper == e.key
-                      ? const Icon(Icons.check_circle)
-                      : null,
-                  onTap: () => Navigator.pop(context, e.key),
-                ),
-            ],
+            ),
           ),
         ),
       ),

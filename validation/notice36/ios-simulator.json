@@ -1,0 +1,83 @@
+{
+  "run": 42298221051,
+  "source": "0c6ef09",
+  "conclusion": "success",
+  "steps": [
+    {
+      "name": "Set up job",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run actions/checkout@v6",
+      "conclusion": "success"
+    },
+    {
+      "name": "Select Swift toolchain required by native video plugin",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run actions/setup-dotnet@v5",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run subosito/flutter-action@v2",
+      "conclusion": "success"
+    },
+    {
+      "name": "Configure public app endpoint",
+      "conclusion": "success"
+    },
+    {
+      "name": "Generate native iOS project and Swift bridge",
+      "conclusion": "success"
+    },
+    {
+      "name": "Compile actual CSharp game interface",
+      "conclusion": "success"
+    },
+    {
+      "name": "Resolve native dependencies",
+      "conclusion": "success"
+    },
+    {
+      "name": "Analyze shared app",
+      "conclusion": "success"
+    },
+    {
+      "name": "Compile Swift and plugins for iPhone Simulator",
+      "conclusion": "success"
+    },
+    {
+      "name": "Report bounded iOS compiler diagnostics",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Launch the simulator app and capture its first screen",
+      "conclusion": "success"
+    },
+    {
+      "name": "Package simulator application",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run actions/upload-artifact@v4",
+      "conclusion": "success"
+    },
+    {
+      "name": "Post Run subosito/flutter-action@v2",
+      "conclusion": "success"
+    },
+    {
+      "name": "Post Run actions/setup-dotnet@v5",
+      "conclusion": "success"
+    },
+    {
+      "name": "Post Run actions/checkout@v6",
+      "conclusion": "success"
+    },
+    {
+      "name": "Complete job",
+      "conclusion": "success"
+    }
+  ]
+}

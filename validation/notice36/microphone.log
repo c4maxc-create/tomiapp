@@ -1,0 +1,5 @@
+00:00 +0: loading /workspace/tomiapp/test/voice32_test.dart
+00:00 +0: microphone diagnostic starts only on request and returns no sendable recording
+00:02 +1: voice recorder uses microphone input and warns before sending a silent capture
+00:03 +2: voice recorder uses microphone input and allows a capture with detected speech
+00:04 +3: All tests passed!

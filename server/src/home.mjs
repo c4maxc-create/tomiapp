@@ -1,3 +1,4 @@
+import {recordMentions} from './content_preferences.mjs';
 import {randomUUID} from 'node:crypto';
 import {ApiError,digest,isUniqueConflict,validateUsername} from './security.mjs';
 import {uploadWithDigest,validUuid} from './media_intents.mjs';
@@ -27,7 +28,7 @@ export async function recordActivity(db,{recipientId,actorId,kind,targetId,sourc
 }
 function fields(d,allowed){if(Object.keys(d).some(k=>!allowed.includes(k)))throw new ApiError(400,'VALIDATION','طلب غير صحيح.');}
 function size(url){const raw=url.searchParams.get('limit')??'24';if(!/^\d{1,2}$/.test(raw)||+raw<1||+raw>50)throw new ApiError(400,'VALIDATION','حجم الصفحة غير صحيح.');return +raw;}
-export function createHome({database,storage,readJson,respond,limit,userById}) {
+export function createHome({database,storage,accountGate,readJson,respond,limit,userById}) {
  function story(r,viewer){return {id:r.id,text:r.body,createdAt:r.created_at,expiresAt:r.expires_at,
  author:{id:r.user_id,username:r.username,displayName:r.display_name,avatarPreset:r.avatar_preset,...avatarFields(r,storage)},
  image:r.object_key?{url:storage?.readUrl(r.object_key)??null,width:Number(r.width),height:Number(r.height)}:null,
@@ -68,6 +69,7 @@ export function createHome({database,storage,readJson,respond,limit,userById}) {
    if(media){const changed=await db.query("UPDATE "+table+" SET state='attached',width=?,height=?"+(video?',duration_ms=?':'')+" WHERE id=? AND user_id=? AND state='pending' AND expires_at>? RETURNING id",[dimensions.width,dimensions.height,...(video?[dimensions.durationMs]:[]),media,viewer,stamp()]);if(!changed.rows.length)throw new ApiError(409,'UPLOAD_INVALID','الملف سبق استعماله.');}
    const createdAt=stamp(),expiresAt=new Date(Date.parse(createdAt)+86400000).toISOString();
    await db.query('INSERT INTO tomi_stories(id,user_id,request_id,body,image_upload_id,video_upload_id,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?)',[id,viewer,d.requestId,text,image,video,createdAt,expiresAt]);
+   await recordMentions(db,{actor:viewer,text,kind:'mention_story',targetId:id,audience,gate:accountGate});
    await db.query('INSERT INTO tomi_story_options(story_id,audience) VALUES(?,?)',[id,audience]);
    await db.query('INSERT INTO tomi_story_receipts(user_id,request_id,story_id,payload_hash,created_at) VALUES(?,?,?,?,?)',[viewer,d.requestId,id,hash,stamp()]);
   });}catch(e){if(!isUniqueConflict(e)&&e.code!=='UPLOAD_INVALID')throw e;const replay=await prior();if(!replay)throw e;id=replay.id;}

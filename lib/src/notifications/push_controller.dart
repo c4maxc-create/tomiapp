@@ -126,6 +126,7 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> Function(String threadId, String accountId)? onOpen;
   Future<void> Function(String callId, String accountId)? onOpenCall;
   Future<void> Function(String accountId)? onOpenActivity;
+  Future<void> Function(String accountId, String noticeId)? onOpenNotice;
   Future<void> Function(String accountId, String url)? onOpenTomiLink;
   Future<void> Function(String accountId, String activityId)?
   onOpenActivityItem;
@@ -217,7 +218,7 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
           if (message.data['type'] == 'activity')
             unawaited(accounts.home.loadActivity());
           if (defaultTargetPlatform == TargetPlatform.android &&
-              ['chat', 'activity'].contains(message.data['type'])) {
+              ['chat', 'activity', 'notice'].contains(message.data['type'])) {
             unawaited(
               notificationChannel
                   .invokeMethod<void>('presentNotification', {
@@ -493,6 +494,18 @@ class PushController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void handleOpen(Map<String, dynamic> data) {
+    if (!disposed &&
+        identity != null &&
+        data['type'] == 'notice' &&
+        data['accountId'] == accounts.user?.id) {
+      final id = data['noticeId'];
+      if (id is String && RegExp(r'^[a-f0-9-]{36}$').hasMatch(id)) {
+        final work = onOpenNotice?.call(accounts.user!.id, id);
+        if (work != null) unawaited(work.catchError((Object _) {}));
+      }
+      return;
+    }
+
     if (!disposed &&
         identity != null &&
         data['type'] == 'activity' &&

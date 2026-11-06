@@ -8,6 +8,7 @@ import '../accounts/account_widgets.dart';
 import '../widgets.dart';
 import 'identity_controller.dart';
 import 'identity_models.dart';
+import 'identity_avatar.dart';
 
 class IdentitySummary extends StatelessWidget {
   const IdentitySummary(this.user, {super.key, this.onCustomize});
@@ -177,6 +178,62 @@ class _IdentityStudioPageState extends State<IdentityStudioPage> {
       );
     },
   );
+  Future<void> previewStyle(String key, IdentityStyle style) async {
+    final user = widget.accounts.user;
+    if (user == null) return;
+    final session = widget.accounts.sessionRevision;
+    final identity = UserIdentity({
+      ...user.identity.data,
+      if (key == 'frameId') 'roomFrameId': style.id,
+      if (key == 'frameId') 'roomFrameExpiresAt': null,
+      if (key == 'entranceId') 'roomEntranceId': style.id,
+      key: style.id,
+    });
+    final approved = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(style.name, style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 24),
+              IdentityDecoration(
+                identity: identity,
+                size: 120,
+                name: user.displayName,
+                child: AccountAvatar(user, size: 120).base(context),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                key == 'entranceId'
+                    ? 'معاينة الهوية؛ تأثير الدخول يظهر عند دخول الغرفة.'
+                    : 'معاينة قبل الحفظ',
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('حفظ الاختيار'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('إلغاء'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (approved == true &&
+        mounted &&
+        widget.accounts.user?.id == user.id &&
+        widget.accounts.sessionRevision == session) {
+      await model.select(key, style.id);
+    }
+  }
+
   Widget section(
     String title,
     String group,
@@ -220,7 +277,7 @@ class _IdentityStudioPageState extends State<IdentityStudioPage> {
                     style.level > identity.level ||
                     style.id == selected
                 ? null
-                : () => model.select(key, style.id),
+                : () => previewStyle(key, style),
           ),
       ],
     ),

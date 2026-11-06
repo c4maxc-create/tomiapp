@@ -483,6 +483,14 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(rose);
       await tester.pumpAndSettle();
+      expect(api.identityWrites, isEmpty);
+      await tester.tap(find.text('إلغاء'));
+      await tester.pumpAndSettle();
+      expect(api.identityWrites, isEmpty);
+      await tester.tap(rose);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('حفظ الاختيار'));
+      await tester.pumpAndSettle();
       expect(a.user!.identity.frameId, 'rose');
       expect(tester.takeException(), isNull);
       await tester.drag(find.byType(ListView).first, const Offset(0, 1000));

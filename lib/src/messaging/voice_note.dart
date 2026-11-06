@@ -239,10 +239,11 @@ class VoiceRecorderSheet extends StatefulWidget {
   const VoiceRecorderSheet({
     super.key,
     this.autoStart = false,
+    this.diagnostic = false,
     this.onRecording,
     this.cancel,
   });
-  final bool autoStart;
+  final bool autoStart, diagnostic;
   final ValueChanged<bool>? onRecording;
   final ValueNotifier<bool>? cancel;
   @override
@@ -435,6 +436,10 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
     setState(() => busy = true);
     try {
       await playback.stop();
+      if (widget.diagnostic) {
+        if (mounted) Navigator.pop(context);
+        return;
+      }
       final file = File(path!);
       if (await file.length() > 6 * 1024 * 1024) throw StateError('Too large');
       final bytes = await file.readAsBytes();
@@ -480,13 +485,15 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'رسالة صوتية',
+          Text(
+            widget.diagnostic ? 'فحص المايك على جهازك' : 'رسالة صوتية',
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'التسجيل يبدأ فورًا. اسحب لليسار للإلغاء، أو أوقفه وراجعه قبل الإرسال. الحد 5 دقائق.',
+          Text(
+            widget.diagnostic
+                ? 'اضغط بدء التسجيل، احچي كم كلمة، أوقفه واسمع المعاينة. التسجيل لا يُرسل وينحذف عند إغلاق الفحص.'
+                : 'التسجيل يبدأ فورًا. اسحب لليسار للإلغاء، أو أوقفه وراجعه قبل الإرسال. الحد 5 دقائق.',
           ),
           GestureDetector(
             onHorizontalDragStart: (_) => cancelDrag = 0,
@@ -533,7 +540,11 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
               title: const Text(
                 'لم نرصد صوتًا واضحًا. راجع المايك أو أعد التسجيل.',
               ),
-              subtitle: const Text('إرسال رغم التنبيه'),
+              subtitle: Text(
+                widget.diagnostic
+                    ? 'إنهاء الفحص رغم التنبيه'
+                    : 'إرسال رغم التنبيه',
+              ),
               controlAffinity: ListTileControlAffinity.leading,
             ),
           if (path != null && !recording && durationMs >= 500)
@@ -567,7 +578,9 @@ class _VoiceRecorderSheetState extends State<VoiceRecorderSheet>
                   key: const Key('voice-confirm'),
                   onPressed: busy || (silent && !allowSilent) ? null : confirm,
                   icon: const Icon(Icons.send),
-                  label: const Text('إرسال التسجيل'),
+                  label: Text(
+                    widget.diagnostic ? 'إنهاء الفحص' : 'إرسال التسجيل',
+                  ),
                 ),
               TextButton(
                 onPressed: busy ? null : () => Navigator.pop(context),

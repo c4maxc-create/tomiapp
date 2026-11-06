@@ -1,7 +1,8 @@
+import {recordMentions} from './content_preferences.mjs';
 import {ApiError} from './security.mjs';
 const uuid=/^[a-f0-9-]{36}$/, fail=(s,c,t)=>{throw new ApiError(s,c,t);};
 const fields=(d,keys)=>{if(Object.keys(d).some(k=>!keys.includes(k)))fail(400,'VALIDATION','طلب غير صحيح.');};
-export function createContentTools({database,readJson,respond,limit,social,emit}){
+export function createContentTools({database,accountGate,readJson,respond,limit,social,emit}){
  async function access(db,viewer,kind,tid,mid,lock=false){
   const group=kind==='groups',table=group?'tomi_group_messages':'tomi_chat_messages',column=group?'group_id':'thread_id';
   if(lock)await db.query(group?'UPDATE tomi_groups SET updated_at=updated_at WHERE id=?':'UPDATE tomi_chat_threads SET updated_at=updated_at WHERE id=?',[tid]);
@@ -21,6 +22,7 @@ export function createContentTools({database,readJson,respond,limit,social,emit}
     const p=(await db.query('SELECT * FROM tomi_posts WHERE id=?',[post[1]])).rows[0];if(!p)fail(404,'POST_NOT_FOUND','المنشور غير متاح.');if(p.user_id!==viewer)fail(403,'FORBIDDEN','تعديل منشوراتك فقط.');
     const old=await social.getPost(post[1],viewer,db);if(!d.text.trim()&&!old.image&&!old.video)fail(400,'VALIDATION','المنشور فارغ.');
     if(old.revision!==d.expectedRevision)fail(409,'POST_CHANGED','تغيّر المنشور؛ حدّثه ثم عدّل.');
+    await recordMentions(db,{actor:viewer,text:d.text.trim(),kind:'mention_post',targetId:post[1],gate:accountGate});
     await db.query('UPDATE tomi_posts SET body=? WHERE id=?',[d.text.trim(),post[1]]);
     await db.query('INSERT INTO tomi_post_options(post_id,audience,revision,edited_at) VALUES(?,?,1,?) ON CONFLICT(post_id) DO UPDATE SET audience=excluded.audience,revision=tomi_post_options.revision+1,edited_at=excluded.edited_at',[post[1],d.audience,new Date().toISOString()]);
    });respond(res,200,{post:await social.getPost(post[1],viewer)});return true;

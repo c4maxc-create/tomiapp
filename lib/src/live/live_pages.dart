@@ -1,3 +1,4 @@
+import '../experience/send_invitation_page.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
@@ -666,6 +667,21 @@ class _LiveRoomPageState extends State<LiveRoomPage>
           title: Text(live['title'] as String),
           leading: IconButton(onPressed: leave, icon: const Icon(Icons.close)),
           actions: [
+            if (mine)
+              IconButton(
+                tooltip: 'دعوة صديق لمشاهدة البث',
+                icon: const Icon(Icons.person_add_alt_1),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => SendInvitationPage(
+                      accounts: widget.accounts,
+                      kind: 'live',
+                      targetId: id,
+                    ),
+                  ),
+                ),
+              ),
             if (mine)
               IconButton(
                 onPressed: invite,

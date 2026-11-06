@@ -1,3 +1,4 @@
+import '../messaging/voice_note.dart';
 import '../gaming/csharp_games_page.dart';
 import '../voice_rooms/room_screens.dart';
 import '../live/live_pages.dart';
@@ -22,6 +23,8 @@ class CommunityToolsPage extends StatelessWidget {
           'diagnostics': 'فحص الاتصال والهاتف',
           'support': 'الدعم ومتابعة الطلبات',
           'invitations': 'مركز الدعوات',
+          'notices': 'تنبيهات الدعم والمحتوى',
+          'contentPrivacy': 'التعليقات والإشارات والكلمات',
           'polls': 'التصويت والاستطلاعات',
           'explore': 'تخصيص الاستكشاف',
           'exceptions': 'استثناءات التواصل',
@@ -32,6 +35,8 @@ class CommunityToolsPage extends StatelessWidget {
             leading: Icon(switch (entry.key) {
               'diagnostics' => Icons.health_and_safety_outlined,
               'support' => Icons.support_agent,
+              'notices' => Icons.notifications_none,
+              'contentPrivacy' => Icons.comment_outlined,
               'polls' => Icons.poll_outlined,
               'explore' => Icons.explore_outlined,
               'exceptions' => Icons.privacy_tip_outlined,
@@ -63,11 +68,13 @@ class CommunityPage extends StatefulWidget {
     required this.title,
     this.roomId,
     this.canCreate = true,
+    this.targetId,
   });
   final AccountController accounts;
   final String kind, title;
   final String? roomId;
   final bool canCreate;
+  final String? targetId;
   @override
   State<CommunityPage> createState() => _CommunityPageState();
 }
@@ -83,6 +90,8 @@ class _CommunityPageState extends State<CommunityPage> {
   final first = TextEditingController(), second = TextEditingController();
   String get path => switch (widget.kind) {
     'support' => '/v1/me/support',
+    'notices' => '/v1/me/notices',
+    'contentPrivacy' => '/v1/me/content-preferences',
     'invitations' => '/v1/me/invitations',
     'adminSupport' => '/v1/admin/support',
     'polls' => '/v1/polls',
@@ -109,6 +118,7 @@ class _CommunityPageState extends State<CommunityPage> {
           if (widget.kind == 'polls' && widget.roomId != null)
             'roomId': widget.roomId!,
           if (more) 'cursor': data!['nextCursor'] as String,
+          if (widget.targetId != null) 'targetId': widget.targetId!,
         },
       );
       if (!mounted || e != epoch) return;
@@ -134,6 +144,8 @@ class _CommunityPageState extends State<CommunityPage> {
       setState(() {
         data = result;
         error = null;
+        if (widget.kind == 'contentPrivacy')
+          first.text = (result['words'] as List).join('، ');
         if (widget.kind == 'explore') {
           first.text = (result['keywords'] as List).join('، ');
           second.text = (result['topics'] as List).join('، ');
@@ -437,6 +449,50 @@ class _CommunityPageState extends State<CommunityPage> {
                   ),
                 ),
             ],
+            if (data != null && widget.kind == 'contentPrivacy') ...[
+              const Text(
+                'تطبق على تعليقات الآخرين في منشوراتك وعلى الإشارة إلى يوزرك. الحظر يبقى أقوى من هذه الخيارات.',
+              ),
+              for (final field in const {
+                'comments': 'من يعلق على منشوراتي؟',
+                'mentions': 'من يذكرني بالمنشورات والستوري؟',
+              }.entries)
+                DropdownButtonFormField<String>(
+                  key: ValueKey('${field.key}-${data![field.key]}'),
+                  initialValue: data![field.key] as String,
+                  isExpanded: true,
+                  decoration: InputDecoration(labelText: field.value),
+                  items: const [
+                    DropdownMenuItem(value: 'everyone', child: Text('الجميع')),
+                    DropdownMenuItem(
+                      value: 'following',
+                      child: Text('الأشخاص الذين أتابعهم'),
+                    ),
+                    DropdownMenuItem(value: 'nobody', child: Text('لا أحد')),
+                  ],
+                  onChanged: busy
+                      ? null
+                      : (v) => setState(() => data![field.key] = v),
+                ),
+              TextField(
+                controller: first,
+                maxLines: 3,
+                maxLength: 1200,
+                decoration: const InputDecoration(
+                  labelText: 'كلمات تمنعها بتعليقات الآخرين، افصل بفاصلة',
+                ),
+              ),
+              FilledButton(
+                onPressed: busy
+                    ? null
+                    : () => send('PUT', path, {
+                        'comments': data!['comments'],
+                        'mentions': data!['mentions'],
+                        'words': words(first.text),
+                      }),
+                child: const Text('حفظ'),
+              ),
+            ],
             if (widget.kind == 'gifts')
               const Card(
                 child: Padding(
@@ -460,7 +516,11 @@ class _CommunityPageState extends State<CommunityPage> {
               ),
             if (items.isEmpty &&
                 data != null &&
-                !['diagnostics', 'explore'].contains(widget.kind))
+                ![
+                  'diagnostics',
+                  'explore',
+                  'contentPrivacy',
+                ].contains(widget.kind))
               const Padding(
                 padding: EdgeInsets.all(24),
                 child: Text('لا توجد عناصر بعد.', textAlign: TextAlign.center),
@@ -472,6 +532,27 @@ class _CommunityPageState extends State<CommunityPage> {
   }
 
   Widget entry(Map<String, dynamic> item) {
+    if (widget.kind == 'notices')
+      return ListTile(
+        leading: Icon(
+          item['read'] == true
+              ? Icons.drafts_outlined
+              : Icons.mark_email_unread_outlined,
+        ),
+        title: Text(switch (item['kind']) {
+          'support' => 'رد جديد من الدعم',
+          'mention_post' => 'إشارة في منشور',
+          'mention_story' => 'إشارة في ستوري',
+          'schedule' => 'موعد غرفة',
+          _ => 'تنبيه جديد',
+        }),
+        subtitle: Text(item['createdAt'] as String),
+        onTap: () => widget.accounts.push.onOpenNotice?.call(
+          widget.accounts.user!.id,
+          item['id'] as String,
+        ),
+      );
+
     if (widget.kind == 'invitations')
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -696,6 +777,21 @@ class _CommunityPageState extends State<CommunityPage> {
       const Text(
         'فحص الأذونات لا يسجّل صوتاً ولا يفتح الكاميرا. وجود إعداد الخدمة لا يثبت اتصالها.',
       ),
+      FilledButton.icon(
+        icon: const Icon(Icons.mic_outlined),
+        label: const Text('تسجيل وفحص المايك محلياً'),
+        onPressed: widget.accounts.liveAudioBusy
+            ? null
+            : () => showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                isDismissible: false,
+                enableDrag: false,
+                builder: (_) => const VoiceRecorderSheet(diagnostic: true),
+              ),
+      ),
+      if (widget.accounts.liveAudioBusy)
+        const Text('أنهِ المكالمة أو غادر الغرفة قبل فحص المايك.'),
       for (final key in const {
         'microphone': 'الميكروفون',
         'camera': 'الكاميرا',

@@ -335,6 +335,30 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(exactActivity, peerId);
     expect(opened, 1);
+    String? exactNotice;
+    push.onOpenNotice = (id, notice) async {
+      expect(id, a.user!.id);
+      exactNotice = notice;
+    };
+    push.handleOpen({
+      'type': 'notice',
+      'accountId': peerId,
+      'noticeId': peerId,
+    });
+    push.handleOpen({
+      'type': 'notice',
+      'accountId': a.user!.id,
+      'noticeId': 'bad',
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(exactNotice, isNull);
+    push.handleOpen({
+      'type': 'notice',
+      'accountId': a.user!.id,
+      'noticeId': peerId,
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(exactNotice, peerId);
   });
   testWidgets(
     'avatar opens an active story and no-story avatar opens its full picture',

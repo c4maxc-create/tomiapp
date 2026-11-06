@@ -1,3 +1,4 @@
+import {createNoticePush} from './notices.mjs';
 import {activityVisible} from './home.mjs';
 import {createPrivateKey,sign} from 'node:crypto';
 import {ApiError,digest} from './security.mjs';
@@ -10,9 +11,10 @@ export function fcmFromEnvironment(env=process.env,{fetcher=fetch}={}){
  async function accessToken(){if(cached&&Date.now()<expires)return cached;if(refresh)return refresh;
   refresh=(async()=>{const time=Math.floor(Date.now()/1000),encode=x=>Buffer.from(JSON.stringify(x)).toString('base64url'),unsigned=encode({alg:'RS256',typ:'JWT'})+'.'+encode({iss:key.email,scope:'https://www.googleapis.com/auth/firebase.messaging',aud:'https://oauth2.googleapis.com/token',iat:time,exp:time+3600}),jwt=unsigned+'.'+sign('RSA-SHA256',Buffer.from(unsigned),key.privateKey).toString('base64url');const r=await fetcher('https://oauth2.googleapis.com/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion:jwt}),signal:AbortSignal.timeout(10000),redirect:'error'});if(!r.ok)throw Error('FCM_AUTH');const data=await r.json();if(typeof data.access_token!=='string'||!Number.isFinite(data.expires_in))throw Error('FCM_AUTH');cached=data.access_token;expires=Date.now()+Math.max(0,data.expires_in-60)*1000;return cached;})();try{return await refresh;}finally{refresh=null;}
  }
- return async({token,threadId,recipientId,callId,callProtocol=1,bindingId,expiresAt,kind='audio',cancel=false,activityId,notificationKind})=>{
+ return async({token,threadId,recipientId,callId,callProtocol=1,bindingId,expiresAt,kind='audio',cancel=false,activityId,noticeId,notificationKind})=>{
   const message={token,notification:{title:'TOMI',body:'وصلتك رسالة جديدة في TOMI'},data:{type:'chat',conversationId:threadId,accountId:recipientId},android:{priority:'HIGH',ttl:'300s',collapse_key:'tomi-private-chat',notification:{tag:'chat-'+threadId,channel_id:'tomi_updates',sound:'default'}},apns:{headers:{'apns-expiration':String(Math.floor(Date.now()/1000)+300),'apns-collapse-id':threadId},payload:{aps:{sound:'default'}}}};
   if(activityId){message.notification.body=({follow:'عندك متابع جديد في TOMI',like:'إعجاب جديد بمنشورك في TOMI',comment:'تعليق جديد على منشورك في TOMI'})[notificationKind]||'عندك إشعار جديد في TOMI';message.data={type:'activity',activityId,accountId:recipientId};message.android.collapse_key='tomi-activity';message.android.notification.tag='activity-'+activityId;message.apns.headers['apns-collapse-id']=activityId;}
+  if(noticeId){message.notification.body=notificationKind==='support'?'وصلك رد من دعم TOMI':'عندك تنبيه جديد في TOMI';message.data={type:'notice',noticeId,accountId:recipientId};message.android.collapse_key='tomi-notice';message.android.notification.tag='notice-'+noticeId;message.apns.headers['apns-collapse-id']=noticeId;}
   if(callId){message.notification.body='مكالمة واردة في TOMI';message.data={type:'call',callId,conversationId:threadId,accountId:recipientId};message.android.ttl='30s';message.android.collapse_key='tomi-incoming-call';message.android.notification.tag='call-'+callId;message.android.notification.sound='default';message.apns.headers['apns-expiration']=String(Math.floor(Date.now()/1000)+30);message.apns.headers['apns-collapse-id']=callId;}
   if(callId && callProtocol===2) {
     // Android native CallStyle receives data-only pushes. Legacy clients keep
@@ -26,6 +28,7 @@ export function fcmFromEnvironment(env=process.env,{fetcher=fetch}={}){
  };
 }
 export function createPush({database,sender,readJson,respond,limit,autoFlush=true}){
+ const noticePush=createNoticePush({database,sender});
  const configured=typeof sender==='function';let running=false,closed=false;
  async function settings(viewer){const{rows}=await database.query('SELECT enabled FROM tomi_push_settings WHERE user_id=?',[viewer]);return{configured,enabled:rows[0]?Number(rows[0].enabled)===1:true};}
  async function enqueue(db,{messageId,recipientId,threadId}){if(configured)await db.query('INSERT INTO tomi_push_outbox(message_id,recipient_id,thread_id,next_at,created_at) VALUES(?,?,?,?,?) ON CONFLICT(message_id) DO NOTHING',[messageId,recipientId,threadId,stamp(),stamp()]);}
@@ -118,7 +121,7 @@ export function createPush({database,sender,readJson,respond,limit,autoFlush=tru
    }catch{const n=Number(job.attempts)+1;await database.query('UPDATE tomi_group_push SET state=?,attempts=?,next_at=?,lease_until=? WHERE message_id=? AND recipient_id=?',[n>=6?'failed':'pending',n,stamp(Math.min(300000,2**n*1000)),'',job.message_id,job.recipient_id]);}
   }
  }finally{groupRunning=false;}}
- async function flush(){await Promise.all([flushCalls(),flushMessages(),flushActivity(),flushGroups()]);await flushCancelledCalls();}
+ async function flush(){await Promise.all([flushCalls(),flushMessages(),flushActivity(),flushGroups(),noticePush.flush()]);await flushCancelledCalls();}
  const timer=configured&&autoFlush?setInterval(()=>void flush().catch(()=>console.error('Push worker deferred')),2000):null;timer?.unref();
- return{configured,handle,enqueue,enqueueCall,enqueueGroup,flush,close(){closed=true;if(timer)clearInterval(timer);},async cleanup(){await database.query("DELETE FROM tomi_group_push WHERE created_at<? AND state<>'pending'",[stamp(-7*86400000)]);await database.query("DELETE FROM tomi_call_push_cancel WHERE created_at<? AND state<>'pending'",[stamp(-7*86400000)]);await database.query("DELETE FROM tomi_call_push_outbox WHERE created_at<? AND state<>'pending'",[stamp(-7*86400000)]);await database.query("DELETE FROM tomi_push_outbox WHERE created_at<? AND state<>'pending'",[stamp(-7*86400000)]);await database.query('DELETE FROM tomi_avatar_requests WHERE created_at<?',[stamp(-30*86400000)]);}};
+ return{configured,handle,enqueue,enqueueCall,enqueueGroup,flush,close(){closed=true;noticePush.close();if(timer)clearInterval(timer);},async cleanup(){await noticePush.cleanup();await database.query("DELETE FROM tomi_group_push WHERE created_at<? AND state<>'pending'",[stamp(-7*86400000)]);await database.query("DELETE FROM tomi_call_push_cancel WHERE created_at<? AND state<>'pending'",[stamp(-7*86400000)]);await database.query("DELETE FROM tomi_call_push_outbox WHERE created_at<? AND state<>'pending'",[stamp(-7*86400000)]);await database.query("DELETE FROM tomi_push_outbox WHERE created_at<? AND state<>'pending'",[stamp(-7*86400000)]);await database.query('DELETE FROM tomi_avatar_requests WHERE created_at<?',[stamp(-30*86400000)]);}};
 }

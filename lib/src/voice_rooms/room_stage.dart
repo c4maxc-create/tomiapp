@@ -138,6 +138,26 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
               runSpacing: 14,
               children: [
                 for (final item in <(IconData, String, VoidCallback)>[
+                  if (c.me?.role == 'owner')
+                    (
+                      Icons.person_add_alt_1,
+                      'دعوة صديق',
+                      () {
+                        final room = c.active;
+                        Navigator.pop(sheet);
+                        if (room != null)
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => SendInvitationPage(
+                                accounts: c.accounts,
+                                kind: 'room',
+                                targetId: room.id,
+                              ),
+                            ),
+                          );
+                      },
+                    ),
                   (
                     Icons.qr_code_2,
                     'مشاركة الغرفة',

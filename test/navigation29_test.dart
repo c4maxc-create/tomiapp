@@ -75,6 +75,11 @@ void main() {
         await t.pumpAndSettle();
         await t.tap(find.text('محيط'));
         await t.pumpAndSettle();
+        expect(thread.wallpaper, 0);
+        await t.ensureVisible(find.text('حفظ الخلفية'));
+        await t.pumpAndSettle();
+        await t.tap(find.text('حفظ الخلفية'));
+        await t.pumpAndSettle();
         expect(thread.wallpaper, 2);
         final saved = await account.draftStore.read(
           thread.savedOwner!,

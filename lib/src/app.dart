@@ -1,3 +1,7 @@
+import 'social/story_screens.dart';
+import 'social/home_controller.dart';
+import 'social/social_models.dart';
+import 'experience/community_pages.dart';
 import 'experience/share_code_page.dart';
 import 'gaming/csharp_games_page.dart';
 import 'experience/performance_monitor.dart';
@@ -74,6 +78,7 @@ class _TomiAppState extends State<TomiApp> {
     accounts?.addListener(accountChanged);
     if (accounts != null) {
       accounts!.calls.onShow = showCall;
+      accounts!.push.onOpenNotice = openNotice;
       accounts!.push.onOpenTomiLink = openTomiLink;
       accounts!.push.onOpen = openPushChat;
       accounts!.push.onOpenCall = openPushCall;
@@ -112,6 +117,68 @@ class _TomiAppState extends State<TomiApp> {
             }),
       );
     });
+  }
+
+  Future<void> openNotice(String accountId, String id) async {
+    final a = accounts, nav = navigator.currentState;
+    if (a?.user?.id != accountId || nav == null || !mounted) return;
+    final session = a!.sessionRevision;
+    try {
+      final d = await a.chatRequest('GET', '/v1/me/notices/$id'),
+          notice = d['notice'] as Map;
+      await a.chatRequest('PUT', '/v1/me/notices/$id', body: {});
+      if (!mounted || a.user?.id != accountId || a.sessionRevision != session)
+        return;
+      if (notice['kind'] == 'mention_post') {
+        final p = await a.chatRequest('GET', '/v1/posts/${notice['targetId']}');
+        if (mounted && a.user?.id == accountId && a.sessionRevision == session)
+          await nav.push(
+            MaterialPageRoute<void>(
+              builder: (_) => SocialPostPage(
+                accounts: a,
+                initialPost: SocialPost.fromJson(
+                  (p['post'] as Map).cast<String, dynamic>(),
+                ),
+              ),
+            ),
+          );
+      } else if (notice['kind'] == 'mention_story') {
+        final data = await a.chatRequest(
+          'GET',
+          '/v1/stories/${notice['targetId']}',
+        );
+        if (!mounted || a.user?.id != accountId || a.sessionRevision != session)
+          return;
+        final story = StoryItem((data['story'] as Map).cast<String, dynamic>());
+        await nav.push(
+          MaterialPageRoute<void>(
+            builder: (_) => StoryViewerPage(
+              accounts: a,
+              groups: [
+                StoryGroup(author: story.author, stories: [story]),
+              ],
+            ),
+          ),
+        );
+      } else
+        await nav.push(
+          MaterialPageRoute<void>(
+            builder: (_) => CommunityPage(
+              accounts: a,
+              kind: notice['kind'] == 'support' ? 'support' : 'notices',
+              targetId: notice['kind'] == 'support'
+                  ? notice['targetId'] as String
+                  : null,
+              title: notice['kind'] == 'support' ? 'ردود الدعم' : 'التنبيهات',
+            ),
+          ),
+        );
+    } on AccountFailure catch (f) {
+      if (mounted && a.user?.id == accountId) showNote(nav.context, f.message);
+    } catch (_) {
+      if (mounted && a.user?.id == accountId)
+        showNote(nav.context, 'تعذّر فتح التنبيه.');
+    }
   }
 
   Future<void> openTomiLink(String accountId, String url) async {
@@ -356,6 +423,7 @@ class _TomiAppState extends State<TomiApp> {
   void dispose() {
     accounts?.removeListener(accountChanged);
     if (accounts != null) {
+      accounts!.push.onOpenNotice = null;
       accounts!.push.onOpenTomiLink = null;
       accounts!.push.onOpen = null;
       accounts!.push.onOpenCall = null;
