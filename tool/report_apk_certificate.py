@@ -18,8 +18,16 @@ def main():
     candidates=[p for p in (sdk/'build-tools').glob('*/apksigner') if re.fullmatch(r'\d+(?:\.\d+)+',p.parent.name)]
     if not candidates:raise SystemExit('Android build tools with apksigner are required')
     signer=max(candidates,key=lambda p:tuple(map(int,p.parent.name.split('.'))))
-    verified=subprocess.run([str(signer),'verify','--verbose','--print-certs',str(apk)],check=True,capture_output=True,text=True)
-    values=fingerprints(verified.stdout)
+    verified=subprocess.run([str(signer),'verify','--verbose','--print-certs',str(apk)],capture_output=True,text=True)
+    try:
+        if verified.returncode:raise ValueError('apksigner did not verify the APK')
+        values=fingerprints(verified.stdout)
+    except ValueError as error:
+        # apksigner reads only the APK's public signature, never a keystore or secret.
+        for line in (verified.stdout+'\n'+verified.stderr).splitlines()[:24]:
+            safe=line[:800].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+            print('::warning title=Public APK certificate diagnostic::'+safe)
+        raise SystemExit(str(error)) from None
     sha=hashlib.file_digest(apk.open('rb'),'sha256').hexdigest()
     report='# Verified APK certificate\n\nPublic certificate fingerprints for this exact APK. No private key was read.\n\n'
     for label,value in values.items():
