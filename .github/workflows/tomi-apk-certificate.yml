@@ -1,0 +1,41 @@
+name: TOMI APK certificate report
+"on":
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful TOMI Android native compile run to inspect
+        required: true
+        default: '42388082612'
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  certificate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6.1.0
+        with: {persist-credentials: false}
+      - name: Verify the artifact belongs to our successful build workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TOMI_SOURCE_RUN: ${{ inputs.run_id }}
+        run: |
+          python3 - <<'PY'
+          import json,os,re,subprocess
+          run=os.environ['TOMI_SOURCE_RUN']
+          if not re.fullmatch(r'[1-9][0-9]{1,19}',run):raise SystemExit('Invalid run ID')
+          repo=os.environ['GITHUB_REPOSITORY']
+          d=json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/actions/runs/{run}']))
+          if d['repository']['full_name']!=repo or d['conclusion']!='success' or d['path']!='.github/workflows/tomi-native-compile.yml':raise SystemExit('Select a successful native compile run from this repository')
+          print('Verified successful native compile source:',d['head_sha'])
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: TOMI-build42-native-debug
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: certificate-input
+      - name: Verify APK signature and publish public certificate fingerprints
+        run: python3 tool/report_apk_certificate.py certificate-input/app-debug.apk
