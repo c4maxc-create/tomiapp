@@ -39,3 +39,7 @@ jobs:
           path: certificate-input
       - name: Verify APK signature and publish public certificate fingerprints
         run: python3 tool/report_apk_certificate.py certificate-input/app-debug.apk
+      - name: Compare packaged and updated public Google OAuth configuration
+        env:
+          TOMI_GOOGLE_SERVICES_JSON: ${{ secrets.TOMI_GOOGLE_SERVICES_JSON }}
+        run: python3 tool/report_google_apk_config.py certificate-input/app-debug.apk
