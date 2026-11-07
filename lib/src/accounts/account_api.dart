@@ -150,26 +150,35 @@ class AccountApi {
     ),
   );
 
-  Future<AccountGrant> login(String username, String password) async =>
-      AccountGrant.fromJson(
-        await _request(
-          'POST',
-          '/v1/auth/login',
-          body: {'username': username.trim(), 'password': password},
-        ),
-      );
+  Future<AccountGrant> login(
+    String username,
+    String password, {
+    String? mfaCode,
+  }) async => AccountGrant.fromJson(
+    await _request(
+      'POST',
+      '/v1/auth/login',
+      body: {
+        'username': username.trim(),
+        'password': password,
+        if (mfaCode != null) 'mfaCode': mfaCode,
+      },
+    ),
+  );
 
   Future<AccountGrant> recover(
     String username,
     String code,
-    String password,
-  ) async => AccountGrant.fromJson(
+    String password, {
+    String? mfaCode,
+  }) async => AccountGrant.fromJson(
     await _request(
       'POST',
       '/v1/auth/recover',
       body: {
         'username': username.trim(),
         'recoveryCode': code.trim(),
+        if (mfaCode != null) 'mfaCode': mfaCode,
         'password': password,
       },
     ),

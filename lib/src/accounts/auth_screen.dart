@@ -23,6 +23,8 @@ class _AuthScreenState extends State<AuthScreen> {
   final username = TextEditingController();
   final name = TextEditingController();
   final password = TextEditingController();
+  final mfaCode = TextEditingController();
+  bool needsMfa = false;
   final confirmation = TextEditingController();
   final recovery = TextEditingController();
   AuthMode mode = AuthMode.login;
@@ -41,6 +43,7 @@ class _AuthScreenState extends State<AuthScreen> {
       username,
       name,
       password,
+      mfaCode,
       confirmation,
       recovery,
     ]) {
@@ -52,6 +55,8 @@ class _AuthScreenState extends State<AuthScreen> {
   void switchMode(AuthMode value) {
     setState(() {
       mode = value;
+      needsMfa = false;
+      mfaCode.clear();
       error = null;
       password.clear();
       confirmation.clear();
@@ -69,7 +74,11 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       switch (mode) {
         case AuthMode.login:
-          await widget.accounts.login(username.text, password.text);
+          await widget.accounts.login(
+            username.text,
+            password.text,
+            mfaCode: needsMfa ? mfaCode.text.trim() : null,
+          );
           break;
         case AuthMode.register:
           await widget.accounts.register(
@@ -83,11 +92,16 @@ class _AuthScreenState extends State<AuthScreen> {
             username.text,
             recovery.text,
             password.text,
+            mfaCode: needsMfa ? mfaCode.text.trim() : null,
           );
           break;
       }
     } on AccountFailure catch (failure) {
-      if (mounted) setState(() => error = failure.message);
+      if (mounted)
+        setState(() {
+          error = failure.message;
+          if (failure.code == 'MFA_REQUIRED') needsMfa = true;
+        });
     } catch (_) {
       if (mounted)
         setState(() => error = 'تعذّر إكمال العملية؛ جرّب مرة ثانية.');
@@ -212,6 +226,21 @@ class _AuthScreenState extends State<AuthScreen> {
                           ),
                         ],
                         const SizedBox(height: 16),
+                        if (needsMfa && mode != AuthMode.register) ...[
+                          TextFormField(
+                            key: const Key('account-mfa'),
+                            controller: mfaCode,
+                            autocorrect: false,
+                            enableSuggestions: false,
+                            decoration: const InputDecoration(
+                              labelText: 'رمز المصادقة أو رمز احتياط',
+                            ),
+                            validator: (v) => v == null || v.trim().isEmpty
+                                ? 'أدخل رمز المصادقة'
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         PasswordField(
                           key: const Key('account-password'),
                           controller: password,

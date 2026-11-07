@@ -280,15 +280,21 @@ class AccountController extends ChangeNotifier {
     String password,
   ) async => _accept(await api.register(username, name, password));
 
-  Future<void> login(String username, String password) async {
-    await _accept(await api.login(username, password));
+  Future<void> login(
+    String username,
+    String password, {
+    String? mfaCode,
+  }) async {
+    await _accept(await api.login(username, password, mfaCode: mfaCode));
   }
 
   Future<String?> recover(
     String username,
     String code,
-    String password,
-  ) async => _accept(await api.recover(username, code, password));
+    String password, {
+    String? mfaCode,
+  }) async =>
+      _accept(await api.recover(username, code, password, mfaCode: mfaCode));
 
   Future<T> _authenticated<T>(Future<T> Function(String token) work) async {
     final token = _token;

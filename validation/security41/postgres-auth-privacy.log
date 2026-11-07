@@ -1,0 +1,34 @@
+✔ two accounts persist across server restart; profiles, search and follows are real (4321.060371ms)
+✔ password changes revoke all old sessions; recovery codes work once and rotate (4890.438197ms)
+✔ concurrent registration cannot create duplicate usernames (1409.766336ms)
+✔ failed-login limits survive server restarts and generic errors do not reveal accounts (4355.693319ms)
+✔ validation, escaped search, expiry and body limits reject unsafe requests (2668.155135ms)
+✔ production refuses ephemeral fallback storage (2.924777ms)
+✔ 1.0 account erasure requires the current password, exact confirmation and a private receipt proof (3984.360524ms)
+✔ 1.0 erasure clears authored data and private links while preserving the peer and opaque shared gift ledger (4034.882472ms)
+✔ 1.0 file cleanup survives provider failure and restart and deletes again after signed PUT expiry (3318.11043ms)
+✔ 1.0 protected owner must transfer ownership; suspended members can delete with browser credentials (5793.955968ms)
+✔ 1.0 same accepted deletion receipt is safe under concurrent retry (2344.924844ms)
+✔ 1.0 authenticated delayed writes cannot recreate posts after account erasure commits (2279.390148ms)
+✔ 1.0 report and audit content is scrubbed and bounded security retention and receipt expiry are enforced (3603.315073ms)
+✔ 1.0 public privacy/terms/deletion resources need no app and prevent cross-origin credential submission (1982.772909ms)
+✔ 1.0 public policy configuration validates contact and retention and escapes operator supplied markup (2.224731ms)
+✔ 1.0 deletion routes image/audio/video cleanup to the correct private bucket and preserves other users files (2630.161225ms)
+✔ 1.0 delayed follow cannot recreate a relationship with an erased target (2223.858838ms)
+✔ 1.0 policy acceptance stores only the current version and erases its account-bound receipt (1586.758617ms)
+✔ 1.0 upgrades the exact0.12 SQLite schema without changing live credentials, roles, reports or gift progress (70.720497ms)
+✔ 41 TOTP matches all six RFC6238 SHA1 vectors and rejects malformed server keys (2.756295ms)
+✔ 41 MFA enrollment, replay prevention, encrypted seeds, one-use backup codes and admin step-up (9364.898732ms)
+✔ 41 configured mandatory admin MFA prevents admin access until enrollment; other users cannot read security events (2128.564668ms)
+✔ 41 configured edge protection denies origin bypass and accepts proxy-injected secret without exposing it (797.058106ms)
+✔ 41 document magic rejects renamed executables and accepts matching PDF, text and ZIP containers (1.716217ms)
+✔ 41 configured scanner rejects infected and failed scans and cleans private temporary files (47.77377ms)
+✔ 41 edge proxy preserves the configured origin and overwrites forged forwarding headers (4.477135ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 64768.803801

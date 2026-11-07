@@ -53,7 +53,7 @@ jobs:
         run: |
           mkdir -p build
           set -o pipefail
-          flutter build ios --simulator --debug --no-pub --build-name=1.7.0 --build-number=40 --dart-define="TOMI_API_URL=$TOMI_API_URL" --dart-define="TOMI_PREVIEW_MODE=false" 2>&1 | tee build/tomi-ios-build.log
+          flutter build ios --simulator --debug --no-pub --build-name=1.7.0 --build-number=41 --dart-define="TOMI_API_URL=$TOMI_API_URL" --dart-define="TOMI_PREVIEW_MODE=false" 2>&1 | tee build/tomi-ios-build.log
       - name: Report bounded iOS compiler diagnostics
         if: failure()
         run: python3 tool/report_ios_build.py

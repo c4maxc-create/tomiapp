@@ -1,0 +1,15 @@
+✔ 41 TOTP matches all six RFC6238 SHA1 vectors and rejects malformed server keys (3.455162ms)
+✔ 41 MFA enrollment, replay prevention, encrypted seeds, one-use backup codes and admin step-up (6964.632816ms)
+✔ 41 configured mandatory admin MFA prevents admin access until enrollment; other users cannot read security events (2385.642112ms)
+✔ 41 configured edge protection denies origin bypass and accepts proxy-injected secret without exposing it (693.365451ms)
+✔ 41 document magic rejects renamed executables and accepts matching PDF, text and ZIP containers (1.290516ms)
+✔ 41 configured scanner rejects infected and failed scans and cleans private temporary files (24.604494ms)
+✔ 41 edge proxy preserves the configured origin and overwrites forged forwarding headers (4.339742ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10346.7492

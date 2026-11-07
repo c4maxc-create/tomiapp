@@ -1,0 +1,4 @@
+00:00 +0: loading /workspace/tomiapp/test/security41_test.dart
+00:00 +0: 41 authenticator challenge stays on login and sends the entered second factor only on retry
+00:01 +1: 41 authenticator page fits compact enlarged text, confirms setup and shows one-time backup codes
+00:02 +2: All tests passed!

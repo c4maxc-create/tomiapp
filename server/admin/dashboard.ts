@@ -56,12 +56,12 @@ async function refresh(): Promise<void> {
             const [d, h] = await Promise.all([request('/v1/admin/metrics', undefined, token, controller.signal), request('/health', undefined, token, controller.signal)]);
             if (gen !== generation)
                 return;
-            const db = record(d.database), r = record(d.requests), features = record(h.features);
+            const db = record(d.database), r = record(d.requests), security=record(d.security), features = record(h.features);
             if (section === 'services')
                 cards({ 'الإشعارات': features.phoneNotifications ? 'الإعداد موجود' : 'تحتاج إعدادًا', 'المكالمات': features.phoneCalls ? 'الإعداد موجود' : 'تحتاج TURN', 'الغرف': features.voiceRooms ? 'الإعداد موجود' : 'تحتاج LiveKit', 'البث': features.liveBroadcasts ? 'الإعداد موجود' : 'يحتاج LiveKit' });
             else {
                 const metrics = Array.isArray(d.clientPerformance) ? d.clientPerformance.map(record) : [];
-                cards({ 'طلبات آخر ساعة': number(r.count), 'أخطاء الخادم': number(r.serverErrors), 'متوسط الاستجابة ms': number(r.averageMs), 'الحسابات': number(db.users), 'الغرف المفتوحة': number(db.open_rooms), 'مكالمات جارية': number(db.active_calls), 'بلاغات تنتظر': number(db.pending_reports), 'تقارير أخطاء اختيارية': metrics.filter(m => m.kind === 'flutter_error').reduce((n, m) => n + number(m.total), 0), 'تقارير بطء الرسم': metrics.filter(m => m.kind === 'slow_frame').reduce((n, m) => n + number(m.total), 0) });
+                cards({ 'تنبيه أمني': security.warning?'نشاط غير اعتيادي؛ راجع الحماية':'لا تنبيه حسب حدود الساعة', 'طلبات مرفوضة للصلاحيات':number(security.forbidden),'طلبات محدودة السرعة':number(security.throttled), 'طلبات آخر ساعة': number(r.count), 'أخطاء الخادم': number(r.serverErrors), 'متوسط الاستجابة ms': number(r.averageMs), 'الحسابات': number(db.users), 'الغرف المفتوحة': number(db.open_rooms), 'مكالمات جارية': number(db.active_calls), 'بلاغات تنتظر': number(db.pending_reports), 'تقارير أخطاء اختيارية': metrics.filter(m => m.kind === 'flutter_error').reduce((n, m) => n + number(m.total), 0), 'تقارير بطء الرسم': metrics.filter(m => m.kind === 'slow_frame').reduce((n, m) => n + number(m.total), 0) });
             }
         }
         if (gen === generation)
@@ -85,13 +85,14 @@ form.addEventListener('submit', async (e) => {
     const button = form.querySelector<HTMLButtonElement>('button')!, username = form.querySelector<HTMLInputElement>('#username')!, password = form.querySelector<HTMLInputElement>('#password')!;
     button.disabled = true;
     try {
-        const d = await request('/v1/auth/login', { username: username.value, password: password.value }, null);
+        const d = await request('/v1/auth/login', { username: username.value, password: password.value, mfaCode: form.querySelector<HTMLInputElement>('#mfa')!.value.trim() }, null);
         if (typeof d.token !== 'string')
             throw new Error('تعذّر تسجيل الدخول.');
         token = d.token;
         form.hidden = true;
         panel.hidden = false;
         password.value = '';
+        form.querySelector<HTMLInputElement>('#mfa')!.value = '';
         await refresh();
     }
     catch (e) {
@@ -100,6 +101,7 @@ form.addEventListener('submit', async (e) => {
     finally {
         button.disabled = false;
         password.value = '';
+        form.querySelector<HTMLInputElement>('#mfa')!.value = '';
     }
 });
 document.querySelector('#logout')!.addEventListener('click', () => {

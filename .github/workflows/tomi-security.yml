@@ -1,0 +1,44 @@
+name: TOMI security checks
+"on":
+  workflow_dispatch:
+  schedule:
+    - cron: '23 6 * * 1'
+  pull_request:
+    paths: ['server/**', 'pubspec*', 'previews/**', '.github/**', 'tool/check_source_secrets.py']
+permissions:
+  contents: read
+concurrency:
+  group: tomi-security-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6.1.0
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v6
+        with: {node-version: '24'}
+      - name: Detect common committed credential patterns
+        run: python3 tool/check_source_secrets.py
+      - name: Install locked backend dependencies without lifecycle scripts
+        run: npm --prefix server ci --ignore-scripts --no-audit --no-fund
+      - name: Audit known production advisories
+        run: npm --prefix server audit --omit=dev --audit-level=high
+      - name: Check server types and admin output
+        run: npm --prefix server run typecheck && cd server && node tools/check_admin_build.mjs
+      - uses: actions/setup-dotnet@v5
+        with: {dotnet-version: '8.0.x'}
+      - name: Restore CSharp dependencies
+        run: dotnet restore previews/Tomi.BlazorPreview/Tomi.BlazorPreview.csproj
+      - name: Fail on known vulnerable CSharp packages
+        shell: bash
+        run: |
+          dotnet list previews/Tomi.BlazorPreview/Tomi.BlazorPreview.csproj package --vulnerable --include-transitive --format json > nuget-audit.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open('nuget-audit.json'))
+          if any(p.get('frameworks') for p in d.get('projects', [])):
+              raise SystemExit('Vulnerable .NET dependency reported; review the audit locally.')
+          print('No vulnerable .NET packages reported.')
+          PY

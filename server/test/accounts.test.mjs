@@ -185,12 +185,16 @@ test('failed-login limits survive server restarts and generic errors do not reve
   const start = Date.now() - (Date.now() % period);
   await app.database.query(`INSERT INTO tomi_rate_limits (bucket_key, window_started, hits) VALUES (?, ?, 10)
     ON CONFLICT (bucket_key) DO UPDATE SET hits = 10, window_started = excluded.window_started`,
-    [digest('login:username:rate_user'), start]);
+    [digest('login:pair:127.0.0.1:rate_user'), start]);
   await app.restart();
   const limited = await app.request('POST', '/v1/auth/login', { username: 'rate_user', password });
   assert.equal(limited.status, 429);
   assert.equal(limited.data.error.code, 'RATE_LIMITED');
   assert.ok(limited.headers.get('retry-after'));
+  await app.database.query('DELETE FROM tomi_rate_limits WHERE bucket_key=?',[digest('login:pair:127.0.0.1:rate_user')]);
+  await app.database.query(`INSERT INTO tomi_rate_limits(bucket_key,window_started,hits) VALUES(?,?,100) ON CONFLICT(bucket_key) DO UPDATE SET hits=100,window_started=excluded.window_started`,[digest('login:failed:rate_user'),start]);
+  assert.equal((await app.request('POST','/v1/auth/login',{username:'rate_user',password})).status,200,'Failed guesses from other IPs cannot lock out a correct password');
+  assert.equal((await app.request('POST','/v1/auth/login',{username:'rate_user',password:'incorrect'})).status,429);
   assert.equal((await app.request('GET', '/v1/me', undefined, user.token)).status, 200);
 });
 

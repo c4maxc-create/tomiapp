@@ -1,0 +1,17 @@
+[Unit]
+Description=TOMI encrypted PostgreSQL backup and authentication check
+After=network-online.target
+[Service]
+Type=oneshot
+User=tomi-backup
+Group=tomi-backup
+EnvironmentFile=/etc/tomi/backup.env
+WorkingDirectory=/opt/tomiapp
+ExecStart=/usr/bin/node /opt/tomiapp/server/tools/scheduled_backup.mjs
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/tomi-backups
+TimeoutStartSec=15min

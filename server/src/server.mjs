@@ -1,3 +1,5 @@
+import {edgeKey} from './request_security.mjs';
+import {mfaKey} from './mfa.mjs';
 import {createVideoWorker} from './video_worker.mjs';
 import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -18,6 +20,9 @@ const database = await openDatabase({ connectionString: process.env.DATABASE_URL
 const storage = r2FromEnvironment();
 const chatStorage=chatR2FromEnvironment(process.env,storage);
 const server = await createApp({
+  edgeSecret:edgeKey(process.env.TOMI_EDGE_SECRET),
+  mfaEncryptionKey:mfaKey(process.env.TOMI_MFA_KEY),
+  requireAdminMfa:process.env.TOMI_REQUIRE_ADMIN_MFA==='1',
   storage,
   pushSender:fcmFromEnvironment(),
   iceProvider:iceFromEnvironment(),
@@ -38,6 +43,7 @@ server.listen(port, '0.0.0.0', () => console.log(`TOMI API1.5.0-beta.1 listening
 const cleanup = setInterval(() => {
   database.query('DELETE FROM tomi_sessions WHERE expires_at <= ?', [new Date().toISOString()])
     .then(() => database.query('DELETE FROM tomi_rate_limits WHERE window_started < ?', [Date.now() - 86400000]))
+    .then(() => database.query('DELETE FROM tomi_security_events WHERE created_at < ?',[new Date(Date.now()-90*86400000).toISOString()]))
     .then(() => server.cleanupMedia())
     .catch((error) => console.error('Cleanup failed:', error.code || error.name));
 }, 300000);

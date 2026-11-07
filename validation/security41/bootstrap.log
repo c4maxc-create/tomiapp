@@ -1,0 +1,2 @@
+PASS: YAML, original source preservation, template-test removal, Android label and vector icon.
+Flutter analyze, widget tests, PostgreSQL integration and APK compilation run in GitHub Actions.

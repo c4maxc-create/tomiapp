@@ -853,3 +853,10 @@ CREATE TABLE IF NOT EXISTS tomi_notice_receipts(notice_id TEXT NOT NULL REFERENC
 CREATE TABLE IF NOT EXISTS tomi_content_preferences(user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,comments TEXT NOT NULL DEFAULT 'everyone',mentions TEXT NOT NULL DEFAULT 'everyone',words TEXT NOT NULL DEFAULT '[]');
 
 CREATE INDEX IF NOT EXISTS tomi_comment_replies_parent ON tomi_comment_replies(parent_id,comment_id);
+
+-- Build41: authenticator secrets encrypted with a server-only key; recovery codes hashed.
+CREATE TABLE IF NOT EXISTS tomi_mfa(user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,secret TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 0,last_step BIGINT NOT NULL DEFAULT -1,pending_until TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS tomi_mfa_recovery(user_id TEXT NOT NULL REFERENCES tomi_mfa(user_id) ON DELETE CASCADE,code_hash TEXT NOT NULL,PRIMARY KEY(user_id,code_hash));
+CREATE TABLE IF NOT EXISTS tomi_mfa_sessions(session_hash TEXT PRIMARY KEY REFERENCES tomi_sessions(token_hash) ON DELETE CASCADE,verified_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS tomi_security_events(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,kind TEXT NOT NULL,created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS tomi_security_events_user ON tomi_security_events(user_id,created_at,id);

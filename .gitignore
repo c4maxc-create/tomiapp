@@ -1,3 +1,23 @@
 # Generated WebAssembly assets are rebuilt by the Android workflow.
 /assets/tomi_games/
 /previews/__pycache__/
+
+# Local build caches and installed dependencies.
+/.dart_tool/
+/build/
+/server/node_modules/
+**/__pycache__/
+# Local secrets and deployment configuration (examples are safe to track).
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+/ops/cloudflare/wrangler.toml
+*.env
+**/.dev.vars*
+**/.wrangler/
+*firebase-adminsdk*.json

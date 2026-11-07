@@ -1,3 +1,4 @@
+import {verifyDocumentSignature} from './document_security.mjs';
 import {randomUUID,createHash} from 'node:crypto';
 import {ApiError} from './security.mjs';
 import {cleanupVideoDerivatives,abortMultipartUpload,prepareIntent,uploadWithDigest} from './media_intents.mjs';
@@ -43,14 +44,15 @@ export function createPrivateMedia({database,storage}){
  return{prepare,verify,attach,cleanup};
 }
 async function verifyDocument(storage,u){
+ let scan;
  if(storage.active>=2)fail('MEDIA_BUSY','المرفقات قيد المعالجة؛ جرّب بعد قليل.',503);
  storage.active=(storage.active??0)+1;const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),45000);
- try{const r=await storage.fetcher(storage.url('GET',u.object_key),{signal:abort.signal,redirect:'error'});
+ try{scan=await storage.scanner?.begin();const r=await storage.fetcher(storage.url('GET',u.object_key),{signal:abort.signal,redirect:'error'});
   if(!r.ok){await r.body?.cancel();fail(r.status===404?'UPLOAD_INCOMPLETE':'MEDIA_UNAVAILABLE','تعذّر التحقق من الملف.',r.status===404?409:503);}
   if(Number(r.headers.get('content-length'))!==Number(u.byte_length)||(r.headers.get('content-type')??'').split(';')[0]!=='application/octet-stream'){await r.body?.cancel();fail('INVALID_FILE','حجم الملف أو نوعه تغيّر.');}
-  let length=0;const md5=createHash('md5'),sha=createHash('sha256');for await(const part of r.body){length+=part.length;if(length>Number(u.byte_length)||length>maxDocumentBytes){abort.abort();fail('INVALID_FILE','الملف أكبر من المسموح.');}md5.update(part);sha.update(part);}
-  if(length!==Number(u.byte_length)||md5.digest('base64')!==u.content_md5||sha.digest('hex')!==u.content_sha256)fail('INVALID_FILE','الملف غير مكتمل أو تغيّر.');return{};
- }catch(e){if(e instanceof ApiError)throw e;fail('MEDIA_UNAVAILABLE','تعذّر التحقق من الملف؛ جرّب مرة ثانية.',503);}finally{clearTimeout(timer);storage.active--;}
+  let length=0;const prefixes=[];let prefixSize=0;const decoder=['txt','csv','json','md'].includes(u.file_name.split('.').at(-1).toLowerCase())?new TextDecoder('utf-8',{fatal:true}):null;const md5=createHash('md5'),sha=createHash('sha256');for await(const part of r.body){await scan?.write(part);if(decoder&&part.includes(0))fail('INVALID_FILE','الملف النصي يحتوي بيانات غير مسموحة.');decoder?.decode(part,{stream:true});if(prefixSize<1024){const head=Buffer.from(part.subarray(0,1024-prefixSize));prefixes.push(head);prefixSize+=head.length;}length+=part.length;if(length>Number(u.byte_length)||length>maxDocumentBytes){abort.abort();fail('INVALID_FILE','الملف أكبر من المسموح.');}md5.update(part);sha.update(part);}
+  if(length!==Number(u.byte_length)||md5.digest('base64')!==u.content_md5||sha.digest('hex')!==u.content_sha256)fail('INVALID_FILE','الملف غير مكتمل أو تغيّر.');decoder?.decode();verifyDocumentSignature(Buffer.concat(prefixes),u.file_name);await scan?.finish();return{};
+ }catch(e){if(e instanceof ApiError)throw e;fail('MEDIA_UNAVAILABLE','تعذّر التحقق من الملف؛ جرّب مرة ثانية.',503);}finally{await scan?.abort();clearTimeout(timer);storage.active--;}
 }
 
 // The existing durable erasure outbox owns object deletion even after rows vanish.

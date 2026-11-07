@@ -1,0 +1,9 @@
+name = "tomi-api-edge"
+main = "worker.mjs"
+compatibility_date = "2026-11-07"
+workers_dev = false
+# Replace with your own proxied domain and zone. Never commit a secret.
+# routes = [{ pattern = "api.YOUR_DOMAIN/*", zone_name = "YOUR_DOMAIN" }]
+[vars]
+TOMI_ORIGIN = "https://tomiapp.onrender.com"
+TOMI_PUBLIC_HOST = "api.YOUR_DOMAIN"

@@ -1,3 +1,5 @@
+import '../accounts/account_api.dart';
+import 'security_page.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -305,11 +307,13 @@ class _SessionSecurityPageState extends State<SessionSecurityPage> {
         id == null ? '/v1/me/sessions/revoke-others' : '/v1/me/sessions/$id',
       );
       await load();
-    } catch (_) {
+    } catch (failure) {
       if (mounted)
         setState(() {
           busy = false;
-          error = 'تعذّر إنهاء الجلسة؛ أعد المحاولة.';
+          error = failure is AccountFailure
+              ? failure.message
+              : 'تعذّر إنهاء الجلسة؛ أعد المحاولة.';
         });
     }
   }
@@ -329,6 +333,18 @@ class _SessionSecurityPageState extends State<SessionSecurityPage> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          ListTile(
+            leading: const Icon(Icons.security),
+            title: const Text('التحقق بخطوتين وسجل الأمان'),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    SecurityProtectionPage(accounts: widget.accounts),
+              ),
+            ),
+          ),
           const ListTile(
             leading: Icon(Icons.verified_user_outlined),
             title: Text('أجهزتك المسجّلة'),

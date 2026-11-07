@@ -1,3 +1,4 @@
+import {mediaScanner} from './media_scanner.mjs';
 import { createHash,createHmac } from 'node:crypto';
 import { ApiError } from './security.mjs';
 import { imageDimensions,maxImageBytes } from './images.mjs';
@@ -27,16 +28,16 @@ export function r2FromEnvironment(env=process.env){
  if(!/^[a-f0-9]{32}$/i.test(env.R2_ACCOUNT_ID)||!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(env.R2_BUCKET_NAME))throw new Error('Invalid R2 account ID or bucket.');
  let publicBaseUrl;
  if(env.R2_PUBLIC_BASE_URL){const u=new URL(env.R2_PUBLIC_BASE_URL);if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash)throw new Error('Invalid public R2 HTTPS URL.');publicBaseUrl=u.toString().replace(/\/+$/,'');}
- return new R2Images({endpoint:'https://'+env.R2_ACCOUNT_ID+'.r2.cloudflarestorage.com',bucket:env.R2_BUCKET_NAME,accessKeyId:env.R2_ACCESS_KEY_ID,secretAccessKey:env.R2_SECRET_ACCESS_KEY,publicBaseUrl});
+ return new R2Images({endpoint:'https://'+env.R2_ACCOUNT_ID+'.r2.cloudflarestorage.com',bucket:env.R2_BUCKET_NAME,accessKeyId:env.R2_ACCESS_KEY_ID,secretAccessKey:env.R2_SECRET_ACCESS_KEY,publicBaseUrl},{scanner:mediaScanner(env.TOMI_CLAMSCAN_BINARY)});
 }
 export function chatR2FromEnvironment(env=process.env,fallback=null){
- const configured=r2FromEnvironment({R2_ACCOUNT_ID:env.R2_CHAT_ACCOUNT_ID,R2_BUCKET_NAME:env.R2_CHAT_BUCKET_NAME,R2_ACCESS_KEY_ID:env.R2_CHAT_ACCESS_KEY_ID,R2_SECRET_ACCESS_KEY:env.R2_CHAT_SECRET_ACCESS_KEY});
+ const configured=r2FromEnvironment({TOMI_CLAMSCAN_BINARY:env.TOMI_CLAMSCAN_BINARY,R2_ACCOUNT_ID:env.R2_CHAT_ACCOUNT_ID,R2_BUCKET_NAME:env.R2_CHAT_BUCKET_NAME,R2_ACCESS_KEY_ID:env.R2_CHAT_ACCESS_KEY_ID,R2_SECRET_ACCESS_KEY:env.R2_CHAT_SECRET_ACCESS_KEY});
  if(fallback?.config?.publicBaseUrl){if(!configured)return null;if(configured.config.endpoint===fallback.config.endpoint&&configured.config.bucket===fallback.config.bucket)throw new Error('Chat images need a separate private bucket.');}
  return configured||fallback;
 }
 export class R2Images {
  supportsMultipart=true;
- constructor(config,{fetcher=fetch}={}){this.config=config;this.fetcher=fetcher;this.active=0;}
+ constructor(config,{fetcher=fetch,scanner=null}={}){this.config=config;this.fetcher=fetcher;this.active=0;this.scanner=scanner;}
  url(method,key,headers={},expires=900){return signS3Url({...this.config,method,key,headers,expires});}
  prepare(u){const headers={'content-type':u.content_type,'content-md5':u.content_md5,'if-none-match':'*'};return{uploadUrl:this.url('PUT',u.object_key,headers),headers,expiresIn:900};}
  readUrl(key){return this.config.publicBaseUrl?this.config.publicBaseUrl+'/'+key.split('/').map(encode).join('/'):this.url('GET',key,{},86400);}
@@ -51,39 +52,45 @@ export class R2Images {
  async hasMultipartObject(u){const r=await this.fetcher(this.url('HEAD',u.object_key),{method:'HEAD',signal:AbortSignal.timeout(10000),redirect:'error'});await r.body?.cancel();if(r.status===404)return false;if(!r.ok)throw new ApiError(503,'MEDIA_UNAVAILABLE','تعذّر التحقق من الملف.');if(Number(r.headers.get('content-length'))!==Number(u.byte_length)||(r.headers.get('content-type')??'').split(';')[0]!==u.content_type)throw new ApiError(400,'INVALID_FILE','حجم الملف أو نوعه تغير.');return true;}
  async abortMultipart(key,uploadId){try{await this.multipartRequest('DELETE',key,{uploadId});}catch(e){if(e.code!=='MULTIPART_MISSING')throw e;}}
  async verifyAudio(u){
+  let scan;
   if(this.active>=2)throw new ApiError(503,'MEDIA_BUSY','الصوت قيد المعالجة؛ جرّب بعد قليل.');this.active++;const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),30000);
-  try{const r=await this.fetcher(this.url('GET',u.object_key),{signal:abort.signal,redirect:'error'});if(!r.ok){await r.body?.cancel();throw new ApiError(r.status===404?409:503,r.status===404?'UPLOAD_INCOMPLETE':'MEDIA_UNAVAILABLE','تعذّر التحقق من التسجيل.');}const length=Number(r.headers.get('content-length')),type=(r.headers.get('content-type')||'').split(';')[0].trim().toLowerCase();if(length!==Number(u.byte_length)||length>maxAudioBytes||type!=='audio/mp4'){await r.body?.cancel();throw new ApiError(400,'INVALID_AUDIO','حجم التسجيل أو نوعه تغيّر.');}let size=0;const pieces=[],md5=createHash('md5'),sha=createHash('sha256');for await(const piece of r.body){size+=piece.length;if(size>length||size>maxAudioBytes){abort.abort();throw new ApiError(400,'INVALID_AUDIO','التسجيل أكبر من المسموح.');}md5.update(piece);sha.update(piece);pieces.push(Buffer.from(piece));}if(size!==length||md5.digest('base64')!==u.content_md5||u.content_sha256&&sha.digest('hex')!==u.content_sha256)throw new ApiError(400,'INVALID_AUDIO','التسجيل غير مكتمل.');return audioMetadata(Buffer.concat(pieces));}catch(e){if(e instanceof ApiError)throw e;throw new ApiError(503,'MEDIA_UNAVAILABLE','تعذّر التحقق من التسجيل؛ جرّب مرة ثانية.');}finally{clearTimeout(timer);this.active--;}
+  try{scan=await this.scanner?.begin();const r=await this.fetcher(this.url('GET',u.object_key),{signal:abort.signal,redirect:'error'});if(!r.ok){await r.body?.cancel();throw new ApiError(r.status===404?409:503,r.status===404?'UPLOAD_INCOMPLETE':'MEDIA_UNAVAILABLE','تعذّر التحقق من التسجيل.');}const length=Number(r.headers.get('content-length')),type=(r.headers.get('content-type')||'').split(';')[0].trim().toLowerCase();if(length!==Number(u.byte_length)||length>maxAudioBytes||type!=='audio/mp4'){await r.body?.cancel();throw new ApiError(400,'INVALID_AUDIO','حجم التسجيل أو نوعه تغيّر.');}let size=0;const pieces=[],md5=createHash('md5'),sha=createHash('sha256');for await(const piece of r.body){await scan?.write(piece);size+=piece.length;if(size>length||size>maxAudioBytes){abort.abort();throw new ApiError(400,'INVALID_AUDIO','التسجيل أكبر من المسموح.');}md5.update(piece);sha.update(piece);pieces.push(Buffer.from(piece));}if(size!==length||md5.digest('base64')!==u.content_md5||u.content_sha256&&sha.digest('hex')!==u.content_sha256)throw new ApiError(400,'INVALID_AUDIO','التسجيل غير مكتمل.');const metadata=audioMetadata(Buffer.concat(pieces));await scan?.finish();return metadata;}catch(e){if(e instanceof ApiError)throw e;throw new ApiError(503,'MEDIA_UNAVAILABLE','تعذّر التحقق من التسجيل؛ جرّب مرة ثانية.');}finally{await scan?.abort();clearTimeout(timer);this.active--;}
  }
  async verifyVideo(u){
+  let scan;
   if(this.active>=2)throw new ApiError(503,'MEDIA_BUSY','الفيديو قيد المعالجة؛ جرّب بعد قليل.');this.active++;const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),60000);
   try{
+   scan=await this.scanner?.begin();
    const r=await this.fetcher(this.url('GET',u.object_key),{signal:abort.signal,redirect:'error'});if(!r.ok){await r.body?.cancel();throw new ApiError(r.status===404?409:503,r.status===404?'UPLOAD_INCOMPLETE':'MEDIA_UNAVAILABLE','تعذّر التحقق من الفيديو.');}
    const length=Number(r.headers.get('content-length')),type=(r.headers.get('content-type')||'').split(';')[0].trim().toLowerCase();
    if(length!==Number(u.byte_length)||length>maxVideoBytes||type!=='video/mp4'){await r.body?.cancel();throw new ApiError(400,'INVALID_VIDEO','حجم الفيديو أو نوعه تغيّر.');}
    const inspector=new VideoInspector(length),md5=createHash('md5'),sha=createHash('sha256');
-   for await(const piece of r.body){md5.update(piece);sha.update(piece);inspector.push(piece);}
+   for await(const piece of r.body){await scan?.write(piece);md5.update(piece);sha.update(piece);inspector.push(piece);}
    if(md5.digest('base64')!==u.content_md5||u.content_sha256&&sha.digest('hex')!==u.content_sha256)throw new ApiError(400,'INVALID_VIDEO','الفيديو غير مكتمل أو تغيّر.');
-   return inspector.finish();
-  }catch(e){if(e instanceof ApiError)throw e;throw new ApiError(503,'MEDIA_UNAVAILABLE','تعذّر التحقق من الفيديو؛ جرّب مرة ثانية.');}finally{clearTimeout(timer);this.active--;}
+   const metadata=inspector.finish();await scan?.finish();return metadata;
+  }catch(e){if(e instanceof ApiError)throw e;throw new ApiError(503,'MEDIA_UNAVAILABLE','تعذّر التحقق من الفيديو؛ جرّب مرة ثانية.');}finally{await scan?.abort();clearTimeout(timer);this.active--;}
  }
  async verify(u){
+  let scan;
   if(this.active>=2)throw new ApiError(503,'MEDIA_BUSY','الصور قيد المعالجة؛ جرّب النشر بعد قليل.');
   this.active++;const abort=new AbortController(),deadline=setTimeout(()=>abort.abort(),30000);
   try{
+   scan=await this.scanner?.begin();
    const response=await this.fetcher(this.url('GET',u.object_key),{signal:abort.signal,redirect:'error'});
    if(!response.ok){await response.body?.cancel();throw new ApiError(response.status===404?409:503,response.status===404?'UPLOAD_INCOMPLETE':'MEDIA_UNAVAILABLE','تعذّر التحقق من الصورة؛ جرّب النشر مرة ثانية.');}
    const type=(response.headers.get('content-type')||'').split(';')[0].trim().toLowerCase(),length=Number(response.headers.get('content-length'));
    if(type!==u.content_type||length!==Number(u.byte_length)||length>maxImageBytes){await response.body?.cancel();throw new ApiError(400,'INVALID_IMAGE','حجم الصورة أو نوعها تغيّر؛ اختَرها مرة ثانية.');}
    const checksum=createHash('md5'),sha=createHash('sha256'),prefix=[];let size=0,prefixSize=0;
    for await(const chunk of response.body){
+    await scan?.write(chunk);
     size+=chunk.length;if(size>length||size>maxImageBytes){abort.abort();throw new ApiError(400,'INVALID_IMAGE','الصورة أكبر من المسموح.');}
     checksum.update(chunk);sha.update(chunk);
     if(prefixSize<262144){const part=Buffer.from(chunk.subarray(0,262144-prefixSize));prefix.push(part);prefixSize+=part.length;}
    }
    if(size!==length||checksum.digest('base64')!==u.content_md5||u.content_sha256&&sha.digest('hex')!==u.content_sha256)throw new ApiError(400,'INVALID_IMAGE','الصورة غير مكتملة؛ اختَرها مرة ثانية.');
-   return imageDimensions(Buffer.concat(prefix),type);
+   const metadata=imageDimensions(Buffer.concat(prefix),type);await scan?.finish();return metadata;
   }catch(e){if(e instanceof ApiError)throw e;throw new ApiError(503,'MEDIA_UNAVAILABLE','تعذّر التحقق من الصورة؛ جرّب النشر مرة ثانية.');}
-  finally{clearTimeout(deadline);this.active--;}
+  finally{await scan?.abort();clearTimeout(deadline);this.active--;}
  }
  async putDerived(key,bytes){const headers={'content-type':'video/mp4','content-md5':createHash('md5').update(bytes).digest('base64'),'if-none-match':'*'};const r=await this.fetcher(this.url('PUT',key,headers),{method:'PUT',headers,body:bytes,signal:AbortSignal.timeout(30000),redirect:'error'});await r.body?.cancel();if(r.status===412){const head=await this.fetcher(this.url('HEAD',key),{method:'HEAD',signal:AbortSignal.timeout(10000),redirect:'error'});await head.body?.cancel();if(!head.ok||Number(head.headers.get('content-length'))!==bytes.length||(head.headers.get('etag')??'').replaceAll('\"','')!==createHash('md5').update(bytes).digest('hex'))throw Error('VIDEO_DERIVED_CONFLICT');}else if(!r.ok)throw Error('VIDEO_DERIVED_UPLOAD');}
  async delete(key){const r=await this.fetcher(this.url('DELETE',key),{method:'DELETE',signal:AbortSignal.timeout(10000),redirect:'error'});await r.body?.cancel();if(!r.ok&&r.status!==404)throw new Error('R2_DELETE_FAILED');}

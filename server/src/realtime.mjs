@@ -1,5 +1,6 @@
+import {verifyEdge} from './request_security.mjs';
 import {WebSocketServer,WebSocket} from 'ws';
-export function createRealtime({server,origins,authenticate,validSessions,typing,limit,clientIp=request=>request.socket.remoteAddress}){
+export function createRealtime({server,origins,authenticate,validSessions,typing,limit,edgeSecret=null,clientIp=request=>request.socket.remoteAddress}){
  const hub=new WebSocketServer({noServer:true,maxPayload:4096,perMessageDeflate:false});
  const sockets=new Set();
  const attempts=new Map();
@@ -14,6 +15,7 @@ export function createRealtime({server,origins,authenticate,validSessions,typing
  const invalidateSession=hash=>{for(const ws of sockets)if(ws.tokenHash===hash)ws.close(4401,'Session expired');};
  const invalidateUser=id=>{for(const ws of sockets)if(ws.userId===id)ws.close(4401,'Session expired');};
  server.on('upgrade',(request,socket,head)=>{
+  try{verifyEdge(request,edgeSecret);}catch{socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');return;}
   let url;try{url=new URL(request.url,'http://tomi.internal');}catch{socket.destroy();return;}
   if(url.pathname!=='/v1/chat/socket'||url.search||(request.headers.origin&&!origins.includes(request.headers.origin))||sockets.size>=500){socket.destroy();return;}
   const ip=clientIp(request);if(!handshake(ip)){socket.end('HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\nRetry-After: 60\r\nContent-Length: 0\r\n\r\n');return;}

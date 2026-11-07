@@ -1,4 +1,5 @@
-import {clientIp,validateJsonShape} from './request_security.mjs';
+import {createMfa} from './mfa.mjs';
+import {clientIp,validateJsonShape,verifyEdge} from './request_security.mjs';
 import {createContentPreferences} from './content_preferences.mjs';
 import {createNotices} from './notices.mjs';
 import {createResumable} from './resumable.mjs';
@@ -89,7 +90,8 @@ function publicUser(row,storage) {
   };
 }
 
-export async function createApp({ database, trustProxy = false, origins = [], rateLimitMultiplier = 1, storage = null, chatStorage = storage, pushSender=null, pushAutoFlush=true, iceProvider=null, callAutoSweep=true, roomProvider=null, liveProvider=null, liveClock, liveAutoTick=true, roomAutoSweep=true,ownerUserId=null,deletionAutoSweep=true,deletionClock,privacyConfig,liveRouletteClock,liveRouletteAutoTick=true,gamesClock,gamesAutoTick=true }) {
+export async function createApp({ database, trustProxy = false, origins = [], rateLimitMultiplier = 1, mfaEncryptionKey=null, requireAdminMfa=false, edgeSecret=null, storage = null, chatStorage = storage, pushSender=null, pushAutoFlush=true, iceProvider=null, callAutoSweep=true, roomProvider=null, liveProvider=null, liveClock, liveAutoTick=true, roomAutoSweep=true,ownerUserId=null,deletionAutoSweep=true,deletionClock,privacyConfig,liveRouletteClock,liveRouletteAutoTick=true,gamesClock,gamesAutoTick=true }) {
+  if(requireAdminMfa&&!mfaEncryptionKey)throw Error('TOMI_REQUIRE_ADMIN_MFA requires TOMI_MFA_KEY');
   const requestGuard=createAccountGuard(database);database=requestGuard.database;
   if(ownerUserId){
     if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(ownerUserId))throw Error('Invalid TOMI_OWNER_USER_ID');
@@ -169,18 +171,20 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   const roulette=createRoulette({database,ownerUserId,readJson,respond:json,limit,accountGate:requestGuard.gate});
   const liveRoulette=createLiveRoulette({database,ownerUserId,readJson,respond:json,limit,usersByIds,emit:chat.emit,clock:liveRouletteClock,autoTick:liveRouletteAutoTick,unbound:requestGuard.unbound});
   const games=createGames({database,readJson,respond:json,limit,usersByIds,emit:chat.emit,accountGate:requestGuard.gate,clock:gamesClock,autoTick:gamesAutoTick,unbound:requestGuard.unbound});
-  const deletion=createAccountDeletion({database,guard:requestGuard,ownerUserId,storage,chatStorage,readJson,respond:json,limit,session,rooms,calls,chat,dummyHash,autoSweep:deletionAutoSweep,clock:deletionClock});
+  const deletion=createAccountDeletion({database,guard:requestGuard,ownerUserId,storage,chatStorage,readJson,respond:json,limit,session,rooms,calls,chat,dummyHash,authorizeSecurity:async(row,d,current)=>{if(current)await mfa.guard(current);else {await mfa.loginAttempt(row.id,d.mfaCode);await database.transaction(db=>mfa.verifyLogin(db,row.id,d.mfaCode));}},autoSweep:deletionAutoSweep,clock:deletionClock});
   const privacy=createPrivacy(privacyConfig);
   const resumable=createResumable({database,storage,chatStorage,readJson,respond:json,limit});
   const contentPreferences=createContentPreferences({database,readJson,respond:json,limit});
   const notices=createNotices({database,readJson,respond:json,limit});
   const community=createCommunity({database,readJson,respond:json,limit,role:moderation.role,configured:{calls:!!iceProvider,rooms:!!roomProvider,live:!!liveProvider,media:!!storage}});
+  const mfa=createMfa({database,readJson,respond:json,limit,key:mfaEncryptionKey,emit:chat.emit,invalidateSession:chat.invalidateSession,afterRevoke:()=>requestGuard.unbound(async()=>{await calls.sweep();await rooms.sweep();})});
   const server = createServer(async (request, response) => {
     response.setHeader('x-frame-options','DENY');
     response.setHeader('strict-transport-security','max-age=31536000');
     response.setHeader('permissions-policy','camera=(), microphone=(), geolocation=()');
     operations.track(request,response);
     try {
+      if(request.url!=='/health'&&request.url!=='/')verifyEdge(request,edgeSecret);
       const origin = request.headers.origin;
       if (origin && !origins.includes(origin)&&!privacy.sameOrigin(request,origin)) throw new ApiError(403, 'ORIGIN', 'مصدر الطلب غير مسموح.');
       if (origin) {
@@ -199,7 +203,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       const url = new URL(request.url, 'http://tomi.internal');
       const path = url.pathname;
       const method = request.method;
-      const ip=clientIp(request,trustProxy);
+      const ip=clientIp(request,trustProxy,edgeSecret);
       if(await adminPage(request,response,url))return;
       if(privacy.handle(request,response,url))return;
       if (method === 'GET' && (path === '/health' || path === '/')) {
@@ -239,17 +243,18 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
         await limit(`login:ip:${ip}`, 50, 900000);
         const data = await readJson(request);
         const username = validateUsername(data.username);
-        await limit(`login:username:${username}`, 10, 900000);
+        await limit(`login:pair:${ip}:${username}`, 10, 900000);
         const password = typeof data.password === 'string' && [...data.password].length <= 128 ? data.password : '';
         const { rows } = await database.query('SELECT id, password_hash, auth_version FROM tomi_users WHERE username = ?', [username]);
         const row = rows[0];
         const matches = await verifyPassword(password, row?.password_hash || dummyHash);
-        if (!row || !matches) throw new ApiError(401, 'BAD_CREDENTIALS', 'اليوزر أو كلمة المرور غير صحيحة.');
+        if (!row || !matches) {await limit(`login:failed:${username}`,100,900000);throw new ApiError(401, 'BAD_CREDENTIALS', 'اليوزر أو كلمة المرور غير صحيحة.');}
+        await mfa.loginAttempt(row.id,data.mfaCode);
         const result = await database.transaction(async db=>{
           const fresh=(await db.query('UPDATE tomi_users SET updated_at=updated_at WHERE id=? RETURNING auth_version',[row.id])).rows[0];
           if(Number(fresh.auth_version)!==Number(row.auth_version))throw new ApiError(401,'BAD_CREDENTIALS','تغيّرت بيانات الدخول؛ حاول مرة ثانية.');
           await moderation.active(db,row.id);
-          return {...(await grant(db,row.id,fresh.auth_version)),user:await userById(row.id,row.id,db)};
+          const verified=await mfa.verifyLogin(db,row.id,data.mfaCode);const grantResult=await grant(db,row.id,fresh.auth_version);if(verified)await mfa.mark(db,digest(grantResult.token));await mfa.event(db,row.id,'login');return {...grantResult,user:await userById(row.id,row.id,db)};
         });
         chat.emit([row.id],{type:'security.new-login',sessionId:result.sessionId,at:nowText()});
         json(response, 200, result);
@@ -267,15 +272,18 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
         const { rows } = await database.query('SELECT id, recovery_hash, auth_version FROM tomi_users WHERE username = ?', [username]);
         const row = rows[0];
         if (!row || row.recovery_hash !== digest(code)) throw new ApiError(400, 'BAD_RECOVERY', 'اليوزر أو رمز الاسترجاع غير صحيح.');
+        await mfa.loginAttempt(row.id,data.mfaCode);
         const passwordHash = await hashPassword(password);
         const recoveryCode = newRecoveryCode();
         const result = await database.transaction(async (db) => {
+          await mfa.verifyLogin(db,row.id,data.mfaCode);
           const updated = await db.query(`UPDATE tomi_users SET password_hash = ?, recovery_hash = ?,
             auth_version = auth_version + 1, updated_at = ? WHERE id = ? AND recovery_hash = ?`,
             [passwordHash, digest(normalizeRecoveryCode(recoveryCode)), nowText(), row.id, digest(code)]);
           if (updated.changes !== 1) throw new ApiError(400, 'BAD_RECOVERY', 'رمز الاسترجاع استُخدم؛ استخدم الرمز الجديد.');
           await moderation.active(db,row.id);
           await db.query('DELETE FROM tomi_sessions WHERE user_id = ?', [row.id]);
+          await mfa.event(db,row.id,'account_recovered');
           return { ...(await grant(db, row.id, row.auth_version + 1)),
             user: await userById(row.id, row.id, db), recoveryCode };
         });
@@ -289,6 +297,9 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       if(await deletion.handle(request,response,url,{ip}))return;
       const current = await session(request);
       await requestGuard.run(current,async()=>{
+      if(await mfa.handle(request,response,url,current))return;
+      if((method==='DELETE'&&/^\/v1\/me\/sessions\//.test(path))||path==='/v1/me/sessions/revoke-others')await mfa.guard(current);
+      if(path.startsWith('/v1/admin/')||path==='/v1/admin') {const staffRole=await moderation.role(database,current.id);if(staffRole!=='member')await mfa.guard(current,{required:requireAdminMfa});}
       if(await resumable.handle(request,response,url,current))return;
       if(await contentPreferences.handle(request,response,url,current))return;
       if(await notices.handle(request,response,url,current))return;
@@ -352,6 +363,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       }
 
       if (method === 'POST' && path === '/v1/auth/password') {
+        await mfa.guard(current);
         await limit(`password:user:${current.id}`, 5, 900000);
         const data = await readJson(request);
         const newPassword = validatePassword(data.newPassword);
@@ -369,6 +381,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
             [passwordHash, digest(normalizeRecoveryCode(recoveryCode)), nowText(), current.id, row.auth_version]);
           if (changed.changes !== 1) throw new ApiError(409, 'RETRY', 'الحساب تغيّر؛ سجّل دخولك مرة ثانية.');
           await db.query('DELETE FROM tomi_sessions WHERE user_id = ?', [current.id]);
+          await mfa.event(db,current.id,'password_changed');
           return { ...(await grant(db, current.id, row.auth_version + 1)),
             user: await userById(current.id, current.id, db), recoveryCode };
         });
@@ -440,7 +453,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   server.sweepCalls=calls.sweep;
   server.sweepRooms=rooms.sweep;server.flushRooms=rooms.flush;
   server.on('close',()=>{lives.close();games.close();liveRoulette.close();push.close();calls.close();rooms.close();operations.close();deletion.close();});
-  chat.attach(server,{origins,clientIp:req=>clientIp(req,trustProxy),authenticate:token=>session({headers:{authorization:'Bearer '+token}}),validSessions:async hashes=>{
+  chat.attach(server,{origins,edgeSecret,clientIp:req=>clientIp(req,trustProxy,edgeSecret),authenticate:token=>session({headers:{authorization:'Bearer '+token}}),validSessions:async hashes=>{
     if(!hashes.length)return new Set();
     const{rows}=await database.query(`SELECT s.token_hash FROM tomi_sessions s JOIN tomi_users u ON u.id=s.user_id AND u.auth_version=s.auth_version WHERE s.expires_at>? AND s.token_hash IN (${hashes.map(()=>'?').join(',')})`,[nowText(),...hashes]);return new Set(rows.map(r=>r.token_hash));
   }});
