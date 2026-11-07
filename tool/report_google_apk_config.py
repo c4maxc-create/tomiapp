@@ -30,8 +30,10 @@ def main():
     installed=apk_web_client(dump)
     raw=os.environ.get('TOMI_GOOGLE_SERVICES_JSON','')
     configured=web_client(json.loads(raw)) if raw else None
-    message=f'Build42 web OAuth client present: {str(installed is not None).lower()}; updated Firebase client contains web OAuth client: {str(configured is not None).lower()}; same client: {str(installed is not None and installed==configured).lower()}'
+    message=f'Packaged web OAuth client present: {str(installed is not None).lower()}; updated Firebase client contains web OAuth client: {str(configured is not None).lower()}; same client: {str(installed is not None and installed==configured).lower()}'
     print('::notice title=Google OAuth configuration comparison::'+message)
+    if '--require-google' in sys.argv[2:] and (installed is None or configured is None or installed!=configured):
+        raise SystemExit('Packaged Google OAuth configuration is missing or differs from the updated Firebase client. APK must not be distributed.')
     if os.environ.get('GITHUB_STEP_SUMMARY'):
         with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write('\n## Google configuration\n\n'+message+'\n')
 if __name__=='__main__':main()

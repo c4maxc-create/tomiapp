@@ -34,6 +34,26 @@ class ExternalIdentity {
 
   static String message(Object e) {
     if (e is AccountFailure) return e.message;
+    if (e is GoogleSignInException) {
+      return switch (e.code) {
+        GoogleSignInExceptionCode.clientConfigurationError =>
+          e.description?.contains('serverClientId') == true
+              ? 'إعداد Google غير موجود داخل هذه النسخة. حدّث التطبيق إلى النسخة الجديدة.'
+              : 'إعداد Google أو بصمة توقيع هذه النسخة غير مطابق. راجع إعدادات النسخة لدى الإدارة.',
+        GoogleSignInExceptionCode.providerConfigurationError =>
+          'خدمة Google غير جاهزة؛ تحقق من خدمات Google Play وإعداد المزوّد.',
+        GoogleSignInExceptionCode.canceled => 'أُلغي اختيار حساب Google.',
+        GoogleSignInExceptionCode.interrupted =>
+          'انقطع اختيار حساب Google؛ جرّب مجدداً.',
+        GoogleSignInExceptionCode.uiUnavailable =>
+          'تعذّر فتح نافذة Google؛ أعد فتح التطبيق وجرّب مجدداً.',
+        GoogleSignInExceptionCode.userMismatch =>
+          'اختَر حساب Google المرتبط بنفس حسابك.',
+        _ =>
+          'تعذّر الدخول عبر Google (${e.code.name})؛ تحقق من الاتصال وجرّب مجدداً.',
+      };
+    }
+
     if (e is FirebaseAuthException)
       return switch (e.code) {
         'operation-not-allowed' => 'طريقة الدخول تحتاج تفعيلها من Firebase.',

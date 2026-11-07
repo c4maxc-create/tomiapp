@@ -31,6 +31,7 @@ jobs:
           TOMI_FACEBOOK_CLIENT_TOKEN: ${{ secrets.TOMI_FACEBOOK_CLIENT_TOKEN }}
           TOMI_GOOGLE_SERVICES_JSON: ${{ secrets.TOMI_GOOGLE_SERVICES_JSON }}
           TOMI_REQUIRE_PUSH: 'true'
+          TOMI_REQUIRE_GOOGLE_LOGIN: 'true'
         run: |
           bash tool/bootstrap_android.sh
           python3 tool/configure_firebase.py
@@ -68,11 +69,15 @@ jobs:
           python3 tool/retry_android_build.py -- flutter build apk --debug --no-pub --dart-define=TOMI_API_URL=https://tomiapp.onrender.com --dart-define=TOMI_PREVIEW_MODE=false --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED" 2>&1 | tee build/tomi-android-native.log
       - name: Report public signing fingerprints for Firebase
         run: python3 tool/report_apk_certificate.py build/app/outputs/flutter-apk/app-debug.apk
+      - name: Verify the APK contains the updated Google web client
+        env:
+          TOMI_GOOGLE_SERVICES_JSON: ${{ secrets.TOMI_GOOGLE_SERVICES_JSON }}
+        run: python3 tool/report_google_apk_config.py build/app/outputs/flutter-apk/app-debug.apk --require-google
       - name: Report bounded Android compiler diagnostics
         if: failure()
         run: python3 tool/report_android_native.py
       - name: Save privately testable APK
         uses: actions/upload-artifact@v4
         with:
-          name: TOMI-build42-native-debug
+          name: TOMI-build43-native-debug
           path: build/app/outputs/flutter-apk/app-debug.apk

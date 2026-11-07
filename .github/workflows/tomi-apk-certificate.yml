@@ -7,6 +7,11 @@ name: TOMI APK certificate report
         required: true
         default: '42388082612'
         type: string
+      artifact_name:
+        description: Native APK artifact name
+        required: true
+        default: TOMI-build42-native-debug
+        type: string
 permissions:
   contents: read
   actions: read
@@ -33,7 +38,7 @@ jobs:
           PY
       - uses: actions/download-artifact@v4
         with:
-          name: TOMI-build42-native-debug
+          name: ${{ inputs.artifact_name }}
           run-id: ${{ inputs.run_id }}
           github-token: ${{ github.token }}
           path: certificate-input

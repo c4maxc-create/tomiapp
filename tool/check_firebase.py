@@ -27,6 +27,11 @@ def main():
         try:configure_firebase(root,json.dumps({'type':'service_account','private_key':'NEVER-IN-APK'}))
         except ValueError:pass
         else:raise AssertionError('Accepted a server private key')
+        try:configure_firebase(root,raw,require_google=True)
+        except ValueError as e:assert 'Web OAuth client' in str(e)
+        else:raise AssertionError('Google APK accepted with messaging-only Firebase configuration')
+        config['client'][0]['oauth_client']=[{'client_type':3,'client_id':'123456789-web.apps.googleusercontent.com'}]
+        assert configure_firebase(root,json.dumps(config),required=True,require_google=True)
         config['client'][0]['client_info']['android_client_info']['package_name']='other.app'
         try:configure_firebase(root,json.dumps(config))
         except ValueError:pass

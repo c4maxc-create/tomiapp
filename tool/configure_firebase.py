@@ -3,11 +3,12 @@ import json
 import os
 import re
 from pathlib import Path
+from report_google_apk_config import web_client as google_web_client
 
 ROOT=Path(__file__).resolve().parent.parent
 PACKAGE='com.tomi.tomi_app'
 
-def configure_firebase(root=ROOT, raw=None, *, required=False):
+def configure_firebase(root=ROOT, raw=None, *, required=False, require_google=False):
     config=root/'android/app/google-services.json'
     raw=os.environ.get('TOMI_GOOGLE_SERVICES_JSON','') if raw is None else raw
     if not raw and config.is_file():
@@ -30,6 +31,8 @@ def configure_firebase(root=ROOT, raw=None, *, required=False):
         raise ValueError('Firebase Android package must be com.tomi.tomi_app.')
     if not clients[0].get('client_info',{}).get('mobilesdk_app_id') or not clients[0].get('api_key',[{}])[0].get('current_key'):
         raise ValueError('Firebase client app ID or API key is missing.')
+    if require_google and not google_web_client(data):
+        raise ValueError('Google login requires the updated google-services.json containing a Web OAuth client (client_type 3). Download it after enabling Google in Firebase and update TOMI_GOOGLE_SERVICES_JSON. No APK was built.')
     settings=root/'android/settings.gradle.kts'
     app=root/'android/app/build.gradle.kts'
     if not settings.exists() or not app.exists():
@@ -48,7 +51,7 @@ def configure_firebase(root=ROOT, raw=None, *, required=False):
     return True
 
 if __name__=='__main__':
-    enabled=configure_firebase(required=os.environ.get('TOMI_REQUIRE_PUSH','false').lower()=='true')
+    enabled=configure_firebase(required=os.environ.get('TOMI_REQUIRE_PUSH','false').lower()=='true',require_google=os.environ.get('TOMI_REQUIRE_GOOGLE_LOGIN','false').lower()=='true')
     if os.environ.get('GITHUB_ENV'):
         with open(os.environ['GITHUB_ENV'],'a') as f:
             f.write('TOMI_PUSH_CONFIGURED='+str(enabled).lower()+'\n')
