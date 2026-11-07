@@ -27,8 +27,12 @@ else:
     if platform.system()!='Darwin':raise SystemExit('iOS native builds require macOS/Xcode.')
     for target in ['aarch64-apple-ios','aarch64-apple-ios-sim','x86_64-apple-ios']:
         run([rustup,'target','add','--toolchain','1.89.0',target]);run(base+['--target',target])
-    fat=native/'target/libtomi_secure_sim.a'
+    fat=native/'target/ios-universal/libtomi_secure.a';fat.parent.mkdir(parents=True,exist_ok=True)
     run(['lipo','-create',str(native/'target/aarch64-apple-ios-sim/release/libtomi_secure.a'),str(native/'target/x86_64-apple-ios/release/libtomi_secure.a'),'-output',str(fat)])
     output=root/'packages/tomi_secure/ios/Frameworks/TomiSecure.xcframework';shutil.rmtree(output,ignore_errors=True)
     headers=root/'packages/tomi_secure/ios/Classes'
     run(['xcodebuild','-create-xcframework','-library',str(native/'target/aarch64-apple-ios/release/libtomi_secure.a'),'-headers',str(headers),'-library',str(fat),'-headers',str(headers),'-output',str(output)])
+
+    import plistlib
+    info=plistlib.loads((output/'Info.plist').read_bytes())
+    if any(Path(s['LibraryPath']).name != 'libtomi_secure.a' for s in info['AvailableLibraries']):raise SystemExit('All iOS slices must expose the same static library basename.')
