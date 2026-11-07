@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 tomi_backup_dir="$(mktemp -d)"
 trap 'rm -rf "$tomi_backup_dir"' EXIT
 
-for tomi_path in lib test pubspec.yaml analysis_options.yaml README.md .gitignore; do
+for tomi_path in lib test pubspec.yaml pubspec.lock analysis_options.yaml README.md .gitignore; do
   if [ -e "$tomi_path" ]; then
     cp -R "$tomi_path" "$tomi_backup_dir/"
   fi
@@ -16,7 +16,7 @@ done
 flutter create --platforms=android --project-name=tomi_app \
   --org=com.tomi --no-pub --empty .
 
-for tomi_path in lib test pubspec.yaml analysis_options.yaml README.md .gitignore; do
+for tomi_path in lib test pubspec.yaml pubspec.lock analysis_options.yaml README.md .gitignore; do
   if [ -e "$tomi_backup_dir/$tomi_path" ]; then
     if [ -d "$tomi_backup_dir/$tomi_path" ]; then
       cp -R "$tomi_backup_dir/$tomi_path/." "$tomi_path/"

@@ -1,3 +1,4 @@
+import {clientIp,validateJsonShape} from './request_security.mjs';
 import {createContentPreferences} from './content_preferences.mjs';
 import {createNotices} from './notices.mjs';
 import {createResumable} from './resumable.mjs';
@@ -39,9 +40,12 @@ const sessionLifetime = 30 * 24 * 60 * 60 * 1000;
 const nowText = () => new Date().toISOString();
 
 async function readJson(request, maximum = 16384) {
-  if (!(request.headers['content-type'] || '').toLowerCase().startsWith('application/json')) {
+  if (!/^application\/json(?:\s*;|$)/i.test(request.headers['content-type'] || '')) {
     throw new ApiError(415, 'CONTENT_TYPE', 'صيغة الطلب غير مدعومة.');
   }
+  const declared=request.headers['content-length'];
+  if(declared && (!/^\d+$/.test(declared)||Number(declared)>maximum))throw new ApiError(413,'TOO_LARGE','الطلب أكبر من المسموح.');
+  if(request.headers['content-encoding'] && request.headers['content-encoding']!=='identity')throw new ApiError(415,'CONTENT_ENCODING','ترميز الطلب غير مدعوم.');
   let size = 0;
   const chunks = [];
   for await (const chunk of request) {
@@ -50,7 +54,7 @@ async function readJson(request, maximum = 16384) {
     chunks.push(chunk);
   }
   try {
-    const value = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    const value = validateJsonShape(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks))));
     if (value && !Array.isArray(value) && typeof value === 'object') return value;
   } catch {}
   throw new ApiError(400, 'BAD_JSON', 'تعذّر قراءة الطلب.');
@@ -172,6 +176,9 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   const notices=createNotices({database,readJson,respond:json,limit});
   const community=createCommunity({database,readJson,respond:json,limit,role:moderation.role,configured:{calls:!!iceProvider,rooms:!!roomProvider,live:!!liveProvider,media:!!storage}});
   const server = createServer(async (request, response) => {
+    response.setHeader('x-frame-options','DENY');
+    response.setHeader('strict-transport-security','max-age=31536000');
+    response.setHeader('permissions-policy','camera=(), microphone=(), geolocation=()');
     operations.track(request,response);
     try {
       const origin = request.headers.origin;
@@ -192,10 +199,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       const url = new URL(request.url, 'http://tomi.internal');
       const path = url.pathname;
       const method = request.method;
-      let ip = request.socket.remoteAddress || 'unknown';
-      if (trustProxy && request.headers['x-forwarded-for']) {
-        ip = String(request.headers['x-forwarded-for']).split(',').at(-1).trim();
-      }
+      const ip=clientIp(request,trustProxy);
       if(await adminPage(request,response,url))return;
       if(privacy.handle(request,response,url))return;
       if (method === 'GET' && (path === '/health' || path === '/')) {
@@ -418,6 +422,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
     } catch (error) {
       if (response.headersSent) { response.destroy(); return; }
       if (error instanceof ApiError) {
+        if([400,413,415].includes(error.status)&&!request.complete)response.setHeader('connection','close');
         json(response, error.status, { error: { code: error.code, message: error.message,
           ...(error.field ? { field: error.field } : {}) } }, error.status === 429 ? { 'retry-after': '60' } : {});
       } else {
@@ -435,10 +440,11 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   server.sweepCalls=calls.sweep;
   server.sweepRooms=rooms.sweep;server.flushRooms=rooms.flush;
   server.on('close',()=>{lives.close();games.close();liveRoulette.close();push.close();calls.close();rooms.close();operations.close();deletion.close();});
-  chat.attach(server,{origins,authenticate:token=>session({headers:{authorization:'Bearer '+token}}),validSessions:async hashes=>{
+  chat.attach(server,{origins,clientIp:req=>clientIp(req,trustProxy),authenticate:token=>session({headers:{authorization:'Bearer '+token}}),validSessions:async hashes=>{
     if(!hashes.length)return new Set();
     const{rows}=await database.query(`SELECT s.token_hash FROM tomi_sessions s JOIN tomi_users u ON u.id=s.user_id AND u.auth_version=s.auth_version WHERE s.expires_at>? AND s.token_hash IN (${hashes.map(()=>'?').join(',')})`,[nowText(),...hashes]);return new Set(rows.map(r=>r.token_hash));
   }});
+  server.maxHeadersCount = 64;
   server.requestTimeout = 15000;
   server.headersTimeout = 10000;
   server.keepAliveTimeout = 5000;

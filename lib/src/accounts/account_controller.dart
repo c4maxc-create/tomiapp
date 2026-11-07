@@ -398,8 +398,20 @@ class AccountController extends ChangeNotifier {
     _notify();
   }
 
-  Future<CommentPage> comments(String id, {String? cursor}) =>
-      _authenticated((token) => api.comments(token, id, cursor: cursor));
+  Future<CommentPage> comments(
+    String id, {
+    String? cursor,
+    bool threaded = false,
+    String? parentId,
+  }) => _authenticated(
+    (token) => api.comments(
+      token,
+      id,
+      cursor: cursor,
+      threaded: threaded,
+      parentId: parentId,
+    ),
+  );
   Future<CommentResult> addComment(
     String id,
     String text,

@@ -1,0 +1,16 @@
+✔ audience affects discovery while profile remains public; edits and comment replies preserve ownership and request identity (3204.115278ms)
+✔ message edits are owner-only and revision fenced; delivery/read times come only from authorized recipients and never move on retries (1983.757753ms)
+✔ live PK publishes only hosts, needs invitation acceptance, scores on server and settles at five minutes without duplicate support (1680.388429ms)
+✔ live gift support debits trial coins once, rejects changed or unfunded retries, and missing video service stays visibly disabled (2165.072929ms)
+✔ 40 comment threads page roots and nested replies without accepting a different post or unauthorized deletion (2037.670446ms)
+✔ 40 follower-only story access is enforced for direct IDs, author pages and view receipts (1307.516441ms)
+✔ 40 JSON pollution gadgets, excessive nesting, malformed UTF8 and false JSON MIME types are rejected (446.13813ms)
+✔ 40 unauthenticated websocket slots are bounded per IP before database work and XFF cannot bypass the default (464.916795ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13921.258251

@@ -69,7 +69,7 @@ export async function openDatabase({ connectionString, sqliteFile, production = 
   };
   const query = async (sql, values = []) => {
     const statement = db.prepare(sql);
-    if (/^\s*SELECT\b|\bRETURNING\b/i.test(sql)) {
+    if (statement.columns().length > 0) {
       return { rows: statement.all(...values), changes: 0 };
     }
     return { rows: [], changes: statement.run(...values).changes };

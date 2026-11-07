@@ -127,6 +127,10 @@ class SocialPost {
 class SocialComment {
   const SocialComment({
     this.parentId,
+    this.rootId,
+    this.replyCount = 0,
+    this.replyToName,
+    this.replyToUsername,
     required this.id,
     required this.text,
     required this.createdAt,
@@ -134,12 +138,17 @@ class SocialComment {
     required this.isMine,
   });
   final String id, text;
-  final String? parentId;
+  final String? parentId, rootId, replyToName, replyToUsername;
+  final int replyCount;
   final DateTime createdAt;
   final PostAuthor author;
   final bool isMine;
   factory SocialComment.fromJson(Map<String, dynamic> d) => SocialComment(
     parentId: d['parentId'] as String?,
+    rootId: d['rootId'] as String?,
+    replyCount: (d['replyCount'] as num?)?.toInt() ?? 0,
+    replyToName: d['replyToName'] as String?,
+    replyToUsername: d['replyToUsername'] as String?,
     id: d['id'] as String,
     text: d['text'] as String,
     createdAt: DateTime.parse(d['createdAt'] as String),
@@ -169,10 +178,21 @@ class FeedPage {
 }
 
 class CommentPage {
-  const CommentPage({required this.comments, this.nextCursor});
+  const CommentPage({
+    required this.comments,
+    this.nextCursor,
+    this.threaded = false,
+    this.root,
+  });
   final List<SocialComment> comments;
+  final bool threaded;
+  final SocialComment? root;
   final String? nextCursor;
   factory CommentPage.fromJson(Map<String, dynamic> d) => CommentPage(
+    threaded: d['threaded'] == true,
+    root: d['root'] is Map
+        ? SocialComment.fromJson((d['root'] as Map).cast<String, dynamic>())
+        : null,
     comments: (d['comments'] as List)
         .map((p) => SocialComment.fromJson(p as Map<String, dynamic>))
         .toList(),

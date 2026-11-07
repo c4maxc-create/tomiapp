@@ -320,12 +320,18 @@ class AccountApi {
     String token,
     String id, {
     String? cursor,
+    bool threaded = false,
+    String? parentId,
   }) async => CommentPage.fromJson(
     await _request(
       'GET',
       '/v1/posts/' + Uri.encodeComponent(id) + '/comments',
       token: token,
-      query: {if (cursor != null) 'cursor': cursor},
+      query: {
+        if (cursor != null) 'cursor': cursor,
+        if (threaded) 'threaded': 'true',
+        if (parentId != null) 'parentId': parentId,
+      },
     ),
   );
   Future<CommentResult> addComment(

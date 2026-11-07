@@ -49,6 +49,8 @@ jobs:
         uses: actions/checkout@v6.1.0
         with:
           persist-credentials: false
+      - name: Check tracked source for common credential patterns
+        run: python3 tool/check_source_secrets.py
       - name: Set up Node 24
         uses: actions/setup-node@v6
         with:
@@ -58,6 +60,9 @@ jobs:
       - name: Install backend dependencies
         working-directory: server
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Audit production backend dependencies
+        working-directory: server
+        run: npm audit --omit=dev --audit-level=high
       - name: Install FFmpeg for real video worker tests
         run: |
           sudo apt-get update
@@ -174,7 +179,7 @@ jobs:
         run: python3 tool/build_csharp_games.py
 
       - name: Install Flutter dependencies
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Analyze Dart source
         run: flutter analyze

@@ -1514,6 +1514,79 @@ class _RealCommentsSheetState extends State<RealCommentsSheet> {
   final text = TextEditingController();
   List<SocialComment> comments = [];
   SocialComment? replying;
+  String? replyingRoot;
+  final focus = FocusNode();
+  final expanded = <String>{}, replyLoading = <String>{};
+  final replies = <String, List<SocialComment>>{};
+  final replyCursors = <String, String?>{};
+  final replyEpoch = <String, int>{};
+  bool threaded = false;
+  String rootOf(SocialComment value) {
+    if (value.rootId != null) return value.rootId!;
+    final map = {for (final item in comments) item.id: item};
+    var current = value;
+    final visited = <String>{};
+    while (current.parentId != null &&
+        map.containsKey(current.parentId) &&
+        visited.add(current.id))
+      current = map[current.parentId]!;
+    return current.id;
+  }
+
+  List<SocialComment> childrenOf(String id) => threaded
+      ? (replies[id] ?? [])
+      : comments.where((c) => c.id != id && rootOf(c) == id).toList();
+  void replyTo(SocialComment value, String root) {
+    setState(() {
+      replying = value;
+      replyingRoot = root;
+      requestId = newRequestId();
+    });
+    focus.requestFocus();
+  }
+
+  Future<void> loadReplies(
+    String id, {
+    bool more = false,
+    bool reset = false,
+  }) async {
+    if (!threaded || (!reset && replyLoading.contains(id))) return;
+    replyLoading.add(id);
+    final generation = replyEpoch[id] = (replyEpoch[id] ?? 0) + 1;
+    setState(() => expanded.add(id));
+    try {
+      final page = await widget.accounts.comments(
+        widget.post.id,
+        parentId: id,
+        threaded: true,
+        cursor: more ? replyCursors[id] : null,
+      );
+      if (mounted && replyEpoch[id] == generation)
+        setState(() {
+          final merged = {
+            for (final c
+                in reset ? <SocialComment>[] : replies[id] ?? <SocialComment>[])
+              c.id: c,
+            for (final c in page.comments) c.id: c,
+          };
+          replies[id] = merged.values.toList()
+            ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          replyCursors[id] = page.nextCursor;
+          if (page.root != null)
+            comments = comments
+                .map((c) => c.id == id ? page.root! : c)
+                .toList();
+        });
+    } on AccountFailure catch (f) {
+      if (mounted) setState(() => error = f.message);
+    } catch (_) {
+      if (mounted) setState(() => error = 'تعذّر تحميل الردود؛ أعد المحاولة.');
+    } finally {
+      if (mounted && replyEpoch[id] == generation)
+        setState(() => replyLoading.remove(id));
+    }
+  }
+
   String? cursor, error;
   String requestId = newRequestId();
   bool loading = false, sending = false;
@@ -1534,9 +1607,11 @@ class _RealCommentsSheetState extends State<RealCommentsSheet> {
       final p = await widget.accounts.comments(
         widget.post.id,
         cursor: more ? cursor : null,
+        threaded: true,
       );
       if (mounted)
         setState(() {
+          threaded = p.threaded;
           final seen = comments.map((v) => v.id).toSet();
           comments = more
               ? [...comments, ...p.comments.where((v) => !seen.contains(v.id))]
@@ -1559,6 +1634,7 @@ class _RealCommentsSheetState extends State<RealCommentsSheet> {
       sending = true;
       error = null;
     });
+    final root = replyingRoot;
     try {
       final r = await widget.accounts.addComment(
         widget.post.id,
@@ -1567,14 +1643,25 @@ class _RealCommentsSheetState extends State<RealCommentsSheet> {
         parentId: replying?.id,
       );
       if (mounted) {
-        setState(
-          () => comments = [
-            r.comment,
-            ...comments.where((v) => v.id != r.comment.id),
-          ],
-        );
+        setState(() {
+          if (root == null || !threaded)
+            comments = [
+              r.comment,
+              ...comments.where((c) => c.id != r.comment.id),
+            ];
+          else {
+            replies[root] = [...replies[root] ?? <SocialComment>[], r.comment]
+                .fold<List<SocialComment>>([], (all, c) {
+                  if (!all.any((v) => v.id == c.id)) all.add(c);
+                  return all;
+                });
+            expanded.add(root);
+          }
+        });
         text.clear();
         replying = null;
+        replyingRoot = null;
+        if (root != null && threaded) unawaited(loadReplies(root));
         requestId = newRequestId();
         widget.onUpdated(r.post);
       }
@@ -1588,13 +1675,45 @@ class _RealCommentsSheetState extends State<RealCommentsSheet> {
     }
   }
 
-  Future<void> remove(SocialComment v) async {
+  Future<void> remove(SocialComment v, {String? threadRoot}) async {
+    if (v.replyCount > 0 || childrenOf(v.id).isNotEmpty) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('حذف التعليق وردوده؟'),
+          content: const Text('تنحذف الردود التابعة لهذا التعليق أيضاً.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('حذف'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
     if (!deleting.add(v.id)) return;
     setState(() {});
     try {
       final p = await widget.accounts.deleteComment(v.id);
       if (mounted) {
-        setState(() => comments.removeWhere((c) => c.id == v.id));
+        setState(() {
+          comments.removeWhere((c) => c.id == v.id);
+          replies.remove(v.id);
+          expanded.remove(v.id);
+          for (final list in replies.values)
+            list.removeWhere((c) => c.id == v.id || c.parentId == v.id);
+          if (replying?.id == v.id || replyingRoot == v.id) {
+            replying = null;
+            replyingRoot = null;
+          }
+        });
+        if (v.parentId != null && threadRoot != null)
+          unawaited(loadReplies(threadRoot, reset: true));
         widget.onUpdated(p);
       }
     } on AccountFailure catch (f) {
@@ -1606,8 +1725,76 @@ class _RealCommentsSheetState extends State<RealCommentsSheet> {
     }
   }
 
+  Widget commentRow(SocialComment value, String root, {bool nested = false}) =>
+      Padding(
+        key: ValueKey('comment-row-${value.id}'),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AccountAvatar(value.author.avatarUser, size: nested ? 26 : 34),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value.author.displayName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        if (value.replyToUsername != null)
+                          TextSpan(
+                            text: '@${value.replyToUsername} ',
+                            style: const TextStyle(color: TomiColors.accent),
+                          ),
+                        TextSpan(text: value.text),
+                      ],
+                    ),
+                    style: const TextStyle(height: 1.5),
+                  ),
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    children: [
+                      Text(
+                        relativeTime(value.createdAt),
+                        style: const TextStyle(
+                          color: TomiColors.muted,
+                          fontSize: 11,
+                        ),
+                      ),
+                      TextButton(
+                        key: ValueKey('reply-comment-${value.id}'),
+                        onPressed: sending ? null : () => replyTo(value, root),
+                        child: const Text('رد'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (value.isMine || widget.post.isMine)
+              IconButton(
+                tooltip: 'حذف التعليق',
+                onPressed: deleting.contains(value.id)
+                    ? null
+                    : () => remove(value, threadRoot: root),
+                icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              ),
+          ],
+        ),
+      );
+
   @override
   void dispose() {
+    focus.dispose();
     text.dispose();
     super.dispose();
   }
@@ -1661,6 +1848,7 @@ class _RealCommentsSheetState extends State<RealCommentsSheet> {
                       trailing: IconButton(
                         onPressed: () => setState(() {
                           replying = null;
+                          replyingRoot = null;
                           requestId = newRequestId();
                         }),
                         icon: const Icon(Icons.close),
@@ -1679,69 +1867,61 @@ class _RealCommentsSheetState extends State<RealCommentsSheet> {
                               textAlign: TextAlign.center,
                             ),
                           ),
-                        for (final v in comments)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                AccountAvatar(v.author.avatarUser, size: 34),
-                                const SizedBox(width: 10),
-                                Expanded(
+                        for (final v in comments.where(
+                          (c) => threaded || rootOf(c) == c.id,
+                        ))
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              commentRow(v, v.id),
+                              if (v.replyCount > 0 ||
+                                  childrenOf(v.id).isNotEmpty ||
+                                  expanded.contains(v.id))
+                                Padding(
+                                  padding: const EdgeInsetsDirectional.only(
+                                    start: 44,
+                                  ),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      if (v.parentId != null)
-                                        const Text(
-                                          '↳ رد على تعليق',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: TomiColors.accent,
-                                          ),
-                                        ),
                                       TextButton(
-                                        onPressed: sending
-                                            ? null
-                                            : () => setState(() {
-                                                replying = v;
-                                                requestId = newRequestId();
-                                              }),
-                                        child: const Text('رد'),
-                                      ),
-                                      Text(
-                                        v.author.displayName,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
+                                        key: ValueKey('toggle-replies-${v.id}'),
+                                        onPressed: () => setState(() {
+                                          if (!expanded.remove(v.id)) {
+                                            expanded.add(v.id);
+                                            if (threaded &&
+                                                !replies.containsKey(v.id))
+                                              unawaited(loadReplies(v.id));
+                                          }
+                                        }),
+                                        child: Text(
+                                          expanded.contains(v.id)
+                                              ? 'إخفاء الردود'
+                                              : 'عرض الردود (${v.replyCount > childrenOf(v.id).length ? v.replyCount : childrenOf(v.id).length})',
                                         ),
                                       ),
-                                      Text(
-                                        v.text,
-                                        style: const TextStyle(height: 1.6),
-                                      ),
-                                      Text(
-                                        relativeTime(v.createdAt),
-                                        style: const TextStyle(
-                                          color: TomiColors.muted,
-                                          fontSize: 11,
-                                        ),
-                                      ),
+                                      if (expanded.contains(v.id)) ...[
+                                        for (final reply in childrenOf(v.id))
+                                          commentRow(reply, v.id, nested: true),
+                                        if (replyLoading.contains(v.id))
+                                          const LinearProgressIndicator(),
+                                        if (replyCursors[v.id] != null)
+                                          TextButton(
+                                            onPressed:
+                                                replyLoading.contains(v.id)
+                                                ? null
+                                                : () => loadReplies(
+                                                    v.id,
+                                                    more: true,
+                                                  ),
+                                            child: const Text('عرض ردود أكثر'),
+                                          ),
+                                      ],
                                     ],
                                   ),
                                 ),
-                                if (v.isMine || widget.post.isMine)
-                                  IconButton(
-                                    tooltip: 'حذف التعليق',
-                                    onPressed: deleting.contains(v.id)
-                                        ? null
-                                        : () => remove(v),
-                                    icon: const Icon(
-                                      Icons.delete_outline_rounded,
-                                      size: 19,
-                                    ),
-                                  ),
-                              ],
-                            ),
+                            ],
                           ),
                         if (cursor != null)
                           TextButton(
@@ -1758,6 +1938,7 @@ class _RealCommentsSheetState extends State<RealCommentsSheet> {
                       Expanded(
                         child: TextField(
                           key: const Key('comment-input'),
+                          focusNode: focus,
                           controller: text,
                           enabled: !sending,
                           minLines: 1,

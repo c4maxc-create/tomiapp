@@ -6,7 +6,8 @@ import {avatarFields,avatarJoins,avatarColumns} from './avatars.mjs';
 const stamp=(delta=0)=>new Date(Date.now()+delta).toISOString();
 const visible=`NOT EXISTS(SELECT 1 FROM tomi_account_restrictions a WHERE a.user_id=s.user_id AND a.suspended=1)
  AND NOT EXISTS(SELECT 1 FROM tomi_deleted_accounts d WHERE d.user_id=s.user_id)
- AND NOT EXISTS(SELECT 1 FROM tomi_user_blocks b WHERE (b.blocker_id=? AND b.blocked_id=s.user_id) OR (b.blocker_id=s.user_id AND b.blocked_id=?))`;
+ AND NOT EXISTS(SELECT 1 FROM tomi_user_blocks b WHERE (b.blocker_id=? AND b.blocked_id=s.user_id) OR (b.blocker_id=s.user_id AND b.blocked_id=?))
+ AND (NOT EXISTS(SELECT 1 FROM tomi_story_options o WHERE o.story_id=s.id AND o.audience='followers') OR s.user_id=? OR EXISTS(SELECT 1 FROM tomi_follows f WHERE f.follower_id=? AND f.following_id=s.user_id))`;
 const select=`SELECT s.*,u.username,u.display_name,u.avatar_preset${avatarColumns},m.object_key,m.width,m.height,
  v.object_key video_key,(SELECT vr.object_key FROM tomi_video_renditions vr WHERE vr.upload_id=v.id AND vr.height=540) AS video_540_key,(SELECT vr.object_key FROM tomi_video_renditions vr WHERE vr.upload_id=v.id AND vr.height=720) AS video_720_key,(SELECT poster FROM tomi_video_posters vp WHERE vp.upload_id=v.id) AS video_poster,v.width video_width,v.height video_height,v.duration_ms,
  (SELECT COUNT(*) FROM tomi_story_views z WHERE z.story_id=s.id AND z.user_id=?) seen,
@@ -34,7 +35,7 @@ export function createHome({database,storage,accountGate,readJson,respond,limit,
  image:r.object_key?{url:storage?.readUrl(r.object_key)??null,width:Number(r.width),height:Number(r.height)}:null,
  video:r.video_key?{renditions:[540,720].filter(h=>r['video_'+h+'_key']).map(h=>({height:h,url:storage?.readUrl(r['video_'+h+'_key'])??null})),poster:r.video_poster??null,url:storage?.readUrl(r.video_key)??null,width:Number(r.video_width),height:Number(r.video_height),durationMs:Number(r.duration_ms)}:null,
  seen:Number(r.seen)>0,isMine:r.user_id===viewer,viewsCount:r.user_id===viewer?Number(r.views_count):null};}
- async function one(id,viewer,db=database){const r=(await db.query(select+' WHERE s.id=? AND s.expires_at>? AND '+visible,[viewer,id,stamp(),viewer,viewer])).rows[0];if(!r)throw new ApiError(404,'STORY_NOT_FOUND','انتهت الستوري أو لم تعد متاحة.');return story(r,viewer);}
+ async function one(id,viewer,db=database){const r=(await db.query(select+' WHERE s.id=? AND s.expires_at>? AND '+visible,[viewer,id,stamp(),viewer,viewer,viewer,viewer])).rows[0];if(!r)throw new ApiError(404,'STORY_NOT_FOUND','انتهت الستوري أو لم تعد متاحة.');return story(r,viewer);}
  async function remove(db,r){if(!r)return;await db.query('DELETE FROM tomi_stories WHERE id=?',[r.id]);for(const [id,table] of [[r.image_upload_id,'tomi_image_uploads'],[r.video_upload_id,'tomi_video_uploads']])if(id)await db.query("UPDATE "+table+" SET state='deleting',expires_at=? WHERE id=?",[stamp(20*60000),id]);}
  async function handle(request,response,url,current){const path=url.pathname,method=request.method,viewer=current.id;
  const storyReceipt=path.match(/^\/v1\/stories\/requests\/([a-f0-9-]{36})$/);
@@ -42,8 +43,8 @@ export function createHome({database,storage,accountGate,readJson,respond,limit,
  if(method==='GET'&&path==='/v1/stories'){
   const userId=url.searchParams.get('userId');if(userId&&!validUuid(userId))throw new ApiError(400,'VALIDATION','الحساب غير صحيح.');
   const users=userId?[{user_id:userId}]:(await database.query(`SELECT s.user_id,MAX(s.created_at) latest FROM tomi_stories s WHERE s.expires_at>? AND ${visible}
-   AND (EXISTS(SELECT 1 FROM tomi_story_options o WHERE o.story_id=s.id AND o.audience='public') OR s.user_id=? OR EXISTS(SELECT 1 FROM tomi_follows f WHERE f.follower_id=? AND f.following_id=s.user_id)) GROUP BY s.user_id ORDER BY latest DESC,s.user_id LIMIT 100`,[stamp(),viewer,viewer,viewer,viewer])).rows;
-  const groups=[];for(const u of users){const rows=(await database.query(select+' WHERE s.user_id=? AND s.expires_at>? AND '+visible+(userId?'':" AND (EXISTS(SELECT 1 FROM tomi_story_options o WHERE o.story_id=s.id AND o.audience='public') OR s.user_id=? OR EXISTS(SELECT 1 FROM tomi_follows f WHERE f.follower_id=? AND f.following_id=s.user_id))")+' ORDER BY s.created_at,s.id LIMIT 50',[viewer,u.user_id,stamp(),viewer,viewer,...(userId?[]:[viewer,viewer])])).rows;if(rows.length)groups.push({author:story(rows[0],viewer).author,stories:rows.map(r=>story(r,viewer))});}
+   AND (EXISTS(SELECT 1 FROM tomi_story_options o WHERE o.story_id=s.id AND o.audience='public') OR s.user_id=? OR EXISTS(SELECT 1 FROM tomi_follows f WHERE f.follower_id=? AND f.following_id=s.user_id)) GROUP BY s.user_id ORDER BY latest DESC,s.user_id LIMIT 100`,[stamp(),viewer,viewer,viewer,viewer,viewer,viewer])).rows;
+  const groups=[];for(const u of users){const rows=(await database.query(select+' WHERE s.user_id=? AND s.expires_at>? AND '+visible+(userId?'':" AND (EXISTS(SELECT 1 FROM tomi_story_options o WHERE o.story_id=s.id AND o.audience='public') OR s.user_id=? OR EXISTS(SELECT 1 FROM tomi_follows f WHERE f.follower_id=? AND f.following_id=s.user_id))")+' ORDER BY s.created_at,s.id LIMIT 50',[viewer,u.user_id,stamp(),viewer,viewer,viewer,viewer,...(userId?[]:[viewer,viewer])])).rows;if(rows.length)groups.push({author:story(rows[0],viewer).author,stories:rows.map(r=>story(r,viewer))});}
   groups.sort((a,b)=>Number(b.author.id===viewer)-Number(a.author.id===viewer)||Number(a.stories.every(s=>s.seen))-Number(b.stories.every(s=>s.seen)));
   respond(response,200,{groups,imageUploadEnabled:!!storage,videoUploadEnabled:!!storage});return true;
  }

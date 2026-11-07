@@ -851,3 +851,5 @@ CREATE TABLE IF NOT EXISTS tomi_notices(id TEXT PRIMARY KEY,recipient_id TEXT NO
 CREATE INDEX IF NOT EXISTS tomi_notices_inbox ON tomi_notices(recipient_id,created_at,id);
 CREATE TABLE IF NOT EXISTS tomi_notice_receipts(notice_id TEXT NOT NULL REFERENCES tomi_notices(id) ON DELETE CASCADE,token_hash TEXT NOT NULL,PRIMARY KEY(notice_id,token_hash));
 CREATE TABLE IF NOT EXISTS tomi_content_preferences(user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,comments TEXT NOT NULL DEFAULT 'everyone',mentions TEXT NOT NULL DEFAULT 'everyone',words TEXT NOT NULL DEFAULT '[]');
+
+CREATE INDEX IF NOT EXISTS tomi_comment_replies_parent ON tomi_comment_replies(parent_id,comment_id);

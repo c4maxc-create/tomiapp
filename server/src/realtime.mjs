@@ -1,14 +1,23 @@
 import {WebSocketServer,WebSocket} from 'ws';
-export function createRealtime({server,origins,authenticate,validSessions,typing,limit}){
+export function createRealtime({server,origins,authenticate,validSessions,typing,limit,clientIp=request=>request.socket.remoteAddress}){
  const hub=new WebSocketServer({noServer:true,maxPayload:4096,perMessageDeflate:false});
  const sockets=new Set();
+ const attempts=new Map();
+ function handshake(ip){
+  const now=Date.now();for(const [key,value] of attempts)if(now-value.started>=60000)attempts.delete(key);
+  const current=attempts.get(ip);
+  if(current){if(++current.hits>60)return false;}
+  else {if(attempts.size>=2000)return false;attempts.set(ip,{started:now,hits:1});}
+  return [...sockets].filter(ws=>!ws.userId&&ws.clientIp===ip).length<8;
+ }
  const emit=(ids,event)=>{const payload=JSON.stringify(event);for(const ws of sockets)if(ids.includes(ws.userId)&&ws.readyState===WebSocket.OPEN){if(ws.bufferedAmount>262144)ws.terminate();else ws.send(payload);}};
  const invalidateSession=hash=>{for(const ws of sockets)if(ws.tokenHash===hash)ws.close(4401,'Session expired');};
  const invalidateUser=id=>{for(const ws of sockets)if(ws.userId===id)ws.close(4401,'Session expired');};
  server.on('upgrade',(request,socket,head)=>{
   let url;try{url=new URL(request.url,'http://tomi.internal');}catch{socket.destroy();return;}
   if(url.pathname!=='/v1/chat/socket'||url.search||(request.headers.origin&&!origins.includes(request.headers.origin))||sockets.size>=500){socket.destroy();return;}
-  hub.handleUpgrade(request,socket,head,ws=>hub.emit('connection',ws,request));
+  const ip=clientIp(request);if(!handshake(ip)){socket.end('HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\nRetry-After: 60\r\nContent-Length: 0\r\n\r\n');return;}
+  hub.handleUpgrade(request,socket,head,ws=>{ws.clientIp=ip;hub.emit('connection',ws,request);});
  });
  hub.on('connection',(ws,request)=>{
   sockets.add(ws);ws.alive=true;let processing=false,queued=0;
@@ -21,9 +30,10 @@ export function createRealtime({server,origins,authenticate,validSessions,typing
    tail=tail.then(async()=>{
     if(ws.readyState!==WebSocket.OPEN)return;
     const data=JSON.parse(raw.toString());
+    if(!data||Array.isArray(data)||typeof data!=='object')throw Error('frame');
     if(!ws.userId){
      if(processing||data.type!=='authenticate'||typeof data.token!=='string')throw Error('auth');
-     processing=true;await limit('ws-ip:'+request.socket.remoteAddress,60);
+     processing=true;await limit('ws-ip:'+ws.clientIp,60);
      const current=await authenticate(data.token);
      if([...sockets].filter(other=>other.userId===current.id).length>=4){ws.close(4429,'Connection limit');return;}
      if(ws.readyState!==WebSocket.OPEN)return;
