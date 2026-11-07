@@ -5,9 +5,12 @@ import hashlib,os,re,subprocess,sys
 def fingerprints(output):
     result={}
     for label,length in [('SHA-1',40),('SHA-256',64)]:
-        matches=re.findall(r'^Signer #1 certificate '+label+r' digest: ([0-9a-fA-F]{'+str(length)+r'})\s*$',output,re.M)
+        matches=re.findall(r'^(?:Signer #1 |V[1-4](?:\.[0-9]+)? Signer: )certificate '+label+r' digest: ([0-9a-fA-F]{'+str(length)+r'})\s*$',output,re.M)
+        matches=list(set(matches))
         if len(matches)!=1:raise ValueError('Expected exactly one signer '+label+' fingerprint')
         result[label]=':'.join(matches[0][i:i+2].upper() for i in range(0,length,2))
+    counts=re.findall(r'^Number of signers: ([0-9]+)\s*$',output,re.M)
+    if counts and any(n!='1' for n in counts):raise ValueError('Multiple signers require manual review')
     if re.search(r'^Signer #[2-9][0-9]* certificate ',output,re.M):raise ValueError('Multiple signers require manual review')
     return result
 
@@ -24,7 +27,7 @@ def main():
         values=fingerprints(verified.stdout)
     except ValueError as error:
         # apksigner reads only the APK's public signature, never a keystore or secret.
-        for line in (verified.stdout+'\n'+verified.stderr).splitlines()[:24]:
+        for line in (verified.stdout+'\n'+verified.stderr).splitlines()[-24:]:
             safe=line[:800].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
             print('::warning title=Public APK certificate diagnostic::'+safe)
         raise SystemExit(str(error)) from None
