@@ -14,7 +14,7 @@
 ## Google
 
 - فعّل Google وحدد بريد الدعم.
-- سجّل SHA-1 وSHA-256 لشهادة النسخة التي ستثبتها، سواء debug أو مفتاح الإصدار، في Firebase → Project settings → تطبيق Android.
+- سجّل SHA-1 وSHA-256 لشهادة النسخة التي ستثبتها في Firebase → Project settings → تطبيق Android. للتفعيل الدائم استخدم بناء `signed_beta` بمفتاح توقيعك الثابت. بناء debug على جهاز GitHub جديد قد يولّد شهادة مختلفة، فلا تعتمد على بصمة debug من بناء سابق.
 - نزّل `google-services.json` الجديد بعد تفعيل Google وبصمات OAuth. حدّث GitHub Secret الموجود لإعداد Firebase الخاص بعميل Android، وليس ملف service-account. أسماء أسرار البناء الحالية موثقة في workflow Android.
 - للآيفون أضف تطبيق iOS بمعرّف `com.tomi.tomiapp` وحدّث `TOMI_IOS_GOOGLE_SERVICES_PLIST`. يضيف bootstrap عنوان الرجوع وGIDClientID من ملف العميل.
 
