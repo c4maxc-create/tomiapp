@@ -1,5 +1,5 @@
+import '../messaging/video_media.dart' show readPickedVideo;
 import '../preferences/network_media_image.dart';
-import '../messaging/video_editor.dart';
 import '../experience/experience_pages.dart';
 import '../design/async_content.dart';
 import 'post_share_screens.dart';
@@ -1169,15 +1169,12 @@ class _SocialComposerState extends State<SocialComposer> {
       changed();
       return;
     }
+    if (mounted) setState(() => picking = true);
     try {
       final media = video
-          ? await editPickedVideo(
-              context,
-              file,
-              audioBusy: () => widget.accounts.liveAudioBusy,
-            )
+          ? await readPickedVideo(file)
           : await readPickedImage(file);
-      if (!mounted || !draft.current || media == null) return;
+      if (!mounted || !draft.current) return;
       await draft.attachment(media);
       videoPath = null;
       pickerError = null;
@@ -1185,6 +1182,8 @@ class _SocialComposerState extends State<SocialComposer> {
       pickerError = e.message;
     } catch (_) {
       pickerError = 'تعذّر فتح المرفق أو حفظه على الجهاز.';
+    } finally {
+      if (mounted) setState(() => picking = false);
     }
     changed();
   }
@@ -1202,10 +1201,7 @@ class _SocialComposerState extends State<SocialComposer> {
         purpose: video ? 'feed-video' : 'feed',
       );
       final file = video
-          ? await ImagePicker().pickVideo(
-              source: ImageSource.gallery,
-              maxDuration: const Duration(minutes: 3),
-            )
+          ? await ImagePicker().pickVideo(source: ImageSource.gallery)
           : await ImagePicker().pickImage(
               source: ImageSource.gallery,
               maxWidth: 2400,
@@ -1400,7 +1396,7 @@ class _SocialComposerState extends State<SocialComposer> {
                       ? null
                       : () => pick(),
                   icon: const Icon(Icons.photo_library_outlined),
-                  label: Text(picking ? 'جارٍ فتح المعرض…' : 'إضافة صورة'),
+                  label: Text(picking ? 'جارٍ تجهيز الملف…' : 'إضافة صورة'),
                 ),
                 if (widget.videoEnabled)
                   OutlinedButton.icon(

@@ -1,0 +1,12 @@
+00:00 +0: loading /workspace/tomiapp/test/publish_tools39_test.dart
+00:00 +0: only compatible MP4 headers take the original-file path
+00:00 +1: post attaches a selected video without a trim or cover-selection route
+00:01 +2: story attaches a selected video without a trim or cover-selection route
+00:02 +3: chat attaches a selected video without a trim or cover-selection route
+00:03 +4: all twelve room tools remain reachable at Size(320.0, 640.0) text 1.0
+00:03 +5: all twelve room tools remain reachable at Size(320.0, 640.0) text 2.0
+00:04 +6: all twelve room tools remain reachable at Size(390.0, 844.0) text 1.0
+00:04 +7: all twelve room tools remain reachable at Size(390.0, 844.0) text 2.0
+00:04 +8: all twelve room tools remain reachable at Size(800.0, 420.0) text 1.0
+00:05 +9: all twelve room tools remain reachable at Size(800.0, 420.0) text 2.0
+00:05 +10: All tests passed!

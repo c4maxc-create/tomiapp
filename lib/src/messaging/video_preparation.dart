@@ -1,3 +1,4 @@
+import 'direct_mp4.dart';
 import '../preferences/media_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'dart:async';
@@ -19,11 +20,23 @@ class VideoEditOptions {
 
 class VideoPreparation {
   static Future<void> tail = Future.value();
-  static Future<XFile> prepare(XFile source, {VideoEditOptions? edit}) {
+  static Future<XFile> prepare(
+    XFile source, {
+    VideoEditOptions? edit,
+    int maxSeconds = 180,
+    bool forceConversion = false,
+  }) {
     final done = Completer<XFile>();
     tail = tail.catchError((Object _) {}).then((_) async {
       try {
-        done.complete(await convert(source, edit: edit));
+        done.complete(
+          await convert(
+            source,
+            edit: edit,
+            maxSeconds: maxSeconds,
+            forceConversion: forceConversion,
+          ),
+        );
       } catch (e, s) {
         done.completeError(e, s);
       }
@@ -31,18 +44,23 @@ class VideoPreparation {
     return done.future;
   }
 
-  static Future<XFile> convert(XFile source, {VideoEditOptions? edit}) async {
+  static Future<XFile> convert(
+    XFile source, {
+    VideoEditOptions? edit,
+    int maxSeconds = 180,
+    bool forceConversion = false,
+  }) async {
     if (!Platform.isAndroid && !Platform.isIOS) return source;
     if (await source.length() > 512 * 1024 * 1024)
       throw const AccountFailure(
         'INVALID_VIDEO',
-        'الفيديو أكبر من512 MB؛ قصّه أو قلّل حجمه قبل اختياره.',
+        'الفيديو أكبر من512 MB؛ اختَر ملفاً أصغر.',
       );
     final info = await VideoCompress.getMediaInfo(source.path);
     final duration = info.duration ?? 0;
     if (duration < 100 ||
         !duration.isFinite ||
-        (edit == null && duration > 180000) ||
+        (edit == null && duration > maxSeconds * 1000) ||
         (edit != null &&
             (edit.startSeconds < 0 ||
                 edit.durationSeconds < 1 ||
@@ -50,14 +68,21 @@ class VideoPreparation {
                 edit.startSeconds * 1000 >= duration ||
                 (edit.startSeconds + edit.durationSeconds) * 1000 >
                     duration + 1000)))
-      throw const AccountFailure(
+      throw AccountFailure(
         'VIDEO_DURATION',
-        'اختار فيديو مدته حتى ثلاث دقائق.',
+        maxSeconds == 60
+            ? 'فيديو الستوري حتى60 ثانية؛ اختَر مقطعاً أقصر.'
+            : 'الفيديو حتى ثلاث دقائق؛ اختَر مقطعاً أقصر.',
       );
     final preferences = MediaPreferences.instance;
     try {
       await preferences.restore();
     } catch (_) {}
+    if (!forceConversion &&
+        edit == null &&
+        !preferences.dataSaver &&
+        await canSendOriginalMp4(source))
+      return source;
     var smaller = preferences.dataSaver;
     if (preferences.smartQuality && !smaller) {
       try {
@@ -92,7 +117,7 @@ class VideoPreparation {
     }
     throw const AccountFailure(
       'VIDEO_PREPARATION',
-      'تعذّر تجهيز الفيديو بحجم مناسب؛ جرّب قصّ جزء منه.',
+      'تعذّر تجهيز هذا الفيديو للإرسال؛ أعد المحاولة أو اختَر فيديو آخر.',
     );
   }
 }

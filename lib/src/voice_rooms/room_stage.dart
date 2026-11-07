@@ -117,193 +117,160 @@ class _VoiceRoomPageState extends State<VoiceRoomPage>
     );
   }
 
-  Future<void> tools() => showModalBottomSheet<void>(
-    context: context,
-    showDragHandle: true,
-    backgroundColor: TomiColors.surface,
-    builder: (sheet) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'وظائف الغرفة',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 10,
-              runSpacing: 14,
-              children: [
-                for (final item in <(IconData, String, VoidCallback)>[
-                  if (c.me?.role == 'owner')
-                    (
-                      Icons.person_add_alt_1,
-                      'دعوة صديق',
-                      () {
-                        final room = c.active;
-                        Navigator.pop(sheet);
-                        if (room != null)
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) => SendInvitationPage(
-                                accounts: c.accounts,
-                                kind: 'room',
-                                targetId: room.id,
-                              ),
-                            ),
-                          );
-                      },
-                    ),
-                  (
-                    Icons.qr_code_2,
-                    'مشاركة الغرفة',
-                    () {
-                      Navigator.pop(sheet);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => ShareCodePage(
-                            url: 'tomi://room/${c.active!.id}',
-                            title: 'مشاركة الغرفة',
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  (
-                    Icons.poll_outlined,
-                    'تصويت الغرفة',
-                    () {
-                      Navigator.pop(sheet);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => CommunityPage(
-                            accounts: c.accounts,
-                            kind: 'polls',
-                            title: 'تصويت الغرفة',
-                            roomId: c.active!.id,
-                            canCreate: c.me?.role == 'owner',
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  (
-                    Icons.casino_outlined,
-                    'مدار الحظ',
-                    () {
-                      Navigator.pop(sheet);
-                      showLiveRoulette(context, c.accounts, c.active!.id);
-                    },
-                  ),
-                  (
-                    Icons.info_outline,
-                    'معلومات الغرفة',
-                    () {
-                      Navigator.pop(sheet);
-                      info();
-                    },
-                  ),
-                  (
-                    Icons.people_outline,
-                    'الأعضاء',
-                    () {
-                      Navigator.pop(sheet);
-                      members();
-                    },
-                  ),
-                  (
-                    Icons.leaderboard_outlined,
-                    'مساهمو الغرفة',
-                    () {
-                      Navigator.pop(sheet);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => ContributionRankingPage(
-                            accounts: c.accounts,
-                            roomId: c.active!.id,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  (
-                    Icons.redeem_rounded,
-                    'الهدايا',
-                    () {
-                      Navigator.pop(sheet);
-                      gifts();
-                    },
-                  ),
-                  (
-                    Icons.auto_awesome,
-                    'متجر الغرفة',
-                    () {
-                      Navigator.pop(sheet);
-                      _showRoomShop(context, c);
-                    },
-                  ),
-                  if (c.manage)
-                    (
-                      Icons.pan_tool_outlined,
-                      'طلبات المايك',
-                      () {
-                        Navigator.pop(sheet);
-                        members(requests: true);
-                      },
-                    ),
-                  if (c.me?.role == 'owner')
-                    (
-                      Icons.settings_outlined,
-                      'إعدادات الغرفة',
-                      () {
-                        Navigator.pop(sheet);
-                        settings();
-                      },
-                    ),
-                  (
-                    Icons.logout_rounded,
-                    'خروج',
-                    () {
-                      Navigator.pop(sheet);
-                      leave();
-                    },
-                  ),
-                ])
-                  SizedBox(
-                    width: 95,
-                    child: InkWell(
-                      onTap: item.$3,
-                      borderRadius: BorderRadius.circular(16),
-                      child: Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Column(
-                          children: [
-                            Icon(item.$1, size: 29, color: _roomCyan),
-                            const SizedBox(height: 8),
-                            Text(
-                              item.$2,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ],
-                        ),
+  Future<void> tools() {
+    FocusScope.of(context).unfocus();
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      backgroundColor: TomiColors.surface,
+      constraints: const BoxConstraints(maxWidth: 560),
+      builder: (sheet) => RoomToolsSheet(
+        accent: _roomCyan,
+        actions: <(IconData, String, VoidCallback)>[
+          if (c.me?.role == 'owner')
+            (
+              Icons.person_add_alt_1,
+              'دعوة صديق',
+              () {
+                final room = c.active;
+                Navigator.pop(sheet);
+                if (room != null)
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => SendInvitationPage(
+                        accounts: c.accounts,
+                        kind: 'room',
+                        targetId: room.id,
                       ),
                     ),
-                  ),
-              ],
+                  );
+              },
             ),
-          ],
-        ),
+          (
+            Icons.qr_code_2,
+            'مشاركة الغرفة',
+            () {
+              Navigator.pop(sheet);
+              Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => ShareCodePage(
+                    url: 'tomi://room/${c.active!.id}',
+                    title: 'مشاركة الغرفة',
+                  ),
+                ),
+              );
+            },
+          ),
+          (
+            Icons.poll_outlined,
+            'تصويت الغرفة',
+            () {
+              Navigator.pop(sheet);
+              Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => CommunityPage(
+                    accounts: c.accounts,
+                    kind: 'polls',
+                    title: 'تصويت الغرفة',
+                    roomId: c.active!.id,
+                    canCreate: c.me?.role == 'owner',
+                  ),
+                ),
+              );
+            },
+          ),
+          (
+            Icons.casino_outlined,
+            'مدار الحظ',
+            () {
+              Navigator.pop(sheet);
+              showLiveRoulette(context, c.accounts, c.active!.id);
+            },
+          ),
+          (
+            Icons.info_outline,
+            'معلومات الغرفة',
+            () {
+              Navigator.pop(sheet);
+              info();
+            },
+          ),
+          (
+            Icons.people_outline,
+            'الأعضاء',
+            () {
+              Navigator.pop(sheet);
+              members();
+            },
+          ),
+          (
+            Icons.leaderboard_outlined,
+            'مساهمو الغرفة',
+            () {
+              Navigator.pop(sheet);
+              Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => ContributionRankingPage(
+                    accounts: c.accounts,
+                    roomId: c.active!.id,
+                  ),
+                ),
+              );
+            },
+          ),
+          (
+            Icons.redeem_rounded,
+            'الهدايا',
+            () {
+              Navigator.pop(sheet);
+              gifts();
+            },
+          ),
+          (
+            Icons.auto_awesome,
+            'متجر الغرفة',
+            () {
+              Navigator.pop(sheet);
+              _showRoomShop(context, c);
+            },
+          ),
+          if (c.manage)
+            (
+              Icons.pan_tool_outlined,
+              'طلبات المايك',
+              () {
+                Navigator.pop(sheet);
+                members(requests: true);
+              },
+            ),
+          if (c.me?.role == 'owner')
+            (
+              Icons.settings_outlined,
+              'إعدادات الغرفة',
+              () {
+                Navigator.pop(sheet);
+                settings();
+              },
+            ),
+          (
+            Icons.logout_rounded,
+            'خروج',
+            () {
+              Navigator.pop(sheet);
+              leave();
+            },
+          ),
+        ],
       ),
-    ),
-  );
+    );
+  }
+
   Future<void> seatAction(VoiceRoom r, int index) async {
     final m = r.seated(index);
     if (m != null) {

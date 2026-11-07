@@ -18,8 +18,15 @@ import 'voice_note.dart' show voiceTime;
 Future<VideoDraft> readPickedVideo(
   XFile original, {
   VideoEditOptions? edit,
+  int maxSeconds = 180,
+  bool forceConversion = false,
 }) async {
-  final file = await VideoPreparation.prepare(original, edit: edit);
+  final file = await VideoPreparation.prepare(
+    original,
+    edit: edit,
+    maxSeconds: maxSeconds,
+    forceConversion: forceConversion,
+  );
   if (await file.length() > 25 * 1024 * 1024)
     throw const AccountFailure(
       'INVALID_VIDEO',
@@ -33,15 +40,17 @@ Future<VideoDraft> readPickedVideo(
         h = v.size.height.round(),
         ms = v.duration.inMilliseconds;
     if (ms < 100 ||
-        ms > 180000 ||
+        ms > maxSeconds * 1000 ||
         w < 1 ||
         h < 1 ||
         w * h > 1920 * 1080 ||
         w > 1920 ||
         h > 1920)
-      throw const AccountFailure(
+      throw AccountFailure(
         'INVALID_VIDEO',
-        'اختَر فيديو حتى1080p وثلاث دقائق.',
+        maxSeconds == 60
+            ? 'فيديو الستوري حتى60 ثانية.'
+            : 'اختَر فيديو حتى1080p وثلاث دقائق.',
       );
     final parts = BytesBuilder(copy: false);
     await for (final chunk in file.openRead()) {
@@ -61,7 +70,7 @@ Future<VideoDraft> readPickedVideo(
     if (Platform.isAndroid || Platform.isIOS) {
       try {
         final bytes = await VideoCompress.getByteThumbnail(
-          file.path,
+          edit == null ? original.path : file.path,
           quality: 40,
           position:
               (edit?.posterMillis ?? 0).clamp(0, (ms > 100 ? ms - 100 : 0)) *
@@ -114,7 +123,7 @@ Future<VideoDraft> repairRejectedVideo(VideoDraft old) async {
       );
   try {
     await file.writeAsBytes(old.bytes, flush: true);
-    return await readPickedVideo(XFile(file.path));
+    return await readPickedVideo(XFile(file.path), forceConversion: true);
   } finally {
     if (await file.exists()) await file.delete();
   }
@@ -264,7 +273,8 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
     await old?.dispose();
     VideoPlayerController? next;
     try {
-      if(!await MediaPreferences.instance.allowNetworkMedia()) throw StateError('Wi-Fi required');
+      if (!await MediaPreferences.instance.allowNetworkMedia())
+        throw StateError('Wi-Fi required');
       final uri = await widget.source();
       if (!mounted || e != epoch) return;
       if (uri == null || !['https', 'http'].contains(uri.scheme))
@@ -294,7 +304,9 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
     } catch (_) {
       await next?.dispose();
       if (mounted && e == epoch)
-        error = MediaPreferences.instance.wifiOnly ? 'تعذّر فتح الفيديو؛ تأكد من Wi-Fi أو غيّر خيار تنزيل الوسائط في الإعدادات.' : 'تعذّر فتح الفيديو؛ حدّث الرابط وجرّب مرة ثانية.';
+        error = MediaPreferences.instance.wifiOnly
+            ? 'تعذّر فتح الفيديو؛ تأكد من Wi-Fi أو غيّر خيار تنزيل الوسائط في الإعدادات.'
+            : 'تعذّر فتح الفيديو؛ حدّث الرابط وجرّب مرة ثانية.';
     } finally {
       if (mounted && e == epoch) setState(() => loading = false);
     }

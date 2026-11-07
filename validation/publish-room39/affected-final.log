@@ -1,0 +1,20 @@
+00:00 +0: loading /workspace/tomiapp/test/publish_tools39_test.dart
+00:00 +0: /workspace/tomiapp/test/publish_tools39_test.dart: only compatible MP4 headers take the original-file path
+00:00 +1: /workspace/tomiapp/test/publish_tools39_test.dart: post attaches a selected video without a trim or cover-selection route
+00:00 +2: /workspace/tomiapp/test/publish_tools39_test.dart: post attaches a selected video without a trim or cover-selection route
+00:00 +3: /workspace/tomiapp/test/publish_tools39_test.dart: post attaches a selected video without a trim or cover-selection route
+00:01 +4: /workspace/tomiapp/test/publish_tools39_test.dart: post attaches a selected video without a trim or cover-selection route
+00:01 +5: /workspace/tomiapp/test/publish_tools39_test.dart: post attaches a selected video without a trim or cover-selection route
+00:01 +6: /workspace/tomiapp/test/publish_tools39_test.dart: story attaches a selected video without a trim or cover-selection route
+00:02 +7: /workspace/tomiapp/test/publish_tools39_test.dart: chat attaches a selected video without a trim or cover-selection route
+00:02 +8: /workspace/tomiapp/test/publish_tools39_test.dart: chat attaches a selected video without a trim or cover-selection route
+00:03 +9: /workspace/tomiapp/test/improvements32_test.dart: story draft restores text and audience after leaving and reopening without publishing
+00:03 +10: /workspace/tomiapp/test/improvements32_test.dart: story draft restores text and audience after leaving and reopening without publishing
+00:04 +11: /workspace/tomiapp/test/improvements32_test.dart: story draft restores text and audience after leaving and reopening without publishing
+00:04 +12: /workspace/tomiapp/test/improvements32_test.dart: story draft restores text and audience after leaving and reopening without publishing
+00:04 +13: /workspace/tomiapp/test/publish_tools39_test.dart: all twelve room tools remain reachable at Size(390.0, 844.0) text 2.0
+00:05 +14: /workspace/tomiapp/test/improvements32_test.dart: chat game invitation recovers the same private table after a lost creation response and sends one invitation
+00:05 +15: /workspace/tomiapp/test/publish_tools39_test.dart: all twelve room tools remain reachable at Size(800.0, 420.0) text 1.0
+00:05 +16: /workspace/tomiapp/test/publish_tools39_test.dart: all twelve room tools remain reachable at Size(800.0, 420.0) text 1.0
+00:05 +17: /workspace/tomiapp/test/publish_tools39_test.dart: all twelve room tools remain reachable at Size(800.0, 420.0) text 2.0
+00:05 +18: All tests passed!

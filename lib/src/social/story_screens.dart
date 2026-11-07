@@ -1,5 +1,5 @@
+import '../messaging/video_media.dart' show readPickedVideo;
 import '../preferences/network_media_image.dart';
-import '../messaging/video_editor.dart';
 import '../messaging/chat_models.dart' show PendingChatMessage;
 import '../messaging/upload_transfer.dart';
 import '../identity/identity_avatar.dart';
@@ -1308,14 +1308,8 @@ class _StoryComposerPageState extends State<StoryComposerPage>
     setState(() => picking = true);
     try {
       final next = video
-          ? await editPickedVideo(
-              context,
-              file,
-              maxSeconds: 60,
-              audioBusy: () => widget.accounts.liveAudioBusy,
-            )
+          ? await readPickedVideo(file, maxSeconds: 60)
           : await readPickedImage(file);
-      if (next == null) return;
       if (next is VideoDraft && next.durationMs > 60000)
         throw const AccountFailure(
           'STORY_DURATION',
@@ -1350,10 +1344,7 @@ class _StoryComposerPageState extends State<StoryComposerPage>
         purpose: video ? 'story-video' : 'story',
       );
       final file = video
-          ? await ImagePicker().pickVideo(
-              source: ImageSource.gallery,
-              maxDuration: const Duration(seconds: 60),
-            )
+          ? await ImagePicker().pickVideo(source: ImageSource.gallery)
           : await ImagePicker().pickImage(
               source: ImageSource.gallery,
               maxWidth: 1920,
