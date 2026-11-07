@@ -21,6 +21,9 @@ test('42 external identities are separate despite the same email; only confirmed
  const local=await f.register('link_local42');assert.equal((await f.req(local,'POST','/v1/me/auth/link',{password:'wrong',identityToken:token})).status,400);
  assert.equal((await f.req(local,'POST','/v1/me/auth/link',{password,identityToken:token})).data.error.code,'IDENTITY_ALREADY_LINKED');
  const third=i.issue({sub:'new-third-uid',email:'same@example.test'});assert.equal((await f.req(local,'POST','/v1/me/auth/link',{password,identityToken:third})).status,200);assert.equal((await f.req(null,'POST','/v1/auth/federated',{identityToken:third})).data.user.id,local.user.id);
+
+ const otherLocal=await f.register('link_racing42'),contested=i.issue({sub:'contested-proof'});
+ const racing=await Promise.all([f.req(local,'POST','/v1/me/auth/link',{password,identityToken:contested}),f.req(otherLocal,'POST','/v1/me/auth/link',{password,identityToken:contested})]);assert.deepEqual(racing.map(r=>r.status).sort(),[200,409]);
  assert.equal((await f.req(a,'GET','/v1/me/auth/methods')).data.hasPassword,false);
  assert.equal((await f.req(a,'POST','/v1/me/security/setup',{identityToken:tokenB})).status,403);
  const setup=await f.req(a,'POST','/v1/me/security/setup',{identityToken:token});assert.equal(setup.status,200);
