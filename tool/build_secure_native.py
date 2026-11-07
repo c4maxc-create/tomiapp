@@ -12,10 +12,16 @@ base=[cargo,'+1.89.0','build','--locked','--release','--manifest-path',str(nativ
 if args.platform=='host':run(base)
 elif args.platform=='android':
     ndk=next((Path(os.environ[k]) for k in ['ANDROID_NDK_HOME','ANDROID_NDK_ROOT'] if os.environ.get(k)),None)
+    if ndk is not None and not ndk.is_dir():ndk=None
     if ndk is None:
         sdk=Path(os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT') or '/usr/local/lib/android/sdk')
         choices=sorted((sdk/'ndk').glob('*'),key=lambda p:[int(n) for n in p.name.split('.')])
-        if not choices:raise SystemExit('Android NDK is required.')
+        if not choices:
+            from prepare_android_ci import flutter_ndk
+            flutter=Path(os.environ.get('FLUTTER_ROOT') or str(Path(shutil.which('flutter') or '').resolve().parent.parent))
+            version=flutter_ndk(flutter);manager=sdk/'cmdline-tools/latest/bin/sdkmanager'
+            if not manager.is_file():raise SystemExit('Android SDK manager is required to install the Flutter NDK.')
+            run([str(manager),'ndk;'+version]);choices=[sdk/'ndk'/version]
         ndk=choices[-1]
     host='darwin-x86_64' if platform.system()=='Darwin' else 'linux-x86_64'
     bin=ndk/'toolchains/llvm/prebuilt'/host/'bin'
