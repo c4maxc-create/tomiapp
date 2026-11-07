@@ -66,6 +66,8 @@ jobs:
           set -o pipefail
           python3 tool/prepare_android_ci.py check --minimum-gib 20
           python3 tool/retry_android_build.py -- flutter build apk --debug --no-pub --dart-define=TOMI_API_URL=https://tomiapp.onrender.com --dart-define=TOMI_PREVIEW_MODE=false --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED" 2>&1 | tee build/tomi-android-native.log
+      - name: Report public signing fingerprints for Firebase
+        run: python3 tool/report_apk_certificate.py build/app/outputs/flutter-apk/app-debug.apk
       - name: Report bounded Android compiler diagnostics
         if: failure()
         run: python3 tool/report_android_native.py
