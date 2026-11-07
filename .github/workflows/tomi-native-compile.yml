@@ -1,0 +1,58 @@
+name: TOMI Android native compile verification
+"on":
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tomi-native-compile-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6.1.0
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v6
+        with: {node-version: '24'}
+      - uses: actions/setup-java@v6
+        with: {distribution: temurin, java-version: '17'}
+      - uses: actions/setup-dotnet@v5
+        with: {dotnet-version: '8.0.x'}
+      - uses: subosito/flutter-action@v2
+        with: {channel: stable, flutter-version: '3.47.7', cache: true}
+      - name: Generate client and public provider configuration
+        env:
+          TOMI_FACEBOOK_APP_ID: ${{ vars.TOMI_FACEBOOK_APP_ID }}
+          TOMI_FACEBOOK_CLIENT_TOKEN: ${{ secrets.TOMI_FACEBOOK_CLIENT_TOKEN }}
+          TOMI_GOOGLE_SERVICES_JSON: ${{ secrets.TOMI_GOOGLE_SERVICES_JSON }}
+          TOMI_REQUIRE_PUSH: 'true'
+        run: |
+          bash tool/bootstrap_android.sh
+          python3 tool/configure_firebase.py
+          python3 tool/check_identity_native.py
+      - name: Compile and test native encryption
+        timeout-minutes: 10
+        run: |
+          rustup toolchain install 1.89.0 --profile minimal
+          cargo +1.89.0 test --locked --manifest-path packages/tomi_secure/native/Cargo.toml
+          python3 tool/build_secure_native.py --platform android
+      - name: Package actual CSharp game UI
+        run: python3 tool/build_csharp_games.py
+      - name: Resolve and analyze the client
+        run: |
+          flutter pub get --enforce-lockfile
+          flutter analyze
+      - name: Compile Android client and native plugins
+        run: |
+          mkdir -p build
+          set -o pipefail
+          flutter build apk --debug --no-pub --dart-define=TOMI_API_URL=https://tomiapp.onrender.com --dart-define=TOMI_PREVIEW_MODE=false 2>&1 | tee build/tomi-android-native.log
+      - name: Report bounded Android compiler diagnostics
+        if: failure()
+        run: python3 tool/report_android_native.py
+      - name: Save privately testable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TOMI-build42-native-debug
+          path: build/app/outputs/flutter-apk/app-debug.apk

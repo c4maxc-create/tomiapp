@@ -1,1 +1,3 @@
 Upstream flutter_facebook_auth7.3.2, MIT. Native SDK/manager initialization is deferred until a method is used, with a bounded configuration error. This lets an APK/iOS build boot safely before Facebook is configured; no login tokens or SDK authentication are faked. Original login flow and license retained. Desktop dependency is separately pinned to the small compatibility fork for secure_storage11. Review these patches with upstream updates.
+
+Android explicitly calls fullyInitialize only after a method needs the SDK; unused logout does not initialize it. The legacy manifest package attribute is removed because Gradle declares the namespace.

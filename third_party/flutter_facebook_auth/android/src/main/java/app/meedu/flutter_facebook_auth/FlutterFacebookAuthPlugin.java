@@ -36,9 +36,14 @@ public class FlutterFacebookAuthPlugin implements FlutterPlugin, MethodCallHandl
 
     @Override
     public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
+        if (facebookAuth == null && call.method.equals("logOut")) {
+            result.success(null);
+            return;
+        }
         if (facebookAuth == null) {
             try {
                 com.facebook.FacebookSdk.sdkInitialize(applicationContext);
+                com.facebook.FacebookSdk.fullyInitialize();
                 facebookAuth = new FacebookAuth();
                 if (activityPluginBinding != null) activityPluginBinding.addActivityResultListener(facebookAuth.resultDelegate);
             } catch (RuntimeException error) {
