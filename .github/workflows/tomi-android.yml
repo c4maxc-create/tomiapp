@@ -147,6 +147,9 @@ jobs:
         run: flutter --version
 
       - name: Generate Android scaffold
+        env:
+          TOMI_FACEBOOK_APP_ID: ${{ vars.TOMI_FACEBOOK_APP_ID }}
+          TOMI_FACEBOOK_CLIENT_TOKEN: ${{ secrets.TOMI_FACEBOOK_CLIENT_TOKEN }}
         run: bash tool/bootstrap_android.sh
 
       - name: Cache Gradle dependency downloads
@@ -169,6 +172,14 @@ jobs:
           TOMI_GOOGLE_SERVICES_JSON: ${{ secrets.TOMI_GOOGLE_SERVICES_JSON }}
           TOMI_REQUIRE_PUSH: ${{ inputs.mode == 'accounts' && 'true' || 'false' }}
         run: python3 tool/configure_firebase.py
+
+      - name: Build and test native encryption, then Android ABIs
+        timeout-minutes: 10
+        run: |
+          rustup toolchain install 1.89.0 --profile minimal
+          cargo +1.89.0 test --locked --manifest-path packages/tomi_secure/native/Cargo.toml
+          python3 tool/build_secure_native.py --platform host
+          python3 tool/build_secure_native.py --platform android
 
       - name: Set up CSharp game UI compiler
         uses: actions/setup-dotnet@v5

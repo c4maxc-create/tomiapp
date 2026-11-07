@@ -13,6 +13,7 @@ class DirectConversation {
   bool get personalPinned => data['personalPinned'] == true;
   bool get archived => data['archived'] == true;
   bool get markedUnread => data['markedUnread'] == true;
+  bool get secureEnabled => data['secureEnabled'] == true;
   bool get isGroup => data['type'] == 'group';
   bool get isOwner => data['isOwner'] == true;
   int get memberCount => (data['memberCount'] as num?)?.toInt() ?? 2;

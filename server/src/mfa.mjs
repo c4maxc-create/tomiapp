@@ -8,7 +8,7 @@ export function mfaKey(value){if(!value)return null;const b=Buffer.from(value,'b
 export function seal(secret,key,user){const iv=randomBytes(12),cipher=createCipheriv('aes-256-gcm',key,iv);cipher.setAAD(Buffer.from(user));return Buffer.concat([iv,cipher.update(secret),cipher.final(),cipher.getAuthTag()]).toString('base64');}
 export function unseal(value,key,user){if(!key)throw new ApiError(503,'MFA_UNAVAILABLE','خدمة التحقق بخطوتين تحتاج إعداد الخادم.');const b=Buffer.from(value,'base64'),d=createDecipheriv('aes-256-gcm',key,b.subarray(0,12));d.setAAD(Buffer.from(user));d.setAuthTag(b.subarray(-16));return Buffer.concat([d.update(b.subarray(12,-16)),d.final()]).toString();}
 const fail=()=>{throw new ApiError(401,'MFA_REQUIRED','أدخل رمز تطبيق المصادقة أو أحد رموز الاحتياط.');};
-export function createMfa({database,readJson,respond,limit,key=null,clock=Date.now,emit=()=>{},invalidateSession=()=>{},afterRevoke=async()=>{}}){
+export function createMfa({database,readJson,respond,limit,key=null,clock=Date.now,emit=()=>{},invalidateSession=()=>{},afterRevoke=async()=>{},confirmCredential=null}){
  const now=()=>new Date(clock()).toISOString();
  async function event(db,user,kind){await db.query('INSERT INTO tomi_security_events(id,user_id,kind,created_at) VALUES(?,?,?,?)',[randomUUID(),user,kind,now()]);}
  async function check(db,user,code,row){
@@ -44,7 +44,7 @@ export function createMfa({database,readJson,respond,limit,key=null,clock=Date.n
    await db.query('UPDATE tomi_users SET updated_at=updated_at WHERE id=? RETURNING id',[c.id]);
    const row=(await db.query('SELECT * FROM tomi_mfa WHERE user_id=?',[c.id])).rows[0];
    if(path.endsWith('/setup')){
-    if(!key)throw new ApiError(503,'MFA_UNAVAILABLE','إعداد مفتاح المصادقة بالخادم مطلوب أولاً.');await password(db,c.id,d.password);
+    if(!key)throw new ApiError(503,'MFA_UNAVAILABLE','إعداد مفتاح المصادقة بالخادم مطلوب أولاً.');if(confirmCredential)await confirmCredential(c,d,db);else await password(db,c.id,d.password);
     if(Number(row?.enabled))throw new ApiError(409,'MFA_ENABLED','المصادقة مفعّلة مسبقاً.');
     const secret=base32(randomBytes(20));await db.query('INSERT INTO tomi_mfa(user_id,secret,enabled,last_step,pending_until) VALUES(?,?,0,-1,?) ON CONFLICT(user_id) DO UPDATE SET secret=excluded.secret,last_step=-1,pending_until=excluded.pending_until',[c.id,seal(secret,key,c.id),new Date(clock()+10*60000).toISOString()]);
     return {secret,uri:'otpauth://totp/TOMI:'+c.id+'?secret='+secret+'&issuer=TOMI&algorithm=SHA1&digits=6&period=30'};
@@ -57,7 +57,7 @@ export function createMfa({database,readJson,respond,limit,key=null,clock=Date.n
     revoked=(await db.query('DELETE FROM tomi_sessions WHERE user_id=? AND token_hash<>? RETURNING token_hash',[c.id,c.tokenHash])).rows;await mark(db,c.tokenHash);await event(db,c.id,'mfa_enabled');return {enabled:true,recoveryCodes:codes};
    }
    if(!Number(row.enabled))fail();
-   if(path.endsWith('/disable'))await password(db,c.id,d.password);
+   if(path.endsWith('/disable'))if(confirmCredential)await confirmCredential(c,d,db);else await password(db,c.id,d.password);
    await check(db,c.id,d.code,row);
    if(path.endsWith('/disable')){await db.query('DELETE FROM tomi_mfa WHERE user_id=?',[c.id]);await db.query('DELETE FROM tomi_mfa_sessions WHERE session_hash IN(SELECT token_hash FROM tomi_sessions WHERE user_id=?)',[c.id]);await event(db,c.id,'mfa_disabled');revoked=(await db.query('DELETE FROM tomi_sessions WHERE user_id=? AND token_hash<>? RETURNING token_hash',[c.id,c.tokenHash])).rows;}
    else {await mark(db,c.tokenHash);await event(db,c.id,'mfa_verified');}

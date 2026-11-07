@@ -32,6 +32,7 @@ class PrivacyApi extends IdentityApi {
     Map<String, dynamic>? body,
     Map<String, String>? query,
   }) async {
+    if (path == '/v1/me/auth/methods') return {'hasPassword': true};
     if (path == '/v1/account/deletion/preview')
       return {'canDelete': true, 'ownerTransferRequired': false};
     if (path == '/v1/account/deletion') {

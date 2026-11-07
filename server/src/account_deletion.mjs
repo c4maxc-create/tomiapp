@@ -9,7 +9,7 @@ const fail=(status,code,message)=>{throw new ApiError(status,code,message);};
 const fields=(d,allowed)=>{if(Object.keys(d).some(k=>!allowed.includes(k)))fail(400,'VALIDATION','طلب حذف الحساب غير صحيح.');};
 function proof(d){if(typeof d.requestId!=='string'||!uuid.test(d.requestId)||typeof d.receiptToken!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(d.receiptToken))fail(400,'VALIDATION','معرّف طلب الحذف أو إيصال التحقق غير صحيح.');}
 
-export function createAccountDeletion({database,guard,ownerUserId,readJson,respond,limit,session,rooms,calls,chat,storage,chatStorage,dummyHash,authorizeSecurity=async()=>{},autoSweep=true,clock=()=>Date.now()}){
+export function createAccountDeletion({database,guard,ownerUserId,readJson,respond,limit,session,rooms,calls,chat,storage,chatStorage,dummyHash,confirmCredential=null,authorizeSecurity=async()=>{},autoSweep=true,clock=()=>Date.now()}){
   const now=(delta=0)=>new Date(clock()+delta).toISOString();let sweeping=false,closed=false;
   async function receipt(d){
     const r=(await database.query(`SELECT r.id,d.user_id,d.requested_at,d.completed_at,r.expires_at,
@@ -61,7 +61,10 @@ export function createAccountDeletion({database,guard,ownerUserId,readJson,respo
       for(const table of ['tomi_roulette_access','tomi_roulette_daily','tomi_roulette_spins','tomi_contribution_credits'])await db.query('DELETE FROM '+table+' WHERE user_id=?',[row.id]);
       await db.query('DELETE FROM tomi_roulette_requests WHERE actor_id=?',[row.id]);
       for(const table of ['tomi_live_roulette_bets','tomi_live_roulette_requests','tomi_live_roulette_last','tomi_live_roulette_daily','tomi_live_roulette_awards'])await db.query('DELETE FROM '+table+' WHERE user_id=?',[row.id]);
-      for(const table of ['tomi_mfa','tomi_security_events','tomi_content_preferences','tomi_group_organisation','tomi_chat_organisation','tomi_explore_preferences','tomi_explore_hidden','tomi_support_tickets'])await db.query('DELETE FROM '+table+' WHERE user_id=?',[row.id]);
+      await db.query("INSERT INTO tomi_erasure_media(id,user_id,media_type,upload_id,scope,object_key,final_after,next_at) SELECT 'secure:'||id,user_id,'image',id,'private',object_key,?,? FROM tomi_e2ee_uploads WHERE user_id=? ON CONFLICT(scope,object_key) DO NOTHING",[now(16*60000),now(),row.id]);
+      await db.query('DELETE FROM tomi_e2ee_uploads WHERE user_id=?',[row.id]);
+      await db.query('DELETE FROM tomi_e2ee_envelopes WHERE message_id IN(SELECT id FROM tomi_chat_messages WHERE sender_id=?)',[row.id]);
+      for(const table of ['tomi_external_identities','tomi_account_auth','tomi_e2ee_devices','tomi_mfa','tomi_security_events','tomi_content_preferences','tomi_group_organisation','tomi_chat_organisation','tomi_explore_preferences','tomi_explore_hidden','tomi_support_tickets'])await db.query('DELETE FROM '+table+' WHERE user_id=?',[row.id]);
       await db.query('DELETE FROM tomi_contact_exceptions WHERE user_id=? OR target_id=?',[row.id,row.id]);
       await db.query('DELETE FROM tomi_notices WHERE recipient_id=? OR actor_id=?',[row.id,row.id]);
       await db.query('DELETE FROM tomi_invitations WHERE sender_id=? OR recipient_id=?',[row.id,row.id]);
@@ -130,7 +133,7 @@ export function createAccountDeletion({database,guard,ownerUserId,readJson,respo
     if(method!=='POST'||!['/v1/account/deletion','/v1/account/deletion/web','/v1/account/deletion/status'].includes(path))return false;
     await limit('deletion:ip:'+ip,path.endsWith('/status')?60:10,900000);
     const d=await readJson(request,8192),status=path.endsWith('/status'),web=path.endsWith('/web');
-    fields(d,status?['requestId','receiptToken']:['requestId','receiptToken','password','confirmation','mfaCode',...(web?['username']:[])]);proof(d);
+    fields(d,status?['requestId','receiptToken']:['requestId','receiptToken','password','confirmation','mfaCode','identityToken',...(web?['username']:[])]);proof(d);
     const accepted=await receipt(d);if(accepted){respond(response,200,accepted);return true;}
     if(status)fail(404,'DELETION_RECEIPT_MISSING','إيصال الحذف غير موجود أو انتهت صلاحيته.');
     if(d.confirmation!==deletionConfirmation)fail(400,'DELETION_CONFIRMATION','اكتب «حذف حسابي» لتأكيد القرار.');
@@ -138,7 +141,8 @@ export function createAccountDeletion({database,guard,ownerUserId,readJson,respo
     if(web){const username=validateUsername(d.username);await limit('deletion:user:'+username,5,900000);row=(await database.query('SELECT * FROM tomi_users WHERE username=?',[username])).rows[0];}
     else{current=await session(request);await limit('deletion:account:'+current.id,5,900000);row=(await database.query('SELECT * FROM tomi_users WHERE id=?',[current.id])).rows[0];}
     const password=typeof d.password==='string'&&[...d.password].length<=128?d.password:'';
-    if(!await verifyPassword(password,row?.password_hash||dummyHash)||!row)fail(400,'BAD_CREDENTIALS','بيانات الحساب أو كلمة المرور غير صحيحة.');
+    if(confirmCredential&&row)await confirmCredential(row,d);
+    if((!confirmCredential||!row)&&!await verifyPassword(password,row?.password_hash||dummyHash)||!row)fail(400,'BAD_CREDENTIALS','بيانات الحساب أو كلمة المرور غير صحيحة.');
     if((await database.query('SELECT 1 FROM tomi_deletion_receipts WHERE id=?',[d.requestId])).rows.length)fail(409,'DELETION_REQUEST_CHANGED','رقم الطلب مستخدم؛ تحقّق من الإيصال الأصلي.');
     await authorizeSecurity(row,d,current);
     const result=await erase(row,d,current);respond(response,202,result);return true;

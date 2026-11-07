@@ -21,3 +21,6 @@
 **/.dev.vars*
 **/.wrangler/
 *firebase-adminsdk*.json
+/packages/tomi_secure/native/target/
+/packages/tomi_secure/android/src/main/jniLibs/
+/packages/tomi_secure/ios/Frameworks/

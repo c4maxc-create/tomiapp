@@ -1,3 +1,5 @@
+import {createFederatedAuth} from './federated_auth.mjs';
+import {createE2ee} from './e2ee.mjs';
 import {createMfa} from './mfa.mjs';
 import {clientIp,validateJsonShape,verifyEdge} from './request_security.mjs';
 import {createContentPreferences} from './content_preferences.mjs';
@@ -90,7 +92,7 @@ function publicUser(row,storage) {
   };
 }
 
-export async function createApp({ database, trustProxy = false, origins = [], rateLimitMultiplier = 1, mfaEncryptionKey=null, requireAdminMfa=false, edgeSecret=null, storage = null, chatStorage = storage, pushSender=null, pushAutoFlush=true, iceProvider=null, callAutoSweep=true, roomProvider=null, liveProvider=null, liveClock, liveAutoTick=true, roomAutoSweep=true,ownerUserId=null,deletionAutoSweep=true,deletionClock,privacyConfig,liveRouletteClock,liveRouletteAutoTick=true,gamesClock,gamesAutoTick=true }) {
+export async function createApp({ database, trustProxy = false, origins = [], rateLimitMultiplier = 1, mfaEncryptionKey=null, requireAdminMfa=false, edgeSecret=null, firebaseVerifier=null, storage = null, chatStorage = storage, pushSender=null, pushAutoFlush=true, iceProvider=null, callAutoSweep=true, roomProvider=null, liveProvider=null, liveClock, liveAutoTick=true, roomAutoSweep=true,ownerUserId=null,deletionAutoSweep=true,deletionClock,privacyConfig,liveRouletteClock,liveRouletteAutoTick=true,gamesClock,gamesAutoTick=true }) {
   if(requireAdminMfa&&!mfaEncryptionKey)throw Error('TOMI_REQUIRE_ADMIN_MFA requires TOMI_MFA_KEY');
   const requestGuard=createAccountGuard(database);database=requestGuard.database;
   if(ownerUserId){
@@ -171,13 +173,15 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
   const roulette=createRoulette({database,ownerUserId,readJson,respond:json,limit,accountGate:requestGuard.gate});
   const liveRoulette=createLiveRoulette({database,ownerUserId,readJson,respond:json,limit,usersByIds,emit:chat.emit,clock:liveRouletteClock,autoTick:liveRouletteAutoTick,unbound:requestGuard.unbound});
   const games=createGames({database,readJson,respond:json,limit,usersByIds,emit:chat.emit,accountGate:requestGuard.gate,clock:gamesClock,autoTick:gamesAutoTick,unbound:requestGuard.unbound});
-  const deletion=createAccountDeletion({database,guard:requestGuard,ownerUserId,storage,chatStorage,readJson,respond:json,limit,session,rooms,calls,chat,dummyHash,authorizeSecurity:async(row,d,current)=>{if(current)await mfa.guard(current);else {await mfa.loginAttempt(row.id,d.mfaCode);await database.transaction(db=>mfa.verifyLogin(db,row.id,d.mfaCode));}},autoSweep:deletionAutoSweep,clock:deletionClock});
+  const deletion=createAccountDeletion({database,guard:requestGuard,ownerUserId,storage,chatStorage,readJson,respond:json,limit,session,rooms,calls,chat,dummyHash,confirmCredential:(row,d)=>external.confirm({id:row.id},{password:d.password,identityToken:d.identityToken},{skipMfa:true}),authorizeSecurity:async(row,d,current)=>{if(current)await mfa.guard(current);else {await mfa.loginAttempt(row.id,d.mfaCode);await database.transaction(db=>mfa.verifyLogin(db,row.id,d.mfaCode));}},autoSweep:deletionAutoSweep,clock:deletionClock});
   const privacy=createPrivacy(privacyConfig);
   const resumable=createResumable({database,storage,chatStorage,readJson,respond:json,limit});
   const contentPreferences=createContentPreferences({database,readJson,respond:json,limit});
   const notices=createNotices({database,readJson,respond:json,limit});
   const community=createCommunity({database,readJson,respond:json,limit,role:moderation.role,configured:{calls:!!iceProvider,rooms:!!roomProvider,live:!!liveProvider,media:!!storage}});
-  const mfa=createMfa({database,readJson,respond:json,limit,key:mfaEncryptionKey,emit:chat.emit,invalidateSession:chat.invalidateSession,afterRevoke:()=>requestGuard.unbound(async()=>{await calls.sweep();await rooms.sweep();})});
+  const mfa=createMfa({database,readJson,respond:json,limit,key:mfaEncryptionKey,emit:chat.emit,invalidateSession:chat.invalidateSession,afterRevoke:()=>requestGuard.unbound(async()=>{await calls.sweep();await rooms.sweep();}),confirmCredential:(c,d,db)=>external.confirm(c,d,{db,skipMfa:true})});
+  const external=createFederatedAuth({database,verifier:firebaseVerifier,readJson,respond:json,limit,grant,userById,mfa,active:moderation.active,emit:chat.emit});
+  const e2ee=createE2ee({database,readJson,respond:json,limit,chat,storage:chatStorage,accountGate:requestGuard.gate,mfa,confirmCredential:external.confirm});
   const server = createServer(async (request, response) => {
     response.setHeader('x-frame-options','DENY');
     response.setHeader('strict-transport-security','max-age=31536000');
@@ -212,6 +216,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
         return;
       }
 
+      if(await external.handlePublic(request,response,url,ip))return;
       if (method === 'POST' && path === '/v1/auth/register') {
         await limit(`register:ip:${ip}`, 5, 3600000);
         const data = await readJson(request);
@@ -298,6 +303,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       const current = await session(request);
       await requestGuard.run(current,async()=>{
       if(await mfa.handle(request,response,url,current))return;
+      if(await external.handle(request,response,url,current))return;
       if((method==='DELETE'&&/^\/v1\/me\/sessions\//.test(path))||path==='/v1/me/sessions/revoke-others')await mfa.guard(current);
       if(path.startsWith('/v1/admin/')||path==='/v1/admin') {const staffRole=await moderation.role(database,current.id);if(staffRole!=='member')await mfa.guard(current,{required:requireAdminMfa});}
       if(await resumable.handle(request,response,url,current))return;
@@ -309,6 +315,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       if(await contactPreferences.handle(request,response,url,current))return;
       if(await moderation.handle(request,response,url,current))return;
       await limit(`requests:user:${current.id}`, 300);
+      if(await e2ee.handle(request,response,url,current))return;
       if(await liveRoulette.handle(request,response,url,current))return;
       if(await games.handle(request,response,url,current))return;
       if(await roulette.handle(request,response,url,current))return;
@@ -370,9 +377,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
         const oldPassword = typeof data.currentPassword === 'string' && [...data.currentPassword].length <= 128 ? data.currentPassword : '';
         const { rows } = await database.query('SELECT password_hash, auth_version FROM tomi_users WHERE id = ?', [current.id]);
         const row = rows[0];
-        if (!row || !(await verifyPassword(oldPassword, row.password_hash))) {
-          throw new ApiError(400, 'BAD_PASSWORD', 'كلمة المرور الحالية غير صحيحة.', 'currentPassword');
-        }
+        await external.confirm(current,{password:oldPassword,identityToken:data.identityToken});
         const passwordHash = await hashPassword(newPassword);
         const recoveryCode = newRecoveryCode();
         const result = await database.transaction(async (db) => {
@@ -381,7 +386,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
             [passwordHash, digest(normalizeRecoveryCode(recoveryCode)), nowText(), current.id, row.auth_version]);
           if (changed.changes !== 1) throw new ApiError(409, 'RETRY', 'الحساب تغيّر؛ سجّل دخولك مرة ثانية.');
           await db.query('DELETE FROM tomi_sessions WHERE user_id = ?', [current.id]);
-          await mfa.event(db,current.id,'password_changed');
+          await mfa.event(db,current.id,'password_changed');await db.query('INSERT INTO tomi_account_auth(user_id,password_enabled) VALUES(?,1) ON CONFLICT(user_id) DO UPDATE SET password_enabled=1',[current.id]);
           return { ...(await grant(db, current.id, row.auth_version + 1)),
             user: await userById(current.id, current.id, db), recoveryCode };
         });
@@ -445,7 +450,7 @@ export async function createApp({ database, trustProxy = false, origins = [], ra
       }
     }
   });
-  server.cleanupMedia = async()=>{await home.cleanup();await social.cleanup();if(chatMedia)await chatMedia.cleanup();if(avatarMedia)await avatarMedia.cleanup();await chat.cleanup();await push.cleanup();await calls.cleanup();};
+  server.cleanupMedia = async()=>{await e2ee.cleanup();await home.cleanup();await social.cleanup();if(chatMedia)await chatMedia.cleanup();if(avatarMedia)await avatarMedia.cleanup();await chat.cleanup();await push.cleanup();await calls.cleanup();};
   server.flushPush=push.flush;
   server.sweepLiveRoulette=()=>requestGuard.unbound(liveRoulette.advance);
   server.sweepGames=()=>requestGuard.unbound(games.sweep);

@@ -1,3 +1,4 @@
+import {createFirebaseVerifier,firebaseProject} from './firebase_identity.mjs';
 import {edgeKey} from './request_security.mjs';
 import {mfaKey} from './mfa.mjs';
 import {createVideoWorker} from './video_worker.mjs';
@@ -20,6 +21,7 @@ const database = await openDatabase({ connectionString: process.env.DATABASE_URL
 const storage = r2FromEnvironment();
 const chatStorage=chatR2FromEnvironment(process.env,storage);
 const server = await createApp({
+  firebaseVerifier:createFirebaseVerifier({projectId:firebaseProject(),enabledProviders:(process.env.TOMI_AUTH_PROVIDERS||'').split(',').map(p=>p.trim()).filter(Boolean)}),
   edgeSecret:edgeKey(process.env.TOMI_EDGE_SECRET),
   mfaEncryptionKey:mfaKey(process.env.TOMI_MFA_KEY),
   requireAdminMfa:process.env.TOMI_REQUIRE_ADMIN_MFA==='1',

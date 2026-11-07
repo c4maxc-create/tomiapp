@@ -1,3 +1,5 @@
+import 'external_identity.dart';
+import 'external_auth_ui.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -25,6 +27,8 @@ class _AuthScreenState extends State<AuthScreen> {
   final password = TextEditingController();
   final mfaCode = TextEditingController();
   bool needsMfa = false;
+  List<String> identityProviders = [];
+  String? identityProject;
   final confirmation = TextEditingController();
   final recovery = TextEditingController();
   AuthMode mode = AuthMode.login;
@@ -35,6 +39,78 @@ class _AuthScreenState extends State<AuthScreen> {
   void initState() {
     super.initState();
     unawaited(widget.accounts.api.warmUp());
+    unawaited(loadProviders());
+  }
+
+  Future<void> loadProviders() async {
+    try {
+      final d = await widget.accounts.api.publicRequest(
+        'GET',
+        '/v1/auth/providers',
+      );
+      if (mounted)
+        setState(() {
+          identityProject = d['projectId'] as String?;
+          identityProviders = (d['providers'] as List? ?? []).cast<String>();
+        });
+    } catch (_) {}
+  }
+
+  Future<void> externalLogin(String provider) async {
+    if (busy) return;
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      await ExternalIdentity.ensure(identityProject);
+      if (!mounted) return;
+      String? token;
+      if (provider == 'phone') {
+        token = await Navigator.push<String>(
+          context,
+          MaterialPageRoute(builder: (_) => const PhoneIdentityPage()),
+        );
+      } else
+        token = await ExternalIdentity.authenticate(provider);
+      if (token == null) return;
+      try {
+        await widget.accounts.federatedLogin(token);
+      } on AccountFailure catch (e) {
+        if (e.code != 'MFA_REQUIRED' || !mounted) rethrow;
+        final code = TextEditingController();
+        final value = await showDialog<String>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: const Text('التحقق بخطوتين'),
+            content: TextField(
+              controller: code,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: const InputDecoration(
+                labelText: 'رمز المصادقة أو رمز احتياط',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c),
+                child: const Text('رجوع'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(c, code.text.trim()),
+                child: const Text('تأكيد'),
+              ),
+            ],
+          ),
+        );
+        if (value == null) return;
+        await widget.accounts.federatedLogin(token, mfaCode: value);
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = ExternalIdentity.message(e));
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
   }
 
   @override
@@ -306,6 +382,12 @@ class _AuthScreenState extends State<AuthScreen> {
                                 : Text(action),
                           ),
                         ),
+                        if (mode == AuthMode.login)
+                          IdentityButtons(
+                            enabled: identityProviders,
+                            onSelected: externalLogin,
+                            busy: busy,
+                          ),
                       ],
                     ),
                   ),

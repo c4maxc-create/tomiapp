@@ -1,3 +1,4 @@
+import '../accounts/external_auth_ui.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -318,7 +319,23 @@ class _AccountDeletionPageState extends State<AccountDeletionPage> {
                   : () async {
                       final secret = password.text;
                       password.clear();
-                      await model.send(secret, confirmation.text);
+                      try {
+                        final proof = await sensitiveCredential(
+                          context,
+                          widget.accounts,
+                          secret,
+                        );
+                        await model.send(
+                          secret,
+                          confirmation.text,
+                          identityToken: proof['identityToken'] as String?,
+                        );
+                      } on AccountFailure catch (e) {
+                        if (mounted)
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text(e.message)));
+                      }
                       if (model.accepted) confirmation.clear();
                     },
               child: Text(

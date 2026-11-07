@@ -1,3 +1,4 @@
+import '../accounts/external_auth_ui.dart';
 import 'package:flutter/material.dart';
 import '../accounts/account_controller.dart';
 import '../accounts/account_api.dart';
@@ -44,13 +45,13 @@ class _SecurityProtectionPageState extends State<SecurityProtectionPage> {
       error = null;
     });
     try {
+      final credential = (name == 'setup' || name == 'disable')
+          ? await sensitiveCredential(context, widget.accounts, password.text)
+          : <String, dynamic>{};
       final d = await widget.accounts.chatRequest(
         'POST',
         '/v1/me/security/$name',
-        body: {
-          if (name == 'setup' || name == 'disable') 'password': password.text,
-          if (name != 'setup') 'code': code.text.trim(),
-        },
+        body: {...credential, if (name != 'setup') 'code': code.text.trim()},
       );
       if (!mounted) return;
       setState(() {
@@ -128,7 +129,7 @@ class _SecurityProtectionPageState extends State<SecurityProtectionPage> {
                 enableSuggestions: false,
                 autocorrect: false,
                 decoration: const InputDecoration(
-                  labelText: 'كلمة المرور الحالية',
+                  labelText: 'كلمة مرور TOMI إن كانت موجودة',
                 ),
               ),
             if (enabled || secret != null)

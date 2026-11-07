@@ -108,7 +108,11 @@ class AccountDeletionController extends ChangeNotifier {
     }
   }
 
-  Future<void> send(String password, String confirmation) async {
+  Future<void> send(
+    String password,
+    String confirmation, {
+    String? identityToken,
+  }) async {
     if (busy || !ready || accepted) return;
     final user = accounts.user?.id, revision = accounts.sessionRevision;
     if (user == null || pending != null && pending!['userId'] != user) {
@@ -137,6 +141,7 @@ class AccountDeletionController extends ChangeNotifier {
           'requestId': pending!['requestId'],
           'receiptToken': pending!['receiptToken'],
           'password': password,
+          if (identityToken != null) 'identityToken': identityToken,
           'confirmation': confirmation,
         },
         user,

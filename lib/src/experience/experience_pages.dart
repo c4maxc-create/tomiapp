@@ -1,3 +1,4 @@
+import '../accounts/external_auth_ui.dart';
 import '../accounts/account_api.dart';
 import 'security_page.dart';
 import 'dart:async';
@@ -333,6 +334,16 @@ class _SessionSecurityPageState extends State<SessionSecurityPage> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          ListTile(
+            leading: const Icon(Icons.login),
+            title: const Text('طرق الدخول وربط الحساب'),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AuthMethodsPage(accounts: widget.accounts),
+              ),
+            ),
+          ),
           ListTile(
             leading: const Icon(Icons.security),
             title: const Text('التحقق بخطوتين وسجل الأمان'),

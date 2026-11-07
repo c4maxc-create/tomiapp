@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'external_identity.dart';
 import '../social/home_controller.dart';
 import '../identity/identity_models.dart';
 import '../gaming/game_models.dart';
@@ -248,6 +250,7 @@ class AccountController extends ChangeNotifier {
       );
     }
     if (revision != _revision || _disposed) return;
+    unawaited(ExternalIdentity.signOut());
     _token = null;
     _user = null;
     _pendingRecoveryCode = null;
@@ -279,6 +282,10 @@ class AccountController extends ChangeNotifier {
     String name,
     String password,
   ) async => _accept(await api.register(username, name, password));
+
+  Future<void> federatedLogin(String token, {String? mfaCode}) async {
+    await _accept(await api.federatedLogin(token, mfaCode: mfaCode));
+  }
 
   Future<void> login(
     String username,
@@ -359,10 +366,16 @@ class AccountController extends ChangeNotifier {
 
   Future<String?> changePassword(
     String oldPassword,
-    String newPassword,
-  ) async => _accept(
+    String newPassword, {
+    String? identityToken,
+  }) async => _accept(
     await _authenticated(
-      (token) => api.changePassword(token, oldPassword, newPassword),
+      (token) => api.changePassword(
+        token,
+        oldPassword,
+        newPassword,
+        identityToken: identityToken,
+      ),
     ),
   );
 

@@ -53,7 +53,7 @@ export function createContentTools({database,accountGate,readJson,respond,limit,
   if(m[4]==='edit'&&method==='PUT'){
    const d=await readJson(req);fields(d,['text','expectedRevision']);if(typeof d.text!=='string'||!d.text.trim()||[...d.text.trim()].length>2000||!Number.isInteger(d.expectedRevision)||d.expectedRevision<0)fail(400,'VALIDATION','اكتب نصًا حتى2000 حرف.');
    const a=await database.transaction(async db=>{
-    const a=await access(db,viewer,m[1],m[2],m[3],true),r=a.row;if(r.sender_id!==viewer)fail(403,'FORBIDDEN','تعديل رسائلك فقط.');if(r.deleted_at)fail(409,'MESSAGE_DELETED','الرسالة محذوفة.');
+    const a=await access(db,viewer,m[1],m[2],m[3],true),r=a.row;if(!a.group&&(await db.query('SELECT 1 FROM tomi_e2ee_threads WHERE thread_id=?',[m[2]])).rows.length)fail(409,'SECURE_REQUIRED','استخدم واجهة المحادثة المشفرة.');if(r.sender_id!==viewer)fail(403,'FORBIDDEN','تعديل رسائلك فقط.');if(r.deleted_at)fail(409,'MESSAGE_DELETED','الرسالة محذوفة.');
     if(!a.group&&(await db.query('SELECT 1 FROM tomi_chat_threads t JOIN tomi_user_blocks b ON (b.blocker_id=t.low_user_id AND b.blocked_id=t.high_user_id) OR (b.blocker_id=t.high_user_id AND b.blocked_id=t.low_user_id) WHERE t.id=?',[m[2]])).rows.length)fail(403,'CHAT_BLOCKED','المراسلة غير متاحة.');
     const revision=a.group?Number(r.revision):Number((await db.query('SELECT revision FROM tomi_chat_message_meta WHERE message_id=?',[r.id])).rows[0]?.revision??0);
     if(revision!==d.expectedRevision)fail(409,'MESSAGE_CHANGED','تغيّرت الرسالة؛ حدّثها ثم عدّل.');

@@ -1,0 +1,21 @@
+import {jwtVerify} from 'jose';
+import {createPublicKey} from 'node:crypto';
+import {ApiError} from './security.mjs';
+const providers=new Set(['google.com','phone','facebook.com','apple.com']);
+const fail=()=>{throw new ApiError(401,'IDENTITY_INVALID','تأكيد تسجيل الدخول غير صالح؛ أعد المحاولة من المزوّد.');};
+const certUrl='https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
+export function firebaseProject(env=process.env){let id=env.TOMI_FIREBASE_PROJECT_ID?.trim();if(!id){const raw=env.FCM_SERVICE_ACCOUNT_JSON||env.FIREBASE_SERVICE_ACCOUNT_JSON;if(raw)try{id=JSON.parse(raw).project_id;}catch{}}if(!id)return null;if(!/^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(id))throw Error('Invalid TOMI_FIREBASE_PROJECT_ID');return id;}
+export function createFirebaseVerifier({projectId,fetcher=fetch,clock=Date.now,enabledProviders=['google','phone','facebook','apple']}){
+ if(!projectId)return null;const ids={google:'google.com',phone:'phone',facebook:'facebook.com',apple:'apple.com'};if(enabledProviders.some(p=>!ids[p]))throw Error('Invalid TOMI_AUTH_PROVIDERS');const allowed=new Set(enabledProviders.map(p=>ids[p]));let keys=new Map(),expiry=0,pending,lastFetch=0;
+ async function refresh(){if(pending)return pending;if(keys.size&&clock()-lastFetch<60000)return;lastFetch=clock();pending=(async()=>{const r=await fetcher(certUrl,{signal:AbortSignal.timeout(10000),redirect:'error'});if(!r.ok)throw new ApiError(503,'IDENTITY_UNAVAILABLE','تعذّر تأكيد المزوّد حالياً.');let size=0;const chunks=[];for await(const b of r.body){size+=b.length;if(size>131072)throw new Error('CERT_LIMIT');chunks.push(Buffer.from(b));}const data=JSON.parse(Buffer.concat(chunks).toString('utf8'));if(!data||Array.isArray(data)||Object.keys(data).length>16)throw Error('CERT_FORMAT');const next=new Map();for(const[k,v]of Object.entries(data)){if(!/^[a-zA-Z0-9_-]{1,128}$/.test(k)||typeof v!=='string'||v.length>16384)throw Error('CERT_FORMAT');const key=createPublicKey(v);if(key.asymmetricKeyType!=='rsa')throw Error('CERT_KEY');next.set(k,key);}if(!next.size)throw Error('CERT_EMPTY');keys=next;const age=Number(/max-age=(\d+)/.exec(r.headers.get('cache-control')??'')?.[1]??3600);expiry=clock()+Math.min(3600,Math.max(60,age))*1000;})();try{await pending;}catch(error){if(error instanceof ApiError)throw error;throw new ApiError(503,'IDENTITY_UNAVAILABLE','تعذّر تأكيد المزوّد حالياً.');}finally{pending=null;}}
+ async function check(token,{recent=true}={}){
+  if(typeof token!=='string'||token.length>12000)fail();const parts=token.split('.');if(parts.length!==3||parts.some(p=>!p||!/^[A-Za-z0-9_-]+$/.test(p)))fail();let header,claims;try{header=JSON.parse(Buffer.from(parts[0],'base64url'));claims=JSON.parse(Buffer.from(parts[1],'base64url'));}catch{fail();}
+  if(!header||typeof header!=='object'||Array.isArray(header)||!claims||typeof claims!=='object'||Array.isArray(claims))fail();
+  if(header.alg!=='RS256'||typeof header.kid!=='string'||header.kid.length>128||header.jku||header.jwk||header.x5u||header.crit)fail();if(clock()>=expiry||!keys.has(header.kid))await refresh();const key=keys.get(header.kid);if(!key)fail();try{const checked=await jwtVerify(token,key,{algorithms:['RS256'],issuer:`https://securetoken.google.com/${projectId}`,audience:projectId,currentDate:new Date(clock()),clockTolerance:30});claims=checked.payload;}catch{fail();}
+  const now=clock()/1000,uid=claims.sub,provider=claims.firebase?.sign_in_provider;
+  if(claims.iss!==`https://securetoken.google.com/${projectId}`||claims.aud!==projectId||typeof uid!=='string'||!uid.length||uid.length>128||/[\x00-\x1f\x7f]/.test(uid)||!providers.has(provider)||!allowed.has(provider)||!Number.isInteger(claims.exp)||claims.exp<=now||!Number.isInteger(claims.iat)||claims.iat>now+30||claims.iat>claims.exp||!Number.isInteger(claims.auth_time)||claims.auth_time>now+30||recent&&now-claims.auth_time>300)fail();
+  if(provider==='phone'&&(typeof claims.phone_number!=='string'||!/^\+[1-9]\d{6,14}$/.test(claims.phone_number)))fail();
+  return {subject:uid,provider,projectId,displayName:typeof claims.name==='string'?claims.name:null};
+ }
+ return {verify:check,projectId,providers:[...new Set(enabledProviders)]};
+}

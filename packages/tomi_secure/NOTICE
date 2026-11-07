@@ -1,0 +1,6 @@
+TOMI secure adapter: Apache-2.0.
+Uses vodozemac 0.11.2, Copyright The Matrix.org Foundation C.I.C. and contributors, Apache-2.0.
+Upstream: https://github.com/matrix-org/vodozemac
+The upstream cryptographic library's published audit is not an audit or certification of TOMI's integration.
+Rust dependency licenses are retained in the crate sources and documented in native/Cargo.lock.
+No GPL/AGPL Dart bindings are used.

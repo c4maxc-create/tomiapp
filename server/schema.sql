@@ -860,3 +860,20 @@ CREATE TABLE IF NOT EXISTS tomi_mfa_recovery(user_id TEXT NOT NULL REFERENCES to
 CREATE TABLE IF NOT EXISTS tomi_mfa_sessions(session_hash TEXT PRIMARY KEY REFERENCES tomi_sessions(token_hash) ON DELETE CASCADE,verified_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS tomi_security_events(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,kind TEXT NOT NULL,created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS tomi_security_events_user ON tomi_security_events(user_id,created_at,id);
+
+-- Build42: opaque direct-chat transport. Private Olm/ratchet/archive keys never enter these tables.
+CREATE TABLE IF NOT EXISTS tomi_e2ee_devices(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,session_hash TEXT UNIQUE REFERENCES tomi_sessions(token_hash) ON DELETE SET NULL,signing_key TEXT NOT NULL,identity_key TEXT NOT NULL,label TEXT NOT NULL,created_at TEXT NOT NULL,revoked_at TEXT);
+CREATE INDEX IF NOT EXISTS tomi_e2ee_device_user ON tomi_e2ee_devices(user_id,revoked_at);
+CREATE TABLE IF NOT EXISTS tomi_e2ee_challenges(session_hash TEXT PRIMARY KEY REFERENCES tomi_sessions(token_hash) ON DELETE CASCADE,nonce_hash TEXT NOT NULL,expires_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS tomi_e2ee_prekeys(device_id TEXT NOT NULL REFERENCES tomi_e2ee_devices(id) ON DELETE CASCADE,key_id TEXT NOT NULL,public_key TEXT NOT NULL,signature TEXT NOT NULL,PRIMARY KEY(device_id,key_id));
+CREATE TABLE IF NOT EXISTS tomi_e2ee_fallback(device_id TEXT PRIMARY KEY REFERENCES tomi_e2ee_devices(id) ON DELETE CASCADE,key_id TEXT NOT NULL,public_key TEXT NOT NULL,signature TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS tomi_e2ee_threads(thread_id TEXT PRIMARY KEY REFERENCES tomi_chat_threads(id) ON DELETE CASCADE,enabled_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS tomi_e2ee_packets(message_id TEXT PRIMARY KEY REFERENCES tomi_chat_messages(id) ON DELETE CASCADE,sender_device TEXT REFERENCES tomi_e2ee_devices(id) ON DELETE SET NULL,roster_hash TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS tomi_e2ee_envelopes(message_id TEXT NOT NULL REFERENCES tomi_e2ee_packets(message_id) ON DELETE CASCADE,device_id TEXT NOT NULL REFERENCES tomi_e2ee_devices(id) ON DELETE CASCADE,body TEXT NOT NULL,type INTEGER NOT NULL,PRIMARY KEY(message_id,device_id));
+CREATE TABLE IF NOT EXISTS tomi_e2ee_claims(device_id TEXT NOT NULL REFERENCES tomi_e2ee_devices(id) ON DELETE CASCADE,request_id TEXT NOT NULL,target_device TEXT NOT NULL REFERENCES tomi_e2ee_devices(id) ON DELETE CASCADE,result TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(device_id,request_id));
+CREATE TABLE IF NOT EXISTS tomi_e2ee_uploads(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,thread_id TEXT NOT NULL REFERENCES tomi_chat_threads(id) ON DELETE CASCADE,message_id TEXT REFERENCES tomi_chat_messages(id) ON DELETE SET NULL,object_key TEXT NOT NULL,byte_length BIGINT NOT NULL,content_md5 TEXT NOT NULL,content_sha256 TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'pending',expires_at TEXT NOT NULL);
+
+-- Verified external identity is keyed by project + Firebase UID, never by email/name/phone.
+CREATE TABLE IF NOT EXISTS tomi_external_identities(project_id TEXT NOT NULL,subject TEXT NOT NULL,user_id TEXT NOT NULL REFERENCES tomi_users(id) ON DELETE CASCADE,created_at TEXT NOT NULL,PRIMARY KEY(project_id,subject));
+CREATE INDEX IF NOT EXISTS tomi_external_user ON tomi_external_identities(user_id);
+CREATE TABLE IF NOT EXISTS tomi_account_auth(user_id TEXT PRIMARY KEY REFERENCES tomi_users(id) ON DELETE CASCADE,password_enabled INTEGER NOT NULL DEFAULT 1);

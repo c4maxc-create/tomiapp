@@ -1,3 +1,4 @@
+import 'external_auth_ui.dart';
 import 'social_profile.dart';
 import 'avatar_editor.dart';
 import '../social/story_screens.dart' show socialBackground;
@@ -206,6 +207,18 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   final confirmation = TextEditingController();
   String? error;
   bool busy = false;
+  bool hasPassword = true;
+  @override
+  void initState() {
+    super.initState();
+    widget.accounts
+        .chatRequest('GET', '/v1/me/auth/methods')
+        .then((d) {
+          if (mounted) setState(() => hasPassword = d['hasPassword'] != false);
+        })
+        .catchError((_) {});
+  }
+
   @override
   void dispose() {
     current.dispose();
@@ -221,7 +234,16 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       error = null;
     });
     try {
-      await widget.accounts.changePassword(current.text, next.text);
+      final proof = await sensitiveCredential(
+        context,
+        widget.accounts,
+        current.text,
+      );
+      await widget.accounts.changePassword(
+        current.text,
+        next.text,
+        identityToken: proof['identityToken'] as String?,
+      );
     } on AccountFailure catch (failure) {
       if (mounted) setState(() => error = failure.message);
     } catch (_) {
@@ -247,10 +269,13 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
           const SizedBox(height: 22),
           PasswordField(
             controller: current,
-            label: 'كلمة المرور الحالية',
-            enabled: !busy,
-            validator: (value) =>
-                (value ?? '').isEmpty ? 'اكتب كلمة المرور الحالية' : null,
+            label: hasPassword
+                ? 'كلمة المرور الحالية'
+                : 'يتم تأكيد حساب المزوّد عند المتابعة',
+            enabled: !busy && hasPassword,
+            validator: (value) => hasPassword && (value ?? '').isEmpty
+                ? 'اكتب كلمة المرور الحالية'
+                : null,
           ),
           const SizedBox(height: 18),
           PasswordField(

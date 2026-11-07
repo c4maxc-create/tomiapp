@@ -14,3 +14,5 @@ for tomi_path in lib test pubspec.yaml pubspec.lock analysis_options.yaml README
 done
 if [ ! -e "$tomi_ios_backup/test/widget_test.dart" ]; then rm -f test/widget_test.dart; fi
 python3 tool/configure_ios.py
+
+python3 tool/configure_identity_native.py ios

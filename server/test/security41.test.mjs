@@ -66,4 +66,16 @@ test('41 edge proxy preserves the configured origin and overwrites forged forwar
  const r=await forward(new Request('https://api.example.test//attacker.test/v1/me?x=1',{method:'POST',headers:{'x-tomi-edge':'forged','x-forwarded-for':'forged','cf-connecting-ip':'192.0.2.9'},body:'{}'}),env,async request=>{observed=request;return new Response('ok');});
  assert.equal(r.status,200);assert.equal(new URL(observed.url).host,'origin.example.test');assert.equal(observed.redirect,'manual');assert.equal(observed.headers.get('x-tomi-edge'),'test-only-edge');assert.equal(observed.headers.get('x-forwarded-for'),'192.0.2.9');assert.equal(observed.headers.get('x-tomi-client-ip'),'192.0.2.9');assert.equal(await observed.text(),'{}');
  assert.equal((await forward(new Request('https://evil.example.test/v1/me'),env)).status,403);
+ const free={...env,TOMI_PUBLIC_HOST:''};let originCalls=0,authCalls=0;
+ free.API_RATE={limit:async({key})=>{assert.match(key,/^[a-f0-9]{64}$/);return {success:true};}};
+ free.AUTH_RATE={limit:async()=>{authCalls++;return {success:false};}};
+ const upstream=async()=>{originCalls++;return new Response('ok');};
+ assert.equal((await forward(new Request('https://tomi-test.example.workers.dev/v1/me'),free,upstream)).status,200);
+ assert.equal((await forward(new Request('https://tomi-test.example.workers.dev/v1/auth/federated',{method:'POST',body:'{}'}),free,upstream)).status,429);
+ assert.equal(authCalls,1);assert.equal(originCalls,1);
+ assert.equal((await forward(new Request('https://tomi-test.example.workers.dev/v1/me',{headers:{'content-length':'1048577'}}),free,upstream)).status,413);
+ assert.equal((await forward(new Request('http://tomi-test.example.workers.dev/v1/me'),free,upstream)).status,403);
+ assert.equal((await forward(new Request('https://tomi-test.example.workers.dev/other',{headers:{upgrade:'websocket'}}),free,upstream)).status,403);
+ assert.equal(originCalls,1);
+
 });

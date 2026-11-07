@@ -40,9 +40,14 @@ jobs:
       - name: Generate native iOS project and Swift bridge
         env:
           TOMI_IOS_GOOGLE_SERVICES_PLIST: ${{ secrets.TOMI_IOS_GOOGLE_SERVICES_PLIST }}
+          TOMI_FACEBOOK_APP_ID: ${{ vars.TOMI_FACEBOOK_APP_ID }}
+          TOMI_FACEBOOK_CLIENT_TOKEN: ${{ secrets.TOMI_FACEBOOK_CLIENT_TOKEN }}
         run: |
           flutter config --no-enable-swift-package-manager
           bash tool/bootstrap_ios.sh
+      - name: Build native encryption for simulator and iPhone
+        timeout-minutes: 12
+        run: python3 tool/build_secure_native.py --platform ios
       - name: Compile actual CSharp game interface
         run: python3 tool/build_csharp_games.py
       - name: Resolve native dependencies
@@ -53,7 +58,7 @@ jobs:
         run: |
           mkdir -p build
           set -o pipefail
-          flutter build ios --simulator --debug --no-pub --build-name=1.7.0 --build-number=41 --dart-define="TOMI_API_URL=$TOMI_API_URL" --dart-define="TOMI_PREVIEW_MODE=false" 2>&1 | tee build/tomi-ios-build.log
+          flutter build ios --simulator --debug --no-pub --build-name=1.7.0 --build-number=42 --dart-define="TOMI_API_URL=$TOMI_API_URL" --dart-define="TOMI_PREVIEW_MODE=false" 2>&1 | tee build/tomi-ios-build.log
       - name: Report bounded iOS compiler diagnostics
         if: failure()
         run: python3 tool/report_ios_build.py

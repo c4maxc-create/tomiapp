@@ -1,0 +1,13 @@
+group = 'com.tomi.secure'
+version = '1.0'
+buildscript {
+    repositories { google(); mavenCentral() }
+    dependencies { classpath 'com.android.tools.build:gradle:8.6.1' }
+}
+apply plugin: 'com.android.library'
+android {
+    namespace 'com.tomi.secure'
+    compileSdk 35
+    defaultConfig { minSdk 23 }
+    sourceSets { main.jniLibs.srcDirs = ['src/main/jniLibs'] }
+}

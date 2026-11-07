@@ -25,7 +25,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="tomi-check-") as temp:
         temp = Path(temp)
         project = temp / "project"
-        shutil.copytree(ROOT, project, ignore=shutil.ignore_patterns("__pycache__", "build", ".dart_tool", "node_modules"))
+        shutil.copytree(ROOT, project, ignore=shutil.ignore_patterns("__pycache__", "build", ".dart_tool", "node_modules", "target", "Frameworks", "jniLibs"))
         original = {path.relative_to(project): path.read_bytes()
                     for path in project.rglob("*") if path.is_file() and "android" not in path.relative_to(project).parts}
         bin_dir = temp / "bin"

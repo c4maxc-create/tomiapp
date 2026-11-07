@@ -32,3 +32,4 @@ if [ ! -e "$tomi_backup_dir/test/widget_test.dart" ]; then
 fi
 
 python3 tool/configure_android.py
+python3 tool/configure_identity_native.py android

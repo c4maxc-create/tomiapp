@@ -145,7 +145,22 @@ class AccountApi {
         'username': username.trim(),
         'displayName': name.trim(),
         'password': password,
-        'policyVersion': '2026-10-23',
+        'policyVersion': '2026-11-06',
+      },
+    ),
+  );
+
+  Future<AccountGrant> federatedLogin(
+    String identityToken, {
+    String? mfaCode,
+  }) async => AccountGrant.fromJson(
+    await _request(
+      'POST',
+      '/v1/auth/federated',
+      body: {
+        'identityToken': identityToken,
+        'policyVersion': '2026-11-06',
+        if (mfaCode != null) 'mfaCode': mfaCode,
       },
     ),
   );
@@ -251,13 +266,18 @@ class AccountApi {
   Future<AccountGrant> changePassword(
     String token,
     String oldPassword,
-    String newPassword,
-  ) async => AccountGrant.fromJson(
+    String newPassword, {
+    String? identityToken,
+  }) async => AccountGrant.fromJson(
     await _request(
       'POST',
       '/v1/auth/password',
       token: token,
-      body: {'currentPassword': oldPassword, 'newPassword': newPassword},
+      body: {
+        'currentPassword': oldPassword,
+        'newPassword': newPassword,
+        if (identityToken != null) 'identityToken': identityToken,
+      },
     ),
   );
 

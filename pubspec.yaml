@@ -1,12 +1,14 @@
 name: tomi_app
 description: TOMI Arabic native app with private chats, voice and video calls, avatars and optional push.
 publish_to: none
-version: 1.7.0-beta.1+41
+version: 1.7.0-beta.1+42
 
 environment:
   sdk: '>=3.10.0 <4.0.0'
 
 dependencies:
+  tomi_secure:
+    path: packages/tomi_secure
   webview_flutter: 4.14.1
   file_selector: 1.1.0
   url_launcher: 6.3.3
@@ -16,6 +18,11 @@ dependencies:
   record: ^7.1.2
   just_audio: ^0.10.6
   path_provider: ^2.1.5
+  firebase_auth: 6.7.1
+  google_sign_in: 7.2.0
+  flutter_facebook_auth:
+    path: third_party/flutter_facebook_auth
+  share_plus: 13.3.1
   firebase_core: ^4.15.0
   firebase_messaging: ^16.7.0
   web_socket_channel: ^3.0.3
@@ -43,3 +50,7 @@ flutter:
     - assets/stickers/
     - assets/tomi_games/
     - assets/tomi_games/_framework/
+
+dependency_overrides:
+  facebook_auth_desktop:
+    path: third_party/facebook_auth_desktop

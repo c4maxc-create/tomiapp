@@ -1,0 +1,18 @@
+name: tomi_secure
+version: 0.1.0
+publish_to: none
+description: TOMI bindings to the Apache-2.0 Matrix.org vodozemac implementation.
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+  flutter: '>=3.38.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  ffi: 2.2.0
+flutter:
+  plugin:
+    platforms:
+      android:
+        ffiPlugin: true
+      ios:
+        ffiPlugin: true

@@ -4,7 +4,7 @@ name: TOMI security checks
   schedule:
     - cron: '23 6 * * 1'
   pull_request:
-    paths: ['server/**', 'pubspec*', 'previews/**', '.github/**', 'tool/check_source_secrets.py']
+    paths: ['server/**', 'pubspec*', 'previews/**', '.github/**', 'tool/check_source_secrets.py', 'packages/**', 'ops/**', 'third_party/**']
 permissions:
   contents: read
 concurrency:
@@ -19,6 +19,8 @@ jobs:
         with: {persist-credentials: false}
       - uses: actions/setup-node@v6
         with: {node-version: '24'}
+      - name: Validate public provider configuration
+        run: python3 tool/check_identity_native.py
       - name: Detect common committed credential patterns
         run: python3 tool/check_source_secrets.py
       - name: Install locked backend dependencies without lifecycle scripts
@@ -27,6 +29,11 @@ jobs:
         run: npm --prefix server audit --omit=dev --audit-level=high
       - name: Check server types and admin output
         run: npm --prefix server run typecheck && cd server && node tools/check_admin_build.mjs
+      - name: Audit pinned native cryptography dependencies
+        run: |
+          rustup toolchain install 1.89.0 --profile minimal
+          cargo +1.89.0 install cargo-audit --version 0.22.2 --locked
+          cargo +1.89.0 audit --file packages/tomi_secure/native/Cargo.lock --deny warnings
       - uses: actions/setup-dotnet@v5
         with: {dotnet-version: '8.0.x'}
       - name: Restore CSharp dependencies

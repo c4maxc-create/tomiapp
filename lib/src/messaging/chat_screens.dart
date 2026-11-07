@@ -1,3 +1,4 @@
+import '../security/secure_chat_page.dart';
 import '../preferences/network_media_image.dart';
 import '../gaming/chat_game_invite.dart';
 import '../gaming/csharp_games_page.dart';
@@ -2625,6 +2626,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
       widget.chats.accounts.calls,
     ]),
     builder: (context, _) {
+      if (thread.conversation.secureEnabled)
+        return SecureChatPage(
+          accounts: widget.chats.accounts,
+          threadId: thread.conversation.id,
+          title: thread.conversation.peer.displayName,
+        );
       final headerHeight =
           (MediaQuery.textScalerOf(context).scale(16) * 1.2 +
                   MediaQuery.textScalerOf(context).scale(11) * 1.1 +
@@ -3021,7 +3028,22 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                 PopupMenuButton<String>(
                   key: const Key('chat-thread-menu'),
                   tooltip: 'قائمة المحادثة',
-                  onSelected: (value) {
+                  onSelected: (value) async {
+                    if (value == 'secure') {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SecureChatPage(
+                            accounts: widget.chats.accounts,
+                            threadId: c.id,
+                            title: c.peer.displayName,
+                            setupOnly: true,
+                          ),
+                        ),
+                      );
+                      await widget.chats.refreshConversation(c.id);
+                      return;
+                    }
                     if (value == 'search')
                       unawaited(search());
                     else if (value == 'info')
@@ -3050,6 +3072,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                         c.isGroup ? 'معلومات المجموعة' : 'عرض الحساب',
                       ),
                     ),
+                    if (!c.isGroup)
+                      const PopupMenuItem(
+                        value: 'secure',
+                        child: Text('تفعيل محادثة مشفرة'),
+                      ),
                     const PopupMenuItem(
                       key: Key('chat-search'),
                       value: 'search',
