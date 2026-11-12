@@ -1,5 +1,8 @@
 name: TOMI security checks
 "on":
+  push:
+    branches: [main]
+    paths: ['server/**', 'pubspec*', 'previews/**', '.github/**', 'tool/check_source_secrets.py', 'packages/**', 'ops/**', 'third_party/**']
   workflow_dispatch:
   schedule:
     - cron: '23 6 * * 1'
