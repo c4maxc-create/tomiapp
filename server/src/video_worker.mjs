@@ -6,9 +6,9 @@ import { tmpdir } from 'node:os';
 import { videoMetadata } from './video.mjs';
 const max = 25 * 1024 * 1024;
 export async function transcodeVideo(input, output, height, { binary = 'ffmpeg', timeout = 120000, signal } = {}) {
-    if (![540, 720].includes(height))
+    if (![144, 540, 720].includes(height))
         throw Error('VIDEO_HEIGHT');
-    const args = ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-threads', '1', '-filter_threads', '1', '-protocol_whitelist', 'file,pipe', '-enable_drefs', '0', '-i', input, '-map', '0:v:0', '-map', '0:a:0?', '-map_metadata', '-1', '-map_chapters', '-1', '-t', '180', '-vf', `scale=w='min(${height},iw)':h='min(${height},ih)':force_original_aspect_ratio=decrease:force_divisible_by=2`, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', height === 540 ? '27' : '25', '-maxrate', height === 540 ? '700k' : '1000k', '-bufsize', height === 540 ? '1400k' : '2000k', '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart', output];
+    const args = ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-threads', '1', '-filter_threads', '1', '-protocol_whitelist', 'file,pipe', '-enable_drefs', '0', '-i', input, '-map', '0:v:0', '-map', '0:a:0?', '-map_metadata', '-1', '-map_chapters', '-1', '-t', '180', '-vf', `scale=w='min(${height},iw)':h='min(${height},ih)':force_original_aspect_ratio=decrease:force_divisible_by=2`, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', height === 144 ? '30' : height === 540 ? '27' : '25', '-maxrate', height === 144 ? '180k' : height === 540 ? '700k' : '1000k', '-bufsize', height === 144 ? '360k' : height === 540 ? '1400k' : '2000k', '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart', output];
     await new Promise((resolve, reject) => { const p = spawn(binary, args, { stdio: ['ignore', 'ignore', 'pipe'] }); let size = 0, overflow = false; p.stderr.on('data', b => { size += b.length; if (size > 65536) {
         overflow = true;
         p.kill('SIGKILL');
@@ -62,7 +62,7 @@ export function createVideoWorker({ database, storage, chatStorage, binary, auto
             dir = await mkdtemp(join(tmpdir(), 'tomi-video-'));
             const input = join(dir, 'source.mp4');
             await writeFile(input, Buffer.concat(chunks), { mode: 0o600 });
-            for (const height of [540, 720]) {
+            for (const height of [144, 540, 720]) {
                 if (closed)
                     break;
                 const output = join(dir, height + '.mp4');
