@@ -5,6 +5,7 @@ name: TOMI Android debug smoke build
     branches: [main]
     paths:
       - 'lib/**'
+      - 'test/**'
       - 'packages/**'
       - 'native/**'
       - 'server/**'
