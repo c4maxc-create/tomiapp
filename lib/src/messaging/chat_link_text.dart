@@ -80,8 +80,8 @@ class _ChatLinkTextState extends State<ChatLinkText> {
 
   @override
   Widget build(BuildContext context) {
-    // Inherited changes can rebuild this State without didUpdateWidget.
-    // Dispose the previous paragraph's recognizers before creating the new set.
+    // A theme, locale or text-scale change can rebuild State without changing
+    // widget identity. Replace the previous paragraph's recognizers each time.
     _disposeRecognizers();
     final spans = <TextSpan>[];
     var cursor = 0;
