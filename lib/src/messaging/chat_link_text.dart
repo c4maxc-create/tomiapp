@@ -32,6 +32,12 @@ class _ChatLinkTextState extends State<ChatLinkText> {
   static const String _trailingPunctuation = '.,!?;:،؛؟)]}»”’';
 
   @override
+  void didUpdateWidget(covariant ChatLinkText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _disposeRecognizers();
+  }
+
+  @override
   void dispose() {
     _disposeRecognizers();
     super.dispose();
@@ -74,7 +80,6 @@ class _ChatLinkTextState extends State<ChatLinkText> {
 
   @override
   Widget build(BuildContext context) {
-    _disposeRecognizers();
     final spans = <TextSpan>[];
     var cursor = 0;
 
