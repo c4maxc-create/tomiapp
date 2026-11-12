@@ -22,7 +22,7 @@ void main() {
     'upload streams bytes with progress, cancellation interrupts consumption and sends no account bearer',
     () async {
       final media = ImageDraft(Uint8List(200000), 'image/png'),
-          transfer = UploadTransfer();
+          transfer = UploadTransfer()..active = true;
       UploadTransfer.owners[media] = transfer;
       final sent = <int>[];
       transfer.addListener(() => sent.add(transfer.sent));
@@ -48,6 +48,9 @@ void main() {
       );
       expect(sent.length, greaterThan(1));
       expect(transfer.sent, media.bytes.length);
+      expect(transfer.progress, 0.99);
+      transfer.active = false;
+      expect(transfer.progress, 1);
       final cancel = UploadTransfer();
       final r = ProgressUploadRequest(
         'PUT',
