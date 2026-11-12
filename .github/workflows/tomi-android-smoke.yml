@@ -17,6 +17,7 @@ name: TOMI Android debug smoke build
   pull_request:
     paths:
       - 'lib/**'
+      - 'test/**'
       - 'packages/**'
       - 'native/**'
       - 'android/**'
