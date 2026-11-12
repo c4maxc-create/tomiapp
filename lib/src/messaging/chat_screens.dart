@@ -11,6 +11,7 @@ import 'package:file_selector/file_selector.dart' as files;
 import 'package:url_launcher/url_launcher.dart';
 
 import 'chat_widgets.dart';
+import 'chat_link_text.dart';
 import 'chat_groups.dart';
 
 import 'package:flutter/material.dart';
@@ -2362,13 +2363,14 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                                 ? 7
                                 : 0,
                           ),
-                          child: Text(
+                          child: ChatLinkText(
                             m.text,
                             style: TextStyle(
                               fontSize: 15.5,
                               height: 1.35,
                               color: p.text,
                             ),
+                            linkColor: p.accent,
                           ),
                         ),
                       if (m.reactions.isNotEmpty)
