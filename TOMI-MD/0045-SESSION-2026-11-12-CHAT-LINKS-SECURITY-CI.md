@@ -24,3 +24,15 @@
 
 ## النتيجة النهائية لإعادة اختبار الروابط
 اكتمل run `43287277743` بنجاح على commit `dcb848f91e11cd5a88118e916fb7b30736089ecd`: نجح توليد أصول C#، استعادة Flutter dependencies، `flutter analyze`، واختبار `test/chat_links_test.dart`. هذا نجاح CI مخصص للروابط والتحليل، وليس بناء APK أو اختبار جهاز حقيقي.
+
+## متابعة إضافية — API وAndroid CI
+- أضيف `.github/workflows/tomi-api.yml`: يشغل مجموعة اختبارات API كاملة على SQLite وPostgreSQL 17، ثم اختبار النسخ الاحتياطي المشفر والاستعادة في قاعدة CI مؤقتة. لا يستخدم قاعدة الإنتاج.
+- أضيف `.github/workflows/tomi-android-smoke.yml`: يبني APK debug على Android runner دون اشتراط مفاتيح Firebase أو مفاتيح توقيع الإصدار، ويشغّل Flutter analyze والاختبارات وتجميع التشفير الأصلي. هذا artifact للاختبار الخاص فقط، وليس APK إصدار نهائي ولا يثبت عمل Push.
+- تشغيل API workflow رقم `43328261086` على commit `36a34c20b7243bbd5b6f152f8ac5f71ddd969f7e` بدأ؛ مجموعة SQLite كانت قيد التنفيذ عند تحديث السجل.
+- Security workflow رقم `43328261120` على commit `36a34c20b7243bbd5b6f152f8ac5f71ddd969f7e`: نجحت حتى الآن فحوص الأسرار والاعتماديات وتدقيق النوع/لوحة الإدارة، وكان تدقيق Rust/.NET قيد التنفيذ.
+- Android smoke workflow رقم `43328411809` على commit `c1acb900bb60f43827c2855de2fb2b4ebe1daf63` بدأ؛ لا يوجد APK ناجح مثبت بعد.
+- أرشيف المصدر على commit `36a34c20b7243bbd5b6f152f8ac5f71ddd969f7e` نجح في run `43328261011`.
+
+## حدود إضافية
+- Android smoke يختبر compilation والـ regression suite بإعداد Push غير مفعّل؛ لا يعد اختبارًا لتسليم الإشعارات على هاتف.
+- لا تزال اختبارات الهاتفين، نشر Render، اختبار R2 الفعلي، اختبار الحمل، وMFA/FCM/LiveKit مع إعدادات الإنتاج تتطلب بيئة فعلية ومفاتيح المالك.
