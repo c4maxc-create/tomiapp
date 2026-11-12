@@ -1,0 +1,128 @@
+name: TOMI Android debug smoke build
+
+"on":
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'packages/**'
+      - 'native/**'
+      - 'android/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'tool/**'
+      - '.github/workflows/tomi-android-smoke.yml'
+  pull_request:
+    paths:
+      - 'lib/**'
+      - 'packages/**'
+      - 'native/**'
+      - 'android/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'tool/**'
+      - '.github/workflows/tomi-android-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tomi-android-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Compile shared app and Android plugins
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v6.1.0
+        with:
+          persist-credentials: false
+      - name: Check build retry and disk safeguards
+        run: |
+          python3 tool/check_android_ci.py
+          python3 tool/check_android_build_retry.py
+      - name: Free unused hosted-runner toolchains
+        env:
+          TOMI_CI_RUNNER_ENV: ${{ runner.environment }}
+        run: python3 tool/prepare_android_ci.py early
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.7'
+          cache: true
+      - name: Validate accounts build endpoint
+        env:
+          TOMI_BUILD_MODE: accounts
+          TOMI_API_URL: ${{ vars.TOMI_API_URL || 'https://tomiapp.onrender.com' }}
+        run: python3 tool/check_build_config.py
+      - name: Generate Android scaffold
+        env:
+          TOMI_FACEBOOK_APP_ID: ${{ vars.TOMI_FACEBOOK_APP_ID }}
+          TOMI_FACEBOOK_CLIENT_TOKEN: ${{ secrets.TOMI_FACEBOOK_CLIENT_TOKEN }}
+        run: bash tool/bootstrap_android.sh
+      - name: Cache Gradle downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: ${{ runner.os }}-tomi-gradle-downloads-v1-${{ hashFiles('pubspec.lock', 'tool/configure_android.py', '.github/workflows/tomi-android-smoke.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-tomi-gradle-downloads-v1-
+      - name: Keep Flutter NDK and reserve Android build space
+        env:
+          TOMI_CI_RUNNER_ENV: ${{ runner.environment }}
+        run: python3 tool/prepare_android_ci.py android --minimum-gib 20
+      - name: Configure optional Firebase client without requiring secrets
+        env:
+          TOMI_GOOGLE_SERVICES_JSON: ${{ secrets.TOMI_GOOGLE_SERVICES_JSON }}
+          TOMI_REQUIRE_PUSH: 'false'
+        run: python3 tool/configure_firebase.py
+      - name: Build and test native encryption
+        timeout-minutes: 12
+        run: |
+          rustup toolchain install 1.89.0 --profile minimal
+          cargo +1.89.0 test --locked --manifest-path packages/tomi_secure/native/Cargo.toml
+          python3 tool/build_secure_native.py --platform android
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      - name: Generate required existing CSharp UI assets
+        run: python3 tool/build_csharp_games.py
+      - name: Resolve locked Flutter dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Analyze Flutter application
+        run: flutter analyze
+      - name: Run Flutter regression suite
+        run: flutter test --reporter expanded
+      - name: Verify Android configuration and policies
+        run: |
+          python3 tool/check_mobile_policy.py
+          python3 tool/check_video_trim.py
+          python3 tool/check_bootstrap.py
+          python3 tool/check_firebase.py
+      - name: Build debug APK
+        env:
+          TOMI_API_URL: ${{ vars.TOMI_API_URL || 'https://tomiapp.onrender.com' }}
+          TOMI_PREVIEW_MODE: 'false'
+          TOMI_PUSH_CONFIGURED: 'false'
+        run: |
+          python3 tool/prepare_android_ci.py check --minimum-gib 20
+          python3 tool/retry_android_build.py -- flutter build apk --debug --no-pub \
+            --dart-define="TOMI_API_URL=$TOMI_API_URL" \
+            --dart-define="TOMI_PREVIEW_MODE=$TOMI_PREVIEW_MODE" \
+            --dart-define="TOMI_PUSH_CONFIGURED=$TOMI_PUSH_CONFIGURED"
+      - name: Upload debug APK for private device testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: TOMI-debug-smoke-${{ github.sha }}
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
