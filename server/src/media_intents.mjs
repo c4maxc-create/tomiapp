@@ -36,5 +36,5 @@ export async function abortMultipartUpload(database,storage,id,key){
 
 export async function cleanupVideoDerivatives(database,storage,id,key){
  const job=(await database.query('SELECT object_key FROM tomi_video_jobs WHERE upload_id=?',[id])).rows[0];
- if(job){if(job.object_key!==key)throw Error('VIDEO_CLEANUP_KEY');for(const height of [540,720])await storage.delete(key+'.'+height+'.mp4');await database.query('DELETE FROM tomi_video_renditions WHERE upload_id=?',[id]);await database.query('DELETE FROM tomi_video_jobs WHERE upload_id=?',[id]);}
+ if(job){if(job.object_key!==key)throw Error('VIDEO_CLEANUP_KEY');for(const height of [144,540,720])await storage.delete(key+'.'+height+'.mp4');await database.query('DELETE FROM tomi_video_renditions WHERE upload_id=?',[id]);await database.query('DELETE FROM tomi_video_jobs WHERE upload_id=?',[id]);}
 }
