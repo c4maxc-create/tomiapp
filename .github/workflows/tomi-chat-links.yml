@@ -38,6 +38,11 @@ jobs:
           channel: stable
           flutter-version: '3.47.7'
           cache: true
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      - name: Generate required CSharp UI assets
+        run: python3 tool/build_csharp_games.py
       - name: Resolve locked Flutter dependencies
         run: flutter pub get --enforce-lockfile
       - name: Analyze Dart source
