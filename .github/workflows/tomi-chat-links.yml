@@ -1,0 +1,46 @@
+name: TOMI chat link checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/src/messaging/chat_link_text.dart'
+      - 'test/chat_links_test.dart'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/tomi-chat-links.yml'
+  pull_request:
+    paths:
+      - 'lib/src/messaging/chat_link_text.dart'
+      - 'test/chat_links_test.dart'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/tomi-chat-links.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tomi-chat-links-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6.1.0
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.7'
+          cache: true
+      - name: Resolve locked Flutter dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Analyze Dart source
+        run: flutter analyze
+      - name: Test chat link parsing and widget lifecycle
+        run: flutter test --no-pub test/chat_links_test.dart --reporter expanded
