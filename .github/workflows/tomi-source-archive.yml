@@ -19,10 +19,14 @@ jobs:
           persist-credentials: false
       - name: Create source archive from tracked files
         run: git archive --format=zip --output=tomi-main-source.zip HEAD
-      - name: Upload source archive
+      - name: Verify archive and create SHA-256 checksum
+        run: sha256sum tomi-main-source.zip > tomi-main-source.zip.sha256
+      - name: Upload source archive and checksum
         uses: actions/upload-artifact@v4
         with:
           name: tomi-main-source-${{ github.sha }}
-          path: tomi-main-source.zip
+          path: |
+            tomi-main-source.zip
+            tomi-main-source.zip.sha256
           if-no-files-found: error
           retention-days: 7
