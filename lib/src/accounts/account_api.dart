@@ -422,7 +422,13 @@ class AccountApi {
     final transfer = UploadTransfer.owners[image] ?? UploadTransfer();
     try {
       final plan = await chatRequest(token, 'POST', path, body: {});
-      if (plan['completed'] == true) return;
+      if (plan['completed'] == true) {
+        // The server may have completed the upload even if the previous
+        // completion response was lost. Reconcile the local progress so the
+        // retry does not leave the UI looking unfinished.
+        transfer.update(image.bytes.length, image.bytes.length);
+        return;
+      }
       final chunk = (plan['chunkSize'] as num).toInt(),
           parts = (plan['parts'] as List).cast<Map<String, dynamic>>();
       if (chunk != 5 * 1024 * 1024 ||
