@@ -55,3 +55,5 @@
 - أضيف `python3 tool/build_secure_native.py --platform host` بعد بناء Android native وقبل Flutter analyze/tests. commit: 707fe90e8f588b90c08d1da1ac7055637e0acfc7.
 - Android run الجديد 43416338162 وSecurity run 43416338019 على commit 707fe90e8f588b90c08d1da1ac7055637e0acfc7 كانا قيد التنفيذ عند تحديث هذه الملاحظة. لا تعلن نجاح Android قبل إتمام Flutter regression suite وdebug APK.
 - source archive run 43416338228 اكتمل بنجاح على نفس commit.
+- أضيف اختبار `test/video_quality_test.dart` لتأكيد أن خيار Data Saver يختار رابط 144p مباشرة دون طلب حالة الاتصال. تم تعديل `PostVideo.playbackUrl()` بحيث يختار 144p عند تفعيل Data Saver، و540p عند Smart Quality على شبكة خلوية/حالة اتصال غير مؤكدة، و720p على Wi‑Fi/Ethernet.
+- commits: 5eba5d4a89e64132281265687b3242c3b2a3927e (اختيار الجودة)، e166e50575b7cc6c7697581d9ddf142698557b22 (اختبار 144p). Android run 43416542153 بدأ على commit الاختبار وكان في إعداد بيئة runner عند آخر مراجعة.
