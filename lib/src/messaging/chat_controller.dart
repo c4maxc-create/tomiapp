@@ -371,8 +371,12 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       final removedIds = rawRemoved.cast<String>().toSet();
-      final map = {for (final c in conversations) c.id: c}
-        ..removeWhere((id, _) => removedIds.contains(id));
+      // Preserve thread-level revocation semantics (disable sending and persist
+      // the left state) after the whole response has passed validation.
+      for (final id in removedIds) {
+        removeConversation(id);
+      }
+      final map = {for (final c in conversations) c.id: c};
       for (final c in parsed) {
         final old = map[c.id];
         if (old == null ||
