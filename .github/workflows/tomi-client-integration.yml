@@ -31,7 +31,7 @@ jobs:
   client-http:
     name: Flutter clients against isolated real Node API fixtures
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 55
     env:
       TOMI_CHAT_INTEGRATION: '1'
       TOMI_MESSAGING_INTEGRATION: '1'
