@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:tomi_app/src/accounts/account_api.dart';
 import 'package:tomi_app/src/social/social_models.dart';
+import 'package:tomi_app/src/messaging/upload_transfer.dart';
 
 void main() {
   test(
@@ -126,4 +127,43 @@ void main() {
       );
     },
   );
+
+  test(
+    'completed resumable retry reconciles local progress after a lost completion acknowledgement',
+    () async {
+      final image = ImageDraft(Uint8List.fromList([1, 2, 3, 4]), 'image/jpeg');
+      final transfer = UploadTransfer()..active = true;
+      UploadTransfer.owners[image] = transfer;
+      var storageRequests = 0;
+      final api = AccountApi(
+        'https://api.example.com',
+        client: MockClient((request) async {
+          if (request.url.host == 'api.example.com') {
+            expect(request.headers['authorization'], 'Bearer private-token');
+            return http.Response('{"completed":true}', 200);
+          }
+          storageRequests++;
+          return http.Response('', 200);
+        }),
+      );
+      await api.uploadResumable(
+        'private-token',
+        ImageUpload(
+          id: '11111111-1111-4111-8111-111111111111',
+          url: Uri.parse('https://bucket.r2.cloudflarestorage.com/file'),
+          headers: const {},
+          resumablePath:
+              '/v1/media/resumable/image_uploads/11111111-1111-4111-8111-111111111111',
+        ),
+        image,
+      );
+      expect(storageRequests, 0);
+      expect(transfer.sent, image.bytes.length);
+      expect(transfer.progress, 0.99);
+      transfer.active = false;
+      expect(transfer.progress, 1);
+      UploadTransfer.owners[image] = null;
+    },
+  );
+
 }
