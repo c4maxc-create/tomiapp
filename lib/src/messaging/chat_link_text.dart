@@ -50,16 +50,20 @@ class _ChatLinkTextState extends State<ChatLinkText> {
     _recognizers.clear();
   }
 
-  Future<void> _openLink(String raw) async {
-    final value = raw.toLowerCase().startsWith('www.')
-        ? 'https://$raw'
-        : raw;
+  Uri? _httpUri(String raw) {
+    final value = raw.toLowerCase().startsWith('www.') ? 'https://$raw' : raw;
     final uri = Uri.tryParse(value);
     if (uri == null ||
         (uri.scheme != 'https' && uri.scheme != 'http') ||
         uri.host.isEmpty) {
-      return;
+      return null;
     }
+    return uri;
+  }
+
+  Future<void> _openLink(String raw) async {
+    final uri = _httpUri(raw);
+    if (uri == null) return;
 
     try {
       final opened = await launchUrl(
@@ -98,7 +102,7 @@ class _ChatLinkTextState extends State<ChatLinkText> {
         url = url.substring(0, url.length - 1);
       }
 
-      if (url.isNotEmpty) {
+      if (url.isNotEmpty && _httpUri(url) != null) {
         final recognizer = TapGestureRecognizer()
           ..onTap = () => _openLink(url);
         _recognizers.add(recognizer);
@@ -114,6 +118,10 @@ class _ChatLinkTextState extends State<ChatLinkText> {
             recognizer: recognizer,
           ),
         );
+      } else if (url.isNotEmpty) {
+        // Keep malformed HTTP-looking text readable, but do not make it
+        // appear actionable when the URI has no valid HTTP(S) host.
+        spans.add(TextSpan(text: url));
       }
       if (suffix.isNotEmpty) spans.add(TextSpan(text: suffix));
       cursor = match.end;
