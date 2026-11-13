@@ -243,6 +243,7 @@ void main() {
       realtimeEnabled: false,
     );
     await accounts.restore();
+    await accounts.chats.refresh();
     addTearDown(() {
       if (!accounts.chats.disposed) accounts.dispose();
     });
