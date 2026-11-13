@@ -535,6 +535,7 @@ void main() {
     // Close the software keyboard before dismissing the dialog route. This
     // avoids leaving the dialog's FocusScope attached during route teardown.
     tester.testTextInput.hide();
+    FocusManager.instance.primaryFocus?.unfocus();
     await tester.pump();
     await tester.tap(find.byKey(const Key('chat-edit-message-save')));
     await tester.pumpAndSettle();
