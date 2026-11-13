@@ -19,7 +19,7 @@ class ChatFakeApi extends AccountApi {
   List<Map<String, dynamic>> rows = [];
   final byNonce = <String, Map<String, dynamic>>{};
   int ownRead = 0, peerRead = 0, puts = 0, uploads = 0, prepares = 0, sends = 0;
-  bool blocked = false, loseReply = false, invalidUpload = false;
+  bool blocked = false, loseReply = false, invalidUpload = false, malformedList = false;
   Completer<void>? pausePage, pauseMetadata;
   Map<String, dynamic> get conversation => {
     'id': threadId,
@@ -75,12 +75,25 @@ class ChatFakeApi extends AccountApi {
     Map<String, dynamic>? body,
     Map<String, String>? query,
   }) async {
-    if (path == '/v1/chats' && method == 'GET')
+    if (path == '/v1/chats' && method == 'GET') {
+      if (malformedList) {
+        malformedList = false;
+        return {
+          'removedConversationIds': [threadId],
+          'conversations': [
+            conversation,
+            {...conversation, 'sequence': -1},
+          ],
+          'totalUnread': conversation['unreadCount'],
+          'nextCursor': null,
+        };
+      }
       return {
         'conversations': [conversation],
         'totalUnread': conversation['unreadCount'],
         'nextCursor': null,
       };
+    }
     if (path == '/v1/chats' && method == 'POST')
       return {'conversation': conversation};
     if (path.startsWith('/v1/chat/blocks/') && method == 'PUT') {
@@ -222,6 +235,23 @@ Future<void> flush() async {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('a malformed chat page cannot partially remove cached conversations', () async {
+    final api = ChatFakeApi();
+    final accounts = AccountController(
+      api: api,
+      vault: MemoryTokenVault('token'),
+      realtimeEnabled: false,
+    );
+    await accounts.restore();
+    addTearDown(() {
+      if (!accounts.chats.disposed) accounts.dispose();
+    });
+    expect(accounts.chats.conversations.single.id, threadId);
+    api.malformedList = true;
+    await accounts.chats.refresh();
+    expect(accounts.chats.conversations.map((c) => c.id), [threadId]);
+    expect(accounts.chats.error, isNotNull);
+  });
   test(
     'a lost send reply retries the original nonce without duplicating the saved message',
     () async {
