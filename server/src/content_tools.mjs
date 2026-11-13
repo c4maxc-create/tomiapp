@@ -59,10 +59,10 @@ export function createContentTools({database,accountGate,readJson,respond,limit,
     if(revision!==d.expectedRevision)fail(409,'MESSAGE_CHANGED','تغيّرت الرسالة؛ حدّثها ثم عدّل.');
     const editedAt=new Date().toISOString();
     await db.query(`UPDATE ${a.table} SET body=?${a.group?',revision=revision+1':''} WHERE id=?`,[d.text.trim(),r.id]);
-    if(a.group)await db.query('UPDATE tomi_groups SET updated_at=?,revision=revision+1 WHERE id=?',[editedAt,m[2]]);
+    if(a.group)await db.query('UPDATE tomi_groups SET updated_at=CASE WHEN next_seq=? THEN ? ELSE updated_at END,revision=revision+1 WHERE id=?',[Number(r.sequence),editedAt,m[2]]);
     else{
      await db.query('INSERT INTO tomi_chat_message_meta(message_id,revision) VALUES(?,1) ON CONFLICT(message_id) DO UPDATE SET revision=tomi_chat_message_meta.revision+1',[r.id]);
-     await db.query('UPDATE tomi_chat_threads SET updated_at=? WHERE id=?',[editedAt,m[2]]);
+     await db.query('UPDATE tomi_chat_threads SET updated_at=CASE WHEN next_seq=? THEN ? ELSE updated_at END WHERE id=?',[Number(r.sequence),editedAt,m[2]]);
     }
     await db.query('INSERT INTO tomi_message_edits(message_id,edited_at) VALUES(?,?) ON CONFLICT(message_id) DO UPDATE SET edited_at=excluded.edited_at',[r.id,editedAt]);return a;
    });emit(a.members.map(r=>r.user_id),{type:'chat.updated',conversationId:m[2],group:a.group,messageId:m[3]});respond(res,200,{ok:true});return true;
