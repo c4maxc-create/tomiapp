@@ -1,6 +1,6 @@
 # الحالة الحالية — TOMI 1.7.0-beta.1+43 مع تعديلات المحادثة
 
-آخر تحديث: 12 نوفمبر 2026. المستودع الخاص `ToLo10/tomiapp`، الفرع `main`.
+آخر تحديث: 13 نوفمبر 2026. المستودع الخاص `ToLo10/tomiapp`، الفرع `main`.
 
 ## آخر التغييرات على المصدر
 - إضافة عرض روابط HTTP/HTTPS داخل رسائل المحادثة كروابط قابلة للنقر وفتحها عبر التطبيق الخارجي/المعالج الافتراضي: commits `38191fb3041568b67f9ff813313fdd7eff5931d0` و`0be9e3d70e4d381be6fce49e478f8da7c0797658`.
@@ -37,3 +37,18 @@
 - الخطة تفصل بوابات CI، المحادثات، الوسائط والثبات، FCM/LiveKit والغرف، الأمان، المجتمع، الأداء والتسليم.
 - أحدث مصدر قبل إضافة الخطة كان `f8d217d436568efe675ede15872385c11e8b4aab`. إضافة الوثائق لا تعني تنفيذ أو اختبار البنود المذكورة.
 - لا تزال اختبارات الخدمات الحقيقية والأجهزة والنشر والحمل بحاجة إلى أدلة مستقلة. لا تعدّل الألعاب.
+
+
+## تحديث تنفيذ المراحل غير المتعلقة بالألعاب — 13 نوفمبر 2026
+أُنجزت بوابات التحقق الآلية على المصدر `cc6cae20019d92c9fe294ede116426b6e445925a`:
+- أضيف تحقق ذري لصفحات المحادثات في `lib/src/messaging/chat_controller.dart`: تُفحص بيانات الصفحة كاملة قبل تعديل المحادثات المرئية أو حذفها. أضيف regression test لحالة صفحة تالفة.
+- Android debug smoke workflow `43440358828` نجح: `flutter analyze`، Flutter regression suite، سياسات Android، وبناء APK تجريبي ورفعه كـ artifact `14046876648`.
+- Flutter + Node HTTP integration workflow `43440358644` نجح، وشمل المحادثات والمجموعات والمكالمات والغرف والهدايا والقصص والخصوصية والمحتوى والإدارة والهوية، إضافة إلى backend suite مع SQLite.
+- API/PostgreSQL/restore workflow `43440067856` نجح: suite على SQLite وPostgreSQL 17، ثم encrypted backup/restore drill.
+- Security workflow `43440276539` نجح: فحص الأسرار وnpm advisories وRust cargo audit و.NET NuGet audit.
+- source archive workflow `43440358638` نجح على commit نفسه، مع SHA-256. الأرشيف يحتوي أرشيف الاستمرارية السابق `previews/downloads/TOMI-Blazor-BROWSER-READY.zip` وملفات TOMI-MD.
+- أضيف workflow `.github/workflows/tomi-client-integration.yml` لتشغيل suite الخادم واختبارات Flutter HTTP المعزولة، وربط تغييره ببوابة PostgreSQL/restore.
+- commits التنفيذ الأخيرة: `608c44323d3f87b8ac108f75cc03e323ac16ab03`، `69542f07d3134318f47f5340391e31fe29602287`، `ec7449fefa09a9c9b72a2f31906fcb8bb667ec60`، ثم إصلاح تهيئة الاختبار `cc6cae20019d92c9fe294ede116426b6e445925a`.
+- لا يعني نجاح CI أن الخدمات الخارجية أو الأجهزة الحقيقية اختُبرت. ما زال اختبار R2/FCM/LiveKit الحقيقي، هاتفين، مشاركة الشاشة الفعلية، staging/Render، الحمل الخارجي ومراقبة الإنتاج مطلوباً.
+- APK الناتج Debug للتجربة الخاصة فقط، وليس release موقّعاً للنشر.
+- الألعاب بقيت خارج التعديل.
