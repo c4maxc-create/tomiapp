@@ -446,7 +446,9 @@ class AccountApi {
             part['size'] != end - start ||
             url.scheme != 'https' ||
             !url.host.endsWith('.r2.cloudflarestorage.com') ||
+            url.port != 443 ||
             url.userInfo.isNotEmpty ||
+            url.hasFragment ||
             url.host != upload.url.host)
           throw const AccountFailure('INVALID_UPLOAD', 'وجهة رفع غير صحيحة.');
         if (part['uploaded'] != true) {
