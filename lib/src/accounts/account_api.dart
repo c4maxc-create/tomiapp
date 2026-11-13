@@ -440,10 +440,12 @@ class AccountApi {
         if (transfer.cancelled) throw http.RequestAbortedException(upload.url);
         final part = parts[i],
             start = i * chunk,
-            end = (start + chunk).clamp(0, image.bytes.length),
-            url = Uri.parse(part['url'] as String);
+            end = (start + chunk).clamp(0, image.bytes.length);
+        final rawUrl = part['url'];
+        final url = rawUrl is String ? Uri.tryParse(rawUrl) : null;
         if (part['number'] != i + 1 ||
             part['size'] != end - start ||
+            url == null ||
             url.scheme != 'https' ||
             !url.host.endsWith('.r2.cloudflarestorage.com') ||
             url.port != 443 ||
