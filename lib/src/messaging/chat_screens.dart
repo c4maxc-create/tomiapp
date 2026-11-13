@@ -1733,6 +1733,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                             },
                           );
                           if (dialogContext.mounted) {
+                            FocusScope.of(dialogContext).unfocus();
                             Navigator.pop(dialogContext, true);
                           }
                         } on AccountFailure catch (failure) {
