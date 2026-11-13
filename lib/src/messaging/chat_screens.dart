@@ -1678,13 +1678,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
     }
 
     final input = TextEditingController(text: m.text);
+    var saving = false;
+    String? error;
     final yes = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) {
-          var saving = false;
-          String? error;
           final value = input.text.trim();
           final unchanged = value == m.text.trim();
           return AlertDialog(
