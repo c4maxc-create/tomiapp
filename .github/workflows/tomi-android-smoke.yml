@@ -102,6 +102,7 @@ jobs:
           rustup toolchain install 1.89.0 --profile minimal
           cargo +1.89.0 test --locked --manifest-path packages/tomi_secure/native/Cargo.toml
           python3 tool/build_secure_native.py --platform android
+          python3 tool/build_secure_native.py --platform host
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
