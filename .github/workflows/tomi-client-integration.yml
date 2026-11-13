@@ -53,6 +53,10 @@ jobs:
       - name: Install locked isolated API test runtime
         working-directory: server
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Run full backend typecheck and isolated SQLite API suite
+        working-directory: server
+        timeout-minutes: 15
+        run: npm test
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
