@@ -2519,6 +2519,18 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                     ),
                     const SizedBox(width: 4),
                   ],
+                  if (m.data['editedAt'] != null)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(end: 5),
+                      child: Text(
+                        'معدّلة',
+                        style: TextStyle(
+                          color: p.muted,
+                          fontSize: 10,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
                   Text(
                     chatTime(m.createdAt),
                     textDirection: TextDirection.ltr,
@@ -2542,6 +2554,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                         onSelected: (a) => tools(m, a),
                         itemBuilder: (_) => [
                           if (c.canSend) ...[
+                            if (m.isMine &&
+                                m.text.trim().isNotEmpty &&
+                                !c.secureEnabled)
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Text('تعديل الرسالة'),
+                              ),
                             const PopupMenuItem(
                               value: 'reply',
                               child: Text('رد'),
