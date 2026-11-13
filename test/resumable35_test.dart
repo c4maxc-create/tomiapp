@@ -166,4 +166,60 @@ void main() {
     },
   );
 
+
+  test(
+    'resumable storage URLs cannot select a nonstandard port on an otherwise trusted R2 host',
+    () async {
+      var storageRequests = 0;
+      final api = AccountApi(
+        'https://api.example.com',
+        client: MockClient((request) async {
+          if (request.url.host == 'api.example.com') {
+            return http.Response(
+              jsonEncode({
+                'completed': false,
+                'chunkSize': 5 * 1024 * 1024,
+                'total': 5 * 1024 * 1024 + 1,
+                'parts': [
+                  {
+                    'number': 1,
+                    'size': 5 * 1024 * 1024,
+                    'uploaded': false,
+                    'url':
+                        'https://bucket.r2.cloudflarestorage.com:8443/file?partNumber=1',
+                  },
+                  {
+                    'number': 2,
+                    'size': 1,
+                    'uploaded': false,
+                    'url':
+                        'https://bucket.r2.cloudflarestorage.com:8443/file?partNumber=2',
+                  },
+                ],
+              }),
+              200,
+            );
+          }
+          storageRequests++;
+          return http.Response('', 200);
+        }),
+      );
+      await expectLater(
+        api.uploadResumable(
+          'token',
+          ImageUpload(
+            id: '11111111-1111-4111-8111-111111111111',
+            url: Uri.parse('https://bucket.r2.cloudflarestorage.com/file'),
+            headers: const {},
+            resumablePath:
+                '/v1/media/resumable/image_uploads/11111111-1111-4111-8111-111111111111',
+          ),
+          ImageDraft(Uint8List(5 * 1024 * 1024 + 1), 'image/jpeg'),
+        ),
+        throwsA(isA<AccountFailure>()),
+      );
+      expect(storageRequests, 0);
+    },
+  );
+
 }
