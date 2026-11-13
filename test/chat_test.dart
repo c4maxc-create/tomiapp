@@ -532,6 +532,10 @@ void main() {
       'تم التعديل بشكل صحيح',
     );
     await tester.pumpAndSettle();
+    // Close the software keyboard before dismissing the dialog route. This
+    // avoids leaving the dialog's FocusScope attached during route teardown.
+    tester.testTextInput.hide();
+    await tester.pump();
     await tester.tap(find.byKey(const Key('chat-edit-message-save')));
     await tester.pumpAndSettle();
     expect(api.rows.single['text'], 'تم التعديل بشكل صحيح');
@@ -539,6 +543,7 @@ void main() {
     expect(find.text('معدّلة'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
   });
 
   testWidgets('a failed bubble can retry and clear the error', (tester) async {
