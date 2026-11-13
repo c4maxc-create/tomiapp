@@ -501,7 +501,9 @@ class AccountApi {
 
   Future<void> uploadImage(ImageUpload upload, ImageDraft image) async {
     if (upload.url.scheme != 'https' ||
+        upload.url.port != 443 ||
         upload.url.userInfo.isNotEmpty ||
+        upload.url.hasFragment ||
         !upload.url.host.endsWith('.r2.cloudflarestorage.com') ||
         upload.headers['content-type'] != image.contentType ||
         upload.headers['content-md5'] != image.contentMd5 ||
