@@ -49,3 +49,9 @@
 - API run النهائي لتغييرات 144p هو 43330919985 على commit 480f627fe63fa95e244b101025935fc6d65c1cbe وكان قيد التنفيذ عند آخر فحص. لا تسجل نجاح التحويلات الجديدة قبل اكتماله.
 - الألعاب لم تُعدّل؛ أصول C# الموجودة تُولد فقط كمتطلب لبناء Flutter.
 - لم يثبت بعد اختبار R2 الفعلي، هاتفين، Push على جهاز، LiveKit/TURN إنتاجي، أو حمل إنتاجي. إضافة 144p تجعل النسخة المنخفضة متاحة من API عند اكتمال worker؛ لا تثبت وحدها اختيار العميل تلقائيًا لها أو نظام اشتراكات الجودة.
+## متابعة إضافية — 13 نوفمبر 2026 (تصحيح بيئة تشفير Android)
+- انتهى Android smoke run 43331150828 بالفشل في اختبار `test/e2ee42_test.dart`؛ السبب المؤكد من سجل CI أن الاختبار لم يجد `packages/tomi_secure/native/target/release/libtomi_secure.so` على Linux. الاختبار نفسه لم يُتجاوز.
+- السبب: workflow كان يبني مكتبات Rust لأهداف Android فقط قبل Flutter tests، بينما تكامل FFI في اختبارات Flutter على Ubuntu يحتاج مكتبة host Linux.
+- أضيف `python3 tool/build_secure_native.py --platform host` بعد بناء Android native وقبل Flutter analyze/tests. commit: 707fe90e8f588b90c08d1da1ac7055637e0acfc7.
+- Android run الجديد 43416338162 وSecurity run 43416338019 على commit 707fe90e8f588b90c08d1da1ac7055637e0acfc7 كانا قيد التنفيذ عند تحديث هذه الملاحظة. لا تعلن نجاح Android قبل إتمام Flutter regression suite وdebug APK.
+- source archive run 43416338228 اكتمل بنجاح على نفس commit.
