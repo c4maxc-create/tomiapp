@@ -8,6 +8,8 @@ name: TOMI API and PostgreSQL restore checks
       - 'tool/prepare_pg_drill.py'
       - '.github/workflows/tomi-api.yml'
       - '.github/workflows/tomi-security.yml'
+      - '.github/workflows/tomi-client-integration.yml'
+      - '.github/workflows/tomi-client-integration.yml'
   pull_request:
     paths:
       - 'server/**'
