@@ -188,6 +188,27 @@ class ChatFakeApi extends AccountApi {
       if (gate != null) await gate.future;
       return result;
     }
+    if (path.endsWith('/edit') && method == 'PUT') {
+      final parts = path.split('/'),
+          id = parts[parts.length - 2],
+          index = rows.indexWhere((m) => m['id'] == id);
+      if (index < 0) throw StateError('Unknown message $id');
+      final revision = (rows[index]['revision'] as int?) ?? 0;
+      if (revision != body!['expectedRevision']) {
+        throw const AccountFailure(
+          'MESSAGE_CHANGED',
+          'تغيّرت الرسالة؛ حدّثها ثم عدّل.',
+          status: 409,
+        );
+      }
+      rows[index] = {
+        ...rows[index],
+        'text': body['text'],
+        'revision': revision + 1,
+        'editedAt': '2026-11-13T18:00:00.000Z',
+      };
+      return {'ok': true};
+    }
     if (path.contains('/messages/')) {
       final id = path.split('/').last,
           index = rows.indexWhere((m) => m['id'] == id);
@@ -209,10 +230,11 @@ class ChatFakeApi extends AccountApi {
 
 Future<(AccountController, ChatFakeApi, ChatThreadController)> setup({
   int count = 0,
+  bool mineFirst = false,
 }) async {
   final api = ChatFakeApi();
   for (var i = 1; i <= count; i++) {
-    api.rows.add(api.row(i));
+    api.rows.add(api.row(i, mine: mineFirst && i == 1));
   }
   final accounts = AccountController(
     api: api,
@@ -485,6 +507,40 @@ void main() {
       a.dispose();
     },
   );
+  testWidgets('a sender can edit a message from its options and sees the edited marker', (
+    tester,
+  ) async {
+    final (a, api, t) = await setup(count: 1, mineFirst: true);
+    addTearDown(() {
+      if (!a.chats.disposed) a.dispose();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorObservers: [chatRouteObserver],
+        home: PrivateChatPage(chats: a.chats, conversation: t.conversation),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('message-options:message-1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تعديل الرسالة').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('chat-edit-message-input')),
+      'تم التعديل بشكل صحيح',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('chat-edit-message-save')));
+    await tester.pumpAndSettle();
+    expect(api.rows.single['text'], 'تم التعديل بشكل صحيح');
+    expect(api.rows.single['revision'], 1);
+    expect(find.text('معدّلة'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('a failed bubble can retry and clear the error', (tester) async {
     final (a, api, t) = await setup();
     addTearDown(() {
