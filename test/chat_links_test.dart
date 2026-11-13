@@ -62,4 +62,42 @@ void main() {
 
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('keeps malformed HTTP-looking text plain and links valid HTTP URLs',
+      (tester) async {
+    const message =
+        'HTTP http://example.org/path; invalid https://?x=1 and www.example.net.';
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ChatLinkText(
+            message,
+            style: TextStyle(fontSize: 16),
+            linkColor: Colors.blue,
+          ),
+        ),
+      ),
+    );
+
+    final richText = tester.widget<RichText>(find.byType(RichText));
+    final spans = richText.text as TextSpan;
+    final links = <TextSpan>[];
+    void collect(InlineSpan span) {
+      if (span is TextSpan) {
+        if (span.recognizer != null) links.add(span);
+        for (final child in span.children ?? const <InlineSpan>[]) {
+          collect(child);
+        }
+      }
+    }
+
+    collect(spans);
+    expect(links.map((span) => span.text).toList(), [
+      'http://example.org/path',
+      'www.example.net',
+    ]);
+    expect(spans.toPlainText(), message);
+    expect(tester.takeException(), isNull);
+  });
+
 }
