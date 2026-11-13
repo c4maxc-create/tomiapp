@@ -222,4 +222,64 @@ void main() {
     },
   );
 
+
+  test(
+    'malformed or non-string storage URLs return a controlled upload failure',
+    () async {
+      Object? suppliedUrl = 'https://[invalid';
+      var storageRequests = 0;
+      final api = AccountApi(
+        'https://api.example.com',
+        client: MockClient((request) async {
+          if (request.url.host != 'api.example.com') {
+            storageRequests++;
+            return http.Response('', 200);
+          }
+          return http.Response(
+            jsonEncode({
+              'completed': false,
+              'chunkSize': 5 * 1024 * 1024,
+              'total': 5 * 1024 * 1024 + 1,
+              'parts': [
+                {
+                  'number': 1,
+                  'size': 5 * 1024 * 1024,
+                  'uploaded': false,
+                  'url': suppliedUrl,
+                },
+                {
+                  'number': 2,
+                  'size': 1,
+                  'uploaded': false,
+                  'url':
+                      'https://bucket.r2.cloudflarestorage.com/file?partNumber=2',
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      final upload = ImageUpload(
+        id: '11111111-1111-4111-8111-111111111111',
+        url: Uri.parse('https://bucket.r2.cloudflarestorage.com/file'),
+        headers: const {},
+        resumablePath:
+            '/v1/media/resumable/image_uploads/11111111-1111-4111-8111-111111111111',
+      );
+      final image = ImageDraft(Uint8List(5 * 1024 * 1024 + 1), 'image/jpeg');
+
+      await expectLater(
+        api.uploadResumable('token', upload, image),
+        throwsA(isA<AccountFailure>()),
+      );
+      suppliedUrl = 42;
+      await expectLater(
+        api.uploadResumable('token', upload, image),
+        throwsA(isA<AccountFailure>()),
+      );
+      expect(storageRequests, 0);
+    },
+  );
+
 }
