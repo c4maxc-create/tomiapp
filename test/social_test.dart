@@ -291,6 +291,40 @@ void main() {
     );
     expect(uploaded, true);
   });
+  test('direct R2 uploads reject nonstandard ports and URL fragments', () async {
+    var requests = 0;
+    final api = AccountApi(
+      'https://tomi.example',
+      client: MockClient((request) async {
+        requests++;
+        return http.Response('', 200);
+      }),
+    );
+    addTearDown(api.close);
+    final image = ImageDraft(Uint8List.fromList([1, 2, 3]), 'image/png');
+    for (final url in [
+      'https://a.r2.cloudflarestorage.com:8443/bucket/image.png?signature=test',
+      'https://a.r2.cloudflarestorage.com/bucket/image.png?signature=test#fragment',
+    ]) {
+      await expectLater(
+        api.uploadImage(
+          ImageUpload(
+            id: 'upload',
+            url: Uri.parse(url),
+            headers: {
+              'content-type': 'image/png',
+              'content-md5': image.contentMd5,
+              'if-none-match': '*',
+            },
+          ),
+          image,
+        ),
+        throwsA(isA<AccountFailure>()),
+      );
+    }
+    expect(requests, 0);
+  });
+
   test('late feed responses cannot replace a newly selected scope', () async {
     final old = Completer<http.Response>();
     final a = AccountController(
