@@ -1667,42 +1667,113 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
   }
 
   Future<void> editMessage(ChatMessage m) async {
+    final conversation = thread.conversation;
+    if (!thread.current ||
+        !conversation.canSend ||
+        conversation.secureEnabled ||
+        !m.isMine ||
+        m.deleted ||
+        m.text.trim().isEmpty) {
+      return;
+    }
+
     final input = TextEditingController(text: m.text);
     final yes = await showDialog<bool>(
       context: context,
-      builder: (d) => AlertDialog(
-        title: const Text('تعديل الرسالة'),
-        content: TextField(
-          controller: input,
-          minLines: 1,
-          maxLines: 6,
-          maxLength: 2000,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(d, false),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(d, true),
-            child: const Text('حفظ'),
-          ),
-        ],
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          var saving = false;
+          String? error;
+          final value = input.text.trim();
+          final unchanged = value == m.text.trim();
+          return AlertDialog(
+            title: const Text('تعديل الرسالة'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  key: const Key('chat-edit-message-input'),
+                  controller: input,
+                  autofocus: true,
+                  minLines: 2,
+                  maxLines: 7,
+                  maxLength: 2000,
+                  textCapitalization: TextCapitalization.sentences,
+                  onChanged: (_) => setDialogState(() => error = null),
+                  decoration: InputDecoration(
+                    hintText: 'اكتب نص الرسالة',
+                    errorText: error,
+                    helperText: 'سيظهر للطرف الآخر أن الرسالة عُدّلت.',
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: saving
+                    ? null
+                    : () => Navigator.pop(dialogContext, false),
+                child: const Text('إلغاء'),
+              ),
+              FilledButton.icon(
+                key: const Key('chat-edit-message-save'),
+                onPressed: saving || value.isEmpty || unchanged
+                    ? null
+                    : () async {
+                        setDialogState(() => saving = true);
+                        try {
+                          await thread.request(
+                            'PUT',
+                            '/messages/${m.id}/edit',
+                            body: {
+                              'text': value,
+                              'expectedRevision': m.revision,
+                            },
+                          );
+                          if (dialogContext.mounted) {
+                            Navigator.pop(dialogContext, true);
+                          }
+                        } on AccountFailure catch (failure) {
+                          if (failure.code == 'MESSAGE_CHANGED') {
+                            unawaited(thread.refreshMessage(m.id));
+                          }
+                          if (dialogContext.mounted) {
+                            setDialogState(() {
+                              saving = false;
+                              error = failure.message;
+                            });
+                          }
+                        } catch (_) {
+                          if (dialogContext.mounted) {
+                            setDialogState(() {
+                              saving = false;
+                              error = 'تعذّر حفظ التعديل؛ حاول مرة أخرى.';
+                            });
+                          }
+                        }
+                      },
+                icon: saving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check_rounded),
+                label: Text(saving ? 'جارٍ الحفظ' : 'حفظ التعديل'),
+              ),
+            ],
+          );
+        },
       ),
     );
-    if (yes == true) {
-      try {
-        await thread.request(
-          'PUT',
-          '/messages/${m.id}/edit',
-          body: {'text': input.text, 'expectedRevision': m.revision},
-        );
-        await thread.refreshMessage(m.id);
-      } on AccountFailure catch (e) {
-        if (mounted) showNote(context, e.message);
-      }
-    }
     input.dispose();
+
+    if (yes == true && mounted && thread.current) {
+      await thread.refreshMessage(m.id);
+      if (mounted) showNote(context, 'تم تعديل الرسالة');
+    }
   }
 
   Future<void> messageInfo(ChatMessage m) async {
@@ -1785,7 +1856,10 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                   title: const Text('تفاصيل الرسالة'),
                   onTap: () => Navigator.pop(context, 'info'),
                 ),
-                if (m.isMine && m.text.isNotEmpty && c.canSend)
+                if (m.isMine &&
+                    m.text.trim().isNotEmpty &&
+                    c.canSend &&
+                    !c.secureEnabled)
                   ListTile(
                     leading: const Icon(Icons.edit_outlined),
                     title: const Text('تعديل الرسالة'),
