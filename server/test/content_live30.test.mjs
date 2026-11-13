@@ -22,15 +22,19 @@ test('audience affects discovery while profile remains public; edits and comment
  const another=(await post(f,a)).data.post;assert.equal((await f.req(c,'POST',`/v1/posts/${another.id}/comments`,{...replyBody,requestId:randomUUID()})).status,404);
  assert.equal((await f.req(c,'POST',`/v1/posts/${p.id}/comments`,{...replyBody,parentId:null})).status,409);
 });
-test('message edits are owner-only and revision fenced; delivery/read times come only from authorized recipients and never move on retries',async t=>{
+test('message edits are owner-only, revision fenced and refresh chat ordering for private and group threads',async t=>{
  const f=await fixture(t),a=await f.register('message30_a'),b=await f.register('message30_b'),c=await f.register('message30_c');
  const thread=(await f.req(a,'POST','/v1/chats',{userId:b.user.id})).data.conversation;
  const m=(await f.req(a,'POST',`/v1/chats/${thread.id}/messages`,{text:'قبل',requestId:randomUUID()})).data.message,path=`/v1/chats/${thread.id}/messages/${m.id}`;
  assert.equal((await f.req(c,'GET',path+'/info')).status,404);
  assert.equal((await f.req(b,'PUT',path+'/edit',{text:'سرقة',expectedRevision:0})).status,403);
+ await f.db.query('UPDATE tomi_chat_threads SET updated_at=? WHERE id=?',['2000-01-01T00:00:00.000Z',thread.id]);
  assert.equal((await f.req(a,'PUT',path+'/edit',{text:'بعد',expectedRevision:0})).status,200);
  assert.equal((await f.req(a,'PUT',path+'/edit',{text:'قديم',expectedRevision:0})).status,409);
  const fresh=(await f.req(b,'GET',path)).data.message;assert.equal(fresh.text,'بعد');assert.ok(fresh.editedAt);
+ const updatedThread=(await f.req(a,'GET',`/v1/chats/${thread.id}`)).data.conversation;
+ assert.ok(Date.parse(updatedThread.updatedAt)>Date.parse('2000-01-01T00:00:00.000Z'));
+ assert.equal(updatedThread.lastMessage,'بعد');
  assert.equal((await f.req(c,'PUT',`/v1/chats/${thread.id}/receipts`,{ids:[m.id],event:'read'})).status,404);
  await f.req(b,'PUT',`/v1/chats/${thread.id}/receipts`,{ids:[m.id],event:'delivered'});
  const first=(await f.req(a,'GET',path+'/info')).data;assert.equal(first.receipts.length,1);assert.ok(first.receipts[0].deliveredAt);assert.equal(first.receipts[0].readAt,null);
@@ -38,8 +42,13 @@ test('message edits are owner-only and revision fenced; delivery/read times come
  const second=(await f.req(a,'GET',path+'/info')).data;assert.equal(second.receipts[0].deliveredAt,first.receipts[0].deliveredAt);assert.ok(second.receipts[0].readAt);
  const group=(await f.req(a,'POST','/v1/groups',{title:'مجموعة',memberIds:[b.user.id,c.user.id],requestId:randomUUID()})).data.conversation;
  const gm=(await f.req(a,'POST',`/v1/groups/${group.id}/messages`,{text:'قديم',requestId:randomUUID()})).data.message;
+ const groupRevision=Number((await f.db.query('SELECT revision FROM tomi_groups WHERE id=?',[group.id])).rows[0].revision);
+ await f.db.query('UPDATE tomi_groups SET updated_at=? WHERE id=?',['2000-01-01T00:00:00.000Z',group.id]);
  assert.equal((await f.req(a,'PUT',`/v1/groups/${group.id}/messages/${gm.id}/edit`,{text:'جديد',expectedRevision:0})).status,200);
  assert.equal((await f.req(b,'GET',`/v1/groups/${group.id}/messages/${gm.id}`)).data.message.text,'جديد');
+ const updatedGroup=(await f.db.query('SELECT updated_at,revision FROM tomi_groups WHERE id=?',[group.id])).rows[0];
+ assert.ok(Date.parse(updatedGroup.updated_at)>Date.parse('2000-01-01T00:00:00.000Z'));
+ assert.equal(Number(updatedGroup.revision),groupRevision+1);
 });
 test('live PK publishes only hosts, needs invitation acceptance, scores on server and settles at five minutes without duplicate support',async t=>{
  let now=Date.now();const grants=[],closed=[];const provider={async grant(room,identity,publish){grants.push({room,identity,publish});return{url:'wss://test.livekit.cloud',room,identity,publish,token:'test-only'};},async close(room){closed.push(room);},async remove(room,identity){grants.push({revoked:identity,room});}};
