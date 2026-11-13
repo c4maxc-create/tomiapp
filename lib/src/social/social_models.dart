@@ -254,19 +254,18 @@ class PostVideo {
     final variants = (data['renditions'] as List? ?? []).cast<Map>();
     if (variants.isEmpty || !preferences.smartQuality && !preferences.dataSaver)
       return url;
-    bool low = preferences.dataSaver;
-    if (preferences.smartQuality) {
+    bool low = false;
+    if (!preferences.dataSaver && preferences.smartQuality) {
       try {
         final c = await Connectivity().checkConnectivity();
         low =
-            low ||
             !c.contains(ConnectivityResult.wifi) &&
-                !c.contains(ConnectivityResult.ethernet);
+            !c.contains(ConnectivityResult.ethernet);
       } catch (_) {
         low = true;
       }
     }
-    final target = low ? 540 : 720;
+    final target = preferences.dataSaver ? 144 : low ? 540 : 720;
     return variants.where((v) => v['height'] == target).firstOrNull?['url']
             as String? ??
         url;
