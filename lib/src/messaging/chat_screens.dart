@@ -1733,7 +1733,9 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                             },
                           );
                           if (dialogContext.mounted) {
-                            FocusScope.of(dialogContext).unfocus();
+                            // Let the dialog route manage focus teardown. Calling
+                            // unfocus on its own FocusScope while the route is
+                            // being removed can leave stale inherited dependents.
                             Navigator.pop(dialogContext, true);
                           }
                         } on AccountFailure catch (failure) {
