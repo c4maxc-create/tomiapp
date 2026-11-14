@@ -527,24 +527,29 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('تعديل الرسالة').last);
     await tester.pumpAndSettle();
-    await tester.enterText(
+    // Set the field value without starting the software keyboard ticker.
+    // pumpAndSettle is not suitable while a focused TextField cursor is blinking.
+    final editField = tester.widget<TextField>(
       find.byKey(const Key('chat-edit-message-input')),
-      'تم التعديل بشكل صحيح',
     );
-    await tester.pumpAndSettle();
-    // Close the software keyboard before dismissing the dialog route. This
-    // avoids leaving the dialog's FocusScope attached during route teardown.
+    editField.controller!.text = 'تم التعديل بشكل صحيح';
+    editField.onChanged?.call('تم التعديل بشكل صحيح');
+    await tester.pump();
     tester.testTextInput.hide();
     FocusManager.instance.primaryFocus?.unfocus();
     await tester.pump();
     await tester.tap(find.byKey(const Key('chat-edit-message-save')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump();
     expect(api.rows.single['text'], 'تم التعديل بشكل صحيح');
     expect(api.rows.single['revision'], 1);
     expect(find.text('معدّلة'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    a.dispose();
   });
 
   testWidgets('a failed bubble can retry and clear the error', (tester) async {
@@ -566,13 +571,20 @@ void main() {
     );
     await tester.pump();
     await tester.tap(find.byKey(const Key('private-chat-send')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump();
     expect(find.text('إعادة المحاولة'), findsOneWidget);
     await tester.tap(find.text('إعادة المحاولة'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump();
     expect(api.rows.length, 1);
     expect(t.pending, isEmpty);
+    tester.testTextInput.hide();
+    FocusManager.instance.primaryFocus?.unfocus();
     await tester.pumpWidget(const SizedBox());
+    await tester.pump();
     a.dispose();
   });
   testWidgets('old history has a compact route back to latest messages', (
@@ -586,9 +598,11 @@ void main() {
     addTearDown(() {
       if (!a.chats.disposed) a.dispose();
     });
-    for (var i = 0; i < 13; i++) {
+    // Load enough pages to cross the controller's bounded history window.
+    for (var i = 0; i < 30 && !t.historyWindow && t.nextBefore != null; i++) {
       await t.loadOlder();
     }
+    expect(t.historyWindow, isTrue);
     await tester.pumpWidget(
       MaterialApp(
         navigatorObservers: [chatRouteObserver],
@@ -606,7 +620,9 @@ void main() {
     expect(find.byKey(const Key('chat-show-latest')), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tap(find.byKey(const Key('chat-show-latest')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump();
     expect(t.highestSequence, 600);
     expect(t.historyWindow, isFalse);
     expect(tester.takeException(), isNull);
