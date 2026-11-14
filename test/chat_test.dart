@@ -541,12 +541,13 @@ void main() {
     await tester.tap(find.byKey(const Key('chat-edit-message-save')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
+    await flush();
     await tester.pump();
     expect(api.rows.single['text'], 'تم التعديل بشكل صحيح');
     expect(api.rows.single['revision'], 1);
     expect(find.text('معدّلة'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
     a.dispose();
@@ -577,14 +578,15 @@ void main() {
     expect(find.text('إعادة المحاولة'), findsOneWidget);
     await tester.tap(find.text('إعادة المحاولة'));
     await tester.pump();
+    await flush();
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump();
     expect(api.rows.length, 1);
     expect(t.pending, isEmpty);
     tester.testTextInput.hide();
-    FocusManager.instance.primaryFocus?.unfocus();
-    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
     a.dispose();
   });
   testWidgets('old history has a compact route back to latest messages', (
