@@ -1,6 +1,13 @@
 name: TOMI 1.7.0-beta.1 Android
 
 "on":
+  push:
+    branches: [main]
+    paths:
+      - 'lib/src/messaging/chat_screens.dart'
+      - 'lib/src/messaging/chat_controller.dart'
+      - 'test/chat_test.dart'
+      - '.github/workflows/tomi-android.yml'
   workflow_dispatch:
     inputs:
       mode:
