@@ -124,7 +124,7 @@ jobs:
 
       - name: Validate build configuration
         env:
-          TOMI_BUILD_MODE: ${{ inputs.mode }}
+          TOMI_BUILD_MODE: ${{ inputs.mode || 'accounts' }}
           TOMI_API_URL: ${{ inputs.api_url || vars.TOMI_API_URL || 'https://tomiapp.onrender.com' }}
         run: python3 tool/check_build_config.py
 
@@ -177,7 +177,7 @@ jobs:
       - name: Configure required phone notifications for accounts APK
         env:
           TOMI_GOOGLE_SERVICES_JSON: ${{ secrets.TOMI_GOOGLE_SERVICES_JSON }}
-          TOMI_REQUIRE_PUSH: ${{ inputs.mode == 'accounts' && 'true' || 'false' }}
+          TOMI_REQUIRE_PUSH: ${{ (inputs.mode || 'accounts') == 'accounts' && 'true' || 'false' }}
         run: python3 tool/configure_firebase.py
 
       - name: Build and test native encryption, then Android ABIs
@@ -228,13 +228,13 @@ jobs:
         run: flutter test --no-pub test/call_api_integration_test.dart test/room_api_integration_test.dart test/messaging_api_integration_test.dart test/identity_api_integration_test.dart test/moderation_api_integration_test.dart test/privacy_api_integration_test.dart test/home_api_integration_test.dart test/chat12_api_integration_test.dart test/games_api_integration_test.dart --reporter expanded
 
       - name: Check signed beta deployment and phone acceptance
-        if: inputs.distribution == 'signed_beta'
+        if: (inputs.distribution || 'debug') == 'signed_beta'
         env:
           TOMI_BETA_DEVICE_ACCEPTED: ${{ vars.TOMI_BETA_DEVICE_ACCEPTED }}
         run: python3 tool/check_release_readiness.py
 
       - name: Prepare verified signing key
-        if: inputs.distribution == 'signed_beta'
+        if: (inputs.distribution || 'debug') == 'signed_beta'
         env:
           TOMI_RELEASE_BUILD: '1'
           TOMI_ANDROID_KEYSTORE_BASE64: ${{ secrets.TOMI_ANDROID_KEYSTORE_BASE64 }}
@@ -245,7 +245,7 @@ jobs:
         run: python3 tool/configure_release.py
 
       - name: Build debug APK
-        if: inputs.distribution != 'signed_beta'
+        if: (inputs.distribution || 'debug') != 'signed_beta'
         run: |
           python3 tool/prepare_android_ci.py check --minimum-gib 20
           python3 tool/retry_android_build.py -- flutter build apk --debug --no-pub \
@@ -256,7 +256,7 @@ jobs:
           cp build/app/outputs/flutter-apk/app-debug.apk output/TOMI-1.7.0-beta.1.apk
 
       - name: Build signed beta APK and AAB
-        if: inputs.distribution == 'signed_beta'
+        if: (inputs.distribution || 'debug') == 'signed_beta'
         env:
           TOMI_RELEASE_BUILD: '1'
           TOMI_ANDROID_STORE_PASSWORD: ${{ secrets.TOMI_ANDROID_STORE_PASSWORD }}
@@ -278,7 +278,7 @@ jobs:
           cp build/app/outputs/bundle/release/app-release.aab output/TOMI-1.7.0-beta.1.aab
 
       - name: Verify release signatures and artifact hashes
-        if: inputs.distribution == 'signed_beta'
+        if: (inputs.distribution || 'debug') == 'signed_beta'
         env:
           TOMI_SIGNING_CERT_SHA256: ${{ vars.TOMI_SIGNING_CERT_SHA256 }}
         run: python3 tool/check_release_artifacts.py
@@ -291,7 +291,7 @@ jobs:
         timeout-minutes: 5
         env:
           GH_TOKEN: ${{ github.token }}
-          TOMI_BUILD_DISTRIBUTION: ${{ inputs.distribution }}
+          TOMI_BUILD_DISTRIBUTION: ${{ inputs.distribution || 'debug' }}
         run: |
           set -euo pipefail
           release_tag="tomi-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
