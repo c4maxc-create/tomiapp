@@ -15,7 +15,7 @@ dependencies:
   video_player: 2.14.1
   livekit_client: 2.13.1
   flutter_webrtc: ^1.6.2+hotfix.4
-  record: ^7.1.2
+  record: ^7.2.0
   just_audio: ^0.10.6
   path_provider: ^2.1.5
   firebase_auth: 6.7.1
