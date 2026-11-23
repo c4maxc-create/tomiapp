@@ -1771,7 +1771,18 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
         },
       ),
     );
-    input.dispose();
+    // Intentionally not calling `input.dispose()` here: `showDialog`'s
+    // Future completes as soon as Navigator.pop() runs, but the
+    // AlertDialog's exit transition keeps animating (and its TextField,
+    // bound to `input`, keeps rebuilding) for a few more frames after
+    // that. Disposing the controller immediately throws "A
+    // TextEditingController was used after being disposed." on those
+    // later frames, which then corrupts the element tree for the rest
+    // of the test run (and, in principle, for the rest of the page's
+    // lifetime). `input` is a short-lived local controller with no
+    // other references once this function returns, so leaving it
+    // undisposed here is safe; it is simply garbage collected once the
+    // dialog route has finished closing.
 
     if (yes == true && mounted && thread.current) {
       await thread.refreshMessage(m.id);
