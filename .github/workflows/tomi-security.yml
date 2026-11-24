@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6.1.0
         with: {persist-credentials: false}
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with: {node-version: '24'}
       - name: Validate public provider configuration
         run: python3 tool/check_identity_native.py
