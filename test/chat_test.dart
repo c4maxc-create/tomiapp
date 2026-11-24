@@ -526,7 +526,11 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('تعديل الرسالة').last);
-    await tester.pumpAndSettle();
+    // The edit dialog autofocuses its TextField. Its blinking cursor keeps
+    // scheduling frames, so pumpAndSettle() can wait forever here.
+    await tester.pump(const Duration(milliseconds: 350));
+    await flush();
+    await tester.pump();
     // Set the field value without starting the software keyboard ticker.
     // pumpAndSettle is not suitable while a focused TextField cursor is blinking.
     final editField = tester.widget<TextField>(
