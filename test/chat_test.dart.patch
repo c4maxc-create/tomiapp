@@ -1,0 +1,23 @@
+diff --git a/test/chat_test.dart b/test/chat_test.dart
+--- a/test/chat_test.dart
++++ b/test/chat_test.dart
+@@
+     await tester.tap(find.text('تعديل الرسالة').last);
+-    await tester.pumpAndSettle();
++    // The edit dialog autofocuses its TextField; its blinking cursor keeps
++    // pumpAndSettle alive indefinitely. Advance the route animation directly.
++    await tester.pump(const Duration(milliseconds: 350));
++    await flush();
++    await tester.pump();
+@@
+     await tester.pumpWidget(
+       MaterialApp(
+         navigatorObservers: [chatRouteObserver],
+         home: PrivateChatPage(chats: a.chats, conversation: t.conversation),
+       ),
+     );
+-    await tester.pumpAndSettle();
++    // Avoid waiting for an indefinitely active text-cursor/focus animation.
++    await tester.pump(const Duration(milliseconds: 350));
++    await flush();
++    await tester.pump();
