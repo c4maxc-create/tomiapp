@@ -1677,19 +1677,101 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
       return;
     }
 
+    final input = TextEditingController(text: m.text);
+    var saving = false;
+    String? error;
     final yes = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _EditMessageDialog(
-        initialText: m.text,
-        onSave: (value) => thread.request(
-          'PUT',
-          '/messages/${m.id}/edit',
-          body: {'text': value, 'expectedRevision': m.revision},
-        ),
-        onMessageChanged: () => unawaited(thread.refreshMessage(m.id)),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          final value = input.text.trim();
+          final unchanged = value == m.text.trim();
+          return AlertDialog(
+            title: const Text('تعديل الرسالة'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  key: const Key('chat-edit-message-input'),
+                  controller: input,
+                  autofocus: true,
+                  minLines: 2,
+                  maxLines: 7,
+                  maxLength: 2000,
+                  textCapitalization: TextCapitalization.sentences,
+                  onChanged: (_) => setDialogState(() => error = null),
+                  decoration: InputDecoration(
+                    hintText: 'اكتب نص الرسالة',
+                    errorText: error,
+                    helperText: 'سيظهر للطرف الآخر أن الرسالة عُدّلت.',
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: saving
+                    ? null
+                    : () => Navigator.pop(dialogContext, false),
+                child: const Text('إلغاء'),
+              ),
+              FilledButton.icon(
+                key: const Key('chat-edit-message-save'),
+                onPressed: saving || value.isEmpty || unchanged
+                    ? null
+                    : () async {
+                        setDialogState(() => saving = true);
+                        try {
+                          await thread.request(
+                            'PUT',
+                            '/messages/${m.id}/edit',
+                            body: {
+                              'text': value,
+                              'expectedRevision': m.revision,
+                            },
+                          );
+                          if (dialogContext.mounted) {
+                            // Let the dialog route manage focus teardown. Calling
+                            // unfocus on its own FocusScope while the route is
+                            // being removed can leave stale inherited dependents.
+                            Navigator.pop(dialogContext, true);
+                          }
+                        } on AccountFailure catch (failure) {
+                          if (failure.code == 'MESSAGE_CHANGED') {
+                            unawaited(thread.refreshMessage(m.id));
+                          }
+                          if (dialogContext.mounted) {
+                            setDialogState(() {
+                              saving = false;
+                              error = failure.message;
+                            });
+                          }
+                        } catch (_) {
+                          if (dialogContext.mounted) {
+                            setDialogState(() {
+                              saving = false;
+                              error = 'تعذّر حفظ التعديل؛ حاول مرة أخرى.';
+                            });
+                          }
+                        }
+                      },
+                icon: saving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check_rounded),
+                label: Text(saving ? 'جارٍ الحفظ' : 'حفظ التعديل'),
+              ),
+            ],
+          );
+        },
       ),
     );
+    input.dispose();
 
     if (yes == true && mounted && thread.current) {
       await thread.refreshMessage(m.id);
@@ -3388,127 +3470,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
       );
     },
   );
-}
-
-/// The "edit message" dialog's content, as its own [StatefulWidget] so the
-/// [TextEditingController] it needs has an owner with a proper lifecycle.
-///
-/// This used to be built inline with a [TextEditingController] created in
-/// the surrounding function and disposed right after `showDialog(...)`
-/// returned. That is unsafe: `showDialog`'s Future completes as soon as
-/// `Navigator.pop()` runs, while the dialog route's *exit transition* is
-/// still animating (and the `TextField` bound to the controller keeps
-/// rebuilding) for a few more frames after that. Disposing the controller
-/// at that point throws "A TextEditingController was used after being
-/// disposed." on one of those later frames.
-///
-/// Owning the controller here instead means Flutter disposes it itself,
-/// via [State.dispose], only once this widget is actually unmounted —
-/// which the framework guarantees happens after the route has finished
-/// being removed, never before.
-class _EditMessageDialog extends StatefulWidget {
-  const _EditMessageDialog({
-    required this.initialText,
-    required this.onSave,
-    required this.onMessageChanged,
-  });
-
-  final String initialText;
-  final Future<void> Function(String value) onSave;
-  final VoidCallback onMessageChanged;
-
-  @override
-  State<_EditMessageDialog> createState() => _EditMessageDialogState();
-}
-
-class _EditMessageDialogState extends State<_EditMessageDialog> {
-  late final input = TextEditingController(text: widget.initialText);
-  var saving = false;
-  String? error;
-
-  @override
-  void dispose() {
-    input.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final value = input.text.trim();
-    final unchanged = value == widget.initialText.trim();
-    return AlertDialog(
-      title: const Text('تعديل الرسالة'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextField(
-            key: const Key('chat-edit-message-input'),
-            controller: input,
-            autofocus: true,
-            minLines: 2,
-            maxLines: 7,
-            maxLength: 2000,
-            textCapitalization: TextCapitalization.sentences,
-            onChanged: (_) => setState(() => error = null),
-            decoration: InputDecoration(
-              hintText: 'اكتب نص الرسالة',
-              errorText: error,
-              helperText: 'سيظهر للطرف الآخر أن الرسالة عُدّلت.',
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: saving ? null : () => Navigator.pop(context, false),
-          child: const Text('إلغاء'),
-        ),
-        FilledButton.icon(
-          key: const Key('chat-edit-message-save'),
-          onPressed: saving || value.isEmpty || unchanged
-              ? null
-              : () async {
-                  setState(() => saving = true);
-                  try {
-                    await widget.onSave(value);
-                    if (mounted) {
-                      // Let the dialog route manage focus teardown. Calling
-                      // unfocus on its own FocusScope while the route is
-                      // being removed can leave stale inherited dependents.
-                      Navigator.pop(context, true);
-                    }
-                  } on AccountFailure catch (failure) {
-                    if (failure.code == 'MESSAGE_CHANGED') {
-                      widget.onMessageChanged();
-                    }
-                    if (mounted) {
-                      setState(() {
-                        saving = false;
-                        error = failure.message;
-                      });
-                    }
-                  } catch (_) {
-                    if (mounted) {
-                      setState(() {
-                        saving = false;
-                        error = 'تعذّر حفظ التعديل؛ حاول مرة أخرى.';
-                      });
-                    }
-                  }
-                },
-          icon: saving
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.check_rounded),
-          label: Text(saving ? 'جارٍ الحفظ' : 'حفظ التعديل'),
-        ),
-      ],
-    );
-  }
 }
 
 class _ChatVoiceMessage extends StatelessWidget {
