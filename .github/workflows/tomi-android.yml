@@ -182,7 +182,7 @@ jobs:
           python3 tool/build_secure_native.py --platform android
 
       - name: Set up CSharp game UI compiler
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '8.0.x'
 

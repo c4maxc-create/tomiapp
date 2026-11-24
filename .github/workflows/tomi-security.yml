@@ -34,7 +34,7 @@ jobs:
           rustup toolchain install 1.89.0 --profile minimal
           cargo +1.89.0 install cargo-audit --version 0.22.2 --locked
           cargo +1.89.0 audit --file packages/tomi_secure/native/Cargo.lock --deny warnings
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v6
         with: {dotnet-version: '8.0.x'}
       - name: Restore CSharp dependencies
         run: dotnet restore previews/Tomi.BlazorPreview/Tomi.BlazorPreview.csproj
