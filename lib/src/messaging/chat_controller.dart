@@ -318,80 +318,28 @@ class ChatController extends ChangeNotifier with WidgetsBindingObserver {
         query: {if (more) 'cursor': nextCursor!},
       );
       if (disposed || rev != listRevision || gen != generation) return;
-
-      // Validate the complete page before mutating visible state. A malformed
-      // item must not partially remove or replace cached conversations.
-      final rawItems = p['conversations'];
-      final rawRemoved = p['removedConversationIds'] ?? const <dynamic>[];
-      final rawUnread = p['totalUnread'];
-      final rawShareRequests = p['shareRequestsCount'] ?? 0;
-      final rawCursor = p['nextCursor'];
-      if (rawItems is! List ||
-          rawRemoved is! List ||
-          rawUnread is! num ||
-          !rawUnread.isFinite ||
-          rawUnread < 0 ||
-          rawUnread > 9007199254740991 ||
-          rawUnread != rawUnread.toInt() ||
-          rawShareRequests is! num ||
-          !rawShareRequests.isFinite ||
-          rawShareRequests < 0 ||
-          rawShareRequests > 9007199254740991 ||
-          rawShareRequests != rawShareRequests.toInt() ||
-          (rawCursor != null && rawCursor is! String) ||
-          rawRemoved.any((value) => value is! String)) {
-        throw const FormatException('Invalid chat list response');
-      }
-      final parsed = <DirectConversation>[];
-      for (final item in rawItems) {
-        if (item is! Map<String, dynamic>) {
-          throw const FormatException('Invalid chat conversation');
-        }
-        final c = DirectConversation.fromJson(item);
-        bool validCounter(String key, {bool optional = false}) {
-          final value = item[key];
-          if (optional && value == null) return true;
-          return value is num &&
-              value.isFinite &&
-              value >= 0 &&
-              value <= 9007199254740991 &&
-              value == value.toInt();
-        }
-
-        if (c.id.isEmpty ||
-            DateTime.tryParse(c.updatedAt) == null ||
-            !validCounter('sequence') ||
-            !validCounter('myReadSequence') ||
-            !validCounter('peerReadSequence') ||
-            !validCounter('unreadCount') ||
-            !validCounter('featuresRevision', optional: true)) {
-          throw const FormatException('Invalid chat conversation');
-        }
-        parsed.add(c);
-      }
-
-      final removedIds = rawRemoved.cast<String>().toSet();
-      // Preserve thread-level revocation semantics (disable sending and persist
-      // the left state) after the whole response has passed validation.
-      for (final id in removedIds) {
-        removeConversation(id);
-      }
       final map = {for (final c in conversations) c.id: c};
-      for (final c in parsed) {
+      for (final id in p['removedConversationIds'] as List? ?? []) {
+        if (id is String) {
+          removeConversation(id);
+          map.remove(id);
+        }
+      }
+      for (final item in p['conversations'] as List) {
+        final c = DirectConversation.fromJson(item as Map<String, dynamic>);
         final old = map[c.id];
         if (old == null ||
             (c.featuresRevision >= old.featuresRevision &&
                 c.sequence >= old.sequence &&
                 c.myReadSequence >= old.myReadSequence &&
-                c.peerReadSequence >= old.peerReadSequence)) {
+                c.peerReadSequence >= old.peerReadSequence))
           map[c.id] = old == null ? c : c.preserveReads(old);
-        }
       }
       conversations = map.values.toList()
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      totalUnread = rawUnread.toInt();
-      shareRequestsCount = rawShareRequests.toInt();
-      nextCursor = rawCursor as String?;
+      totalUnread = (p['totalUnread'] as num).toInt();
+      shareRequestsCount = (p['shareRequestsCount'] as num?)?.toInt() ?? 0;
+      nextCursor = p['nextCursor'] as String?;
     } on AccountFailure catch (f) {
       if (rev == listRevision) error = f.message;
     } catch (_) {

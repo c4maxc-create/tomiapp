@@ -422,13 +422,7 @@ class AccountApi {
     final transfer = UploadTransfer.owners[image] ?? UploadTransfer();
     try {
       final plan = await chatRequest(token, 'POST', path, body: {});
-      if (plan['completed'] == true) {
-        // The server may have completed the upload even if the previous
-        // completion response was lost. Reconcile the local progress so the
-        // retry does not leave the UI looking unfinished.
-        transfer.update(image.bytes.length, image.bytes.length);
-        return;
-      }
+      if (plan['completed'] == true) return;
       final chunk = (plan['chunkSize'] as num).toInt(),
           parts = (plan['parts'] as List).cast<Map<String, dynamic>>();
       if (chunk != 5 * 1024 * 1024 ||
@@ -440,17 +434,13 @@ class AccountApi {
         if (transfer.cancelled) throw http.RequestAbortedException(upload.url);
         final part = parts[i],
             start = i * chunk,
-            end = (start + chunk).clamp(0, image.bytes.length);
-        final rawUrl = part['url'];
-        final url = rawUrl is String ? Uri.tryParse(rawUrl) : null;
+            end = (start + chunk).clamp(0, image.bytes.length),
+            url = Uri.parse(part['url'] as String);
         if (part['number'] != i + 1 ||
             part['size'] != end - start ||
-            url == null ||
             url.scheme != 'https' ||
             !url.host.endsWith('.r2.cloudflarestorage.com') ||
-            url.port != 443 ||
             url.userInfo.isNotEmpty ||
-            url.hasFragment ||
             url.host != upload.url.host)
           throw const AccountFailure('INVALID_UPLOAD', 'وجهة رفع غير صحيحة.');
         if (part['uploaded'] != true) {
@@ -501,9 +491,7 @@ class AccountApi {
 
   Future<void> uploadImage(ImageUpload upload, ImageDraft image) async {
     if (upload.url.scheme != 'https' ||
-        upload.url.port != 443 ||
         upload.url.userInfo.isNotEmpty ||
-        upload.url.hasFragment ||
         !upload.url.host.endsWith('.r2.cloudflarestorage.com') ||
         upload.headers['content-type'] != image.contentType ||
         upload.headers['content-md5'] != image.contentMd5 ||

@@ -11,7 +11,6 @@ import 'package:file_selector/file_selector.dart' as files;
 import 'package:url_launcher/url_launcher.dart';
 
 import 'chat_widgets.dart';
-import 'chat_link_text.dart';
 import 'chat_groups.dart';
 
 import 'package:flutter/material.dart';
@@ -1667,116 +1666,42 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
   }
 
   Future<void> editMessage(ChatMessage m) async {
-    final conversation = thread.conversation;
-    if (!thread.current ||
-        !conversation.canSend ||
-        conversation.secureEnabled ||
-        !m.isMine ||
-        m.deleted ||
-        m.text.trim().isEmpty) {
-      return;
-    }
-
     final input = TextEditingController(text: m.text);
-    var saving = false;
-    String? error;
     final yes = await showDialog<bool>(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) {
-          final value = input.text.trim();
-          final unchanged = value == m.text.trim();
-          return AlertDialog(
-            title: const Text('تعديل الرسالة'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  key: const Key('chat-edit-message-input'),
-                  controller: input,
-                  autofocus: true,
-                  minLines: 2,
-                  maxLines: 7,
-                  maxLength: 2000,
-                  textCapitalization: TextCapitalization.sentences,
-                  onChanged: (_) => setDialogState(() => error = null),
-                  decoration: InputDecoration(
-                    hintText: 'اكتب نص الرسالة',
-                    errorText: error,
-                    helperText: 'سيظهر للطرف الآخر أن الرسالة عُدّلت.',
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: saving
-                    ? null
-                    : () => Navigator.pop(dialogContext, false),
-                child: const Text('إلغاء'),
-              ),
-              FilledButton.icon(
-                key: const Key('chat-edit-message-save'),
-                onPressed: saving || value.isEmpty || unchanged
-                    ? null
-                    : () async {
-                        setDialogState(() => saving = true);
-                        try {
-                          await thread.request(
-                            'PUT',
-                            '/messages/${m.id}/edit',
-                            body: {
-                              'text': value,
-                              'expectedRevision': m.revision,
-                            },
-                          );
-                          if (dialogContext.mounted) {
-                            // Let the dialog route manage focus teardown. Calling
-                            // unfocus on its own FocusScope while the route is
-                            // being removed can leave stale inherited dependents.
-                            Navigator.pop(dialogContext, true);
-                          }
-                        } on AccountFailure catch (failure) {
-                          if (failure.code == 'MESSAGE_CHANGED') {
-                            unawaited(thread.refreshMessage(m.id));
-                          }
-                          if (dialogContext.mounted) {
-                            setDialogState(() {
-                              saving = false;
-                              error = failure.message;
-                            });
-                          }
-                        } catch (_) {
-                          if (dialogContext.mounted) {
-                            setDialogState(() {
-                              saving = false;
-                              error = 'تعذّر حفظ التعديل؛ حاول مرة أخرى.';
-                            });
-                          }
-                        }
-                      },
-                icon: saving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.check_rounded),
-                label: Text(saving ? 'جارٍ الحفظ' : 'حفظ التعديل'),
-              ),
-            ],
-          );
-        },
+      builder: (d) => AlertDialog(
+        title: const Text('تعديل الرسالة'),
+        content: TextField(
+          controller: input,
+          minLines: 1,
+          maxLines: 6,
+          maxLength: 2000,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(d, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(d, true),
+            child: const Text('حفظ'),
+          ),
+        ],
       ),
     );
-    input.dispose();
-
-    if (yes == true && mounted && thread.current) {
-      await thread.refreshMessage(m.id);
-      if (mounted) showNote(context, 'تم تعديل الرسالة');
+    if (yes == true) {
+      try {
+        await thread.request(
+          'PUT',
+          '/messages/${m.id}/edit',
+          body: {'text': input.text, 'expectedRevision': m.revision},
+        );
+        await thread.refreshMessage(m.id);
+      } on AccountFailure catch (e) {
+        if (mounted) showNote(context, e.message);
+      }
     }
+    input.dispose();
   }
 
   Future<void> messageInfo(ChatMessage m) async {
@@ -1859,10 +1784,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                   title: const Text('تفاصيل الرسالة'),
                   onTap: () => Navigator.pop(context, 'info'),
                 ),
-                if (m.isMine &&
-                    m.text.trim().isNotEmpty &&
-                    c.canSend &&
-                    !c.secureEnabled)
+                if (m.isMine && m.text.isNotEmpty && c.canSend)
                   ListTile(
                     leading: const Icon(Icons.edit_outlined),
                     title: const Text('تعديل الرسالة'),
@@ -2440,14 +2362,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                                 ? 7
                                 : 0,
                           ),
-                          child: ChatLinkText(
+                          child: Text(
                             m.text,
                             style: TextStyle(
                               fontSize: 15.5,
                               height: 1.35,
                               color: p.text,
                             ),
-                            linkColor: p.accent,
                           ),
                         ),
                       if (m.reactions.isNotEmpty)
@@ -2522,18 +2443,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                     ),
                     const SizedBox(width: 4),
                   ],
-                  if (m.data['editedAt'] != null)
-                    Padding(
-                      padding: const EdgeInsetsDirectional.only(end: 5),
-                      child: Text(
-                        'معدّلة',
-                        style: TextStyle(
-                          color: p.muted,
-                          fontSize: 10,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ),
                   Text(
                     chatTime(m.createdAt),
                     textDirection: TextDirection.ltr,
@@ -2557,13 +2466,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> with RouteAware {
                         onSelected: (a) => tools(m, a),
                         itemBuilder: (_) => [
                           if (c.canSend) ...[
-                            if (m.isMine &&
-                                m.text.trim().isNotEmpty &&
-                                !c.secureEnabled)
-                              const PopupMenuItem(
-                                value: 'edit',
-                                child: Text('تعديل الرسالة'),
-                              ),
                             const PopupMenuItem(
                               value: 'reply',
                               child: Text('رد'),

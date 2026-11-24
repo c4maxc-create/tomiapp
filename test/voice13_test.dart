@@ -23,7 +23,6 @@ class CommerceApi extends RichRoomApi {
       purchases = <Map<String, dynamic>>[],
       completed = <String, Map<String, dynamic>>{};
   bool loseCreate = false, loseShop = false, rateShop = false;
-  Map<String, dynamic>? walletOverride;
   @override
   Map<String, dynamic> get snapshot {
     final d = super.snapshot;
@@ -42,8 +41,6 @@ class CommerceApi extends RichRoomApi {
     Map<String, dynamic>? body,
     Map<String, String>? query,
   }) async {
-    if (path == '/v1/rooms/wallet' && method == 'GET' && walletOverride != null)
-      return {'wallet': walletOverride!};
     if (path == '/v1/rooms' && method == 'POST') {
       creations.add(Map.from(body!));
       completed.putIfAbsent(body['requestId'] as String, () {
@@ -153,22 +150,6 @@ void main() {
       'MaterialIcons',
     )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
   });
-  test('malformed room wallet balances never become visible or truncate', () async {
-    for (final malformed in [
-      {'coins': -1, 'nextClaim': null},
-      {'coins': 12.75, 'nextClaim': null},
-      {'coins': 5, 'nextClaim': 'not-a-date'},
-    ]) {
-      final api = CommerceApi()..walletOverride = malformed;
-      final a = await account(api, MemoryDraftStore());
-      addTearDown(a.dispose);
-      await a.voiceRooms.loadGifts();
-      expect(a.voiceRooms.walletReady, isFalse);
-      expect(a.voiceRooms.coins, 0);
-      expect(a.voiceRooms.error, isNotNull);
-    }
-  });
-
   test(
     'paid room intent survives restart and lost ACK without another charge',
     () async {

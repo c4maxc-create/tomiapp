@@ -8,7 +8,7 @@ class UploadTransfer extends ChangeNotifier {
   int sent = 0, total = 0;
   bool active = false;
   bool get cancelled => abort.isCompleted;
-  double? get progress => total == 0 ? null : active && sent >= total ? 0.99 : sent / total;
+  double? get progress => total == 0 ? null : sent / total;
   void cancel() {
     if (!cancelled) abort.complete();
   }

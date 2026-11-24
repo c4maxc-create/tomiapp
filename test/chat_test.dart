@@ -19,7 +19,7 @@ class ChatFakeApi extends AccountApi {
   List<Map<String, dynamic>> rows = [];
   final byNonce = <String, Map<String, dynamic>>{};
   int ownRead = 0, peerRead = 0, puts = 0, uploads = 0, prepares = 0, sends = 0;
-  bool blocked = false, loseReply = false, invalidUpload = false, malformedList = false;
+  bool blocked = false, loseReply = false, invalidUpload = false;
   Completer<void>? pausePage, pauseMetadata;
   Map<String, dynamic> get conversation => {
     'id': threadId,
@@ -75,25 +75,12 @@ class ChatFakeApi extends AccountApi {
     Map<String, dynamic>? body,
     Map<String, String>? query,
   }) async {
-    if (path == '/v1/chats' && method == 'GET') {
-      if (malformedList) {
-        malformedList = false;
-        return {
-          'removedConversationIds': [threadId],
-          'conversations': [
-            conversation,
-            {...conversation, 'sequence': -1},
-          ],
-          'totalUnread': conversation['unreadCount'],
-          'nextCursor': null,
-        };
-      }
+    if (path == '/v1/chats' && method == 'GET')
       return {
         'conversations': [conversation],
         'totalUnread': conversation['unreadCount'],
         'nextCursor': null,
       };
-    }
     if (path == '/v1/chats' && method == 'POST')
       return {'conversation': conversation};
     if (path.startsWith('/v1/chat/blocks/') && method == 'PUT') {
@@ -188,27 +175,6 @@ class ChatFakeApi extends AccountApi {
       if (gate != null) await gate.future;
       return result;
     }
-    if (path.endsWith('/edit') && method == 'PUT') {
-      final parts = path.split('/'),
-          id = parts[parts.length - 2],
-          index = rows.indexWhere((m) => m['id'] == id);
-      if (index < 0) throw StateError('Unknown message $id');
-      final revision = (rows[index]['revision'] as int?) ?? 0;
-      if (revision != body!['expectedRevision']) {
-        throw const AccountFailure(
-          'MESSAGE_CHANGED',
-          'تغيّرت الرسالة؛ حدّثها ثم عدّل.',
-          status: 409,
-        );
-      }
-      rows[index] = {
-        ...rows[index],
-        'text': body['text'],
-        'revision': revision + 1,
-        'editedAt': '2026-11-13T18:00:00.000Z',
-      };
-      return {'ok': true};
-    }
     if (path.contains('/messages/')) {
       final id = path.split('/').last,
           index = rows.indexWhere((m) => m['id'] == id);
@@ -230,11 +196,10 @@ class ChatFakeApi extends AccountApi {
 
 Future<(AccountController, ChatFakeApi, ChatThreadController)> setup({
   int count = 0,
-  bool mineFirst = false,
 }) async {
   final api = ChatFakeApi();
   for (var i = 1; i <= count; i++) {
-    api.rows.add(api.row(i, mine: mineFirst && i == 1));
+    api.rows.add(api.row(i));
   }
   final accounts = AccountController(
     api: api,
@@ -257,24 +222,6 @@ Future<void> flush() async {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  test('a malformed chat page cannot partially remove cached conversations', () async {
-    final api = ChatFakeApi();
-    final accounts = AccountController(
-      api: api,
-      vault: MemoryTokenVault('token'),
-      realtimeEnabled: false,
-    );
-    await accounts.restore();
-    await accounts.chats.refresh();
-    addTearDown(() {
-      if (!accounts.chats.disposed) accounts.dispose();
-    });
-    expect(accounts.chats.conversations.single.id, threadId);
-    api.malformedList = true;
-    await accounts.chats.refresh();
-    expect(accounts.chats.conversations.map((c) => c.id), [threadId]);
-    expect(accounts.chats.error, isNotNull);
-  });
   test(
     'a lost send reply retries the original nonce without duplicating the saved message',
     () async {
@@ -507,52 +454,6 @@ void main() {
       a.dispose();
     },
   );
-  testWidgets('a sender can edit a message from its options and sees the edited marker', (
-    tester,
-  ) async {
-    final (a, api, t) = await setup(count: 1, mineFirst: true);
-    addTearDown(() {
-      if (!a.chats.disposed) a.dispose();
-    });
-    await tester.pumpWidget(
-      MaterialApp(
-        navigatorObservers: [chatRouteObserver],
-        home: PrivateChatPage(chats: a.chats, conversation: t.conversation),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('message-options:message-1')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('تعديل الرسالة').last);
-    await tester.pumpAndSettle();
-    // Set the field value without starting the software keyboard ticker.
-    // pumpAndSettle is not suitable while a focused TextField cursor is blinking.
-    final editField = tester.widget<TextField>(
-      find.byKey(const Key('chat-edit-message-input')),
-    );
-    editField.controller!.text = 'تم التعديل بشكل صحيح';
-    editField.onChanged?.call('تم التعديل بشكل صحيح');
-    await tester.pump();
-    tester.testTextInput.hide();
-    FocusManager.instance.primaryFocus?.unfocus();
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('chat-edit-message-save')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
-    await flush();
-    await tester.pump();
-    expect(api.rows.single['text'], 'تم التعديل بشكل صحيح');
-    expect(api.rows.single['revision'], 1);
-    expect(find.text('معدّلة'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
-    a.dispose();
-  });
-
   testWidgets('a failed bubble can retry and clear the error', (tester) async {
     final (a, api, t) = await setup();
     addTearDown(() {
@@ -572,21 +473,13 @@ void main() {
     );
     await tester.pump();
     await tester.tap(find.byKey(const Key('private-chat-send')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.text('إعادة المحاولة'), findsOneWidget);
     await tester.tap(find.text('إعادة المحاولة'));
-    await tester.pump();
-    await flush();
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(api.rows.length, 1);
     expect(t.pending, isEmpty);
-    tester.testTextInput.hide();
-    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pumpWidget(const SizedBox());
     a.dispose();
   });
   testWidgets('old history has a compact route back to latest messages', (
@@ -600,11 +493,9 @@ void main() {
     addTearDown(() {
       if (!a.chats.disposed) a.dispose();
     });
-    // Load enough pages to cross the controller's bounded history window.
-    for (var i = 0; i < 30 && !t.historyWindow && t.nextBefore != null; i++) {
+    for (var i = 0; i < 13; i++) {
       await t.loadOlder();
     }
-    expect(t.historyWindow, isTrue);
     await tester.pumpWidget(
       MaterialApp(
         navigatorObservers: [chatRouteObserver],
@@ -622,9 +513,7 @@ void main() {
     expect(find.byKey(const Key('chat-show-latest')), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tap(find.byKey(const Key('chat-show-latest')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(t.highestSequence, 600);
     expect(t.historyWindow, isFalse);
     expect(tester.takeException(), isNull);

@@ -832,24 +832,9 @@ class VoiceRoomsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void applyWallet(Map<String, dynamic> d) {
-    final rawCoins = d['coins'];
-    final rawNextClaim = d['nextClaim'];
-    if (rawCoins is! num ||
-        !rawCoins.isFinite ||
-        rawCoins < 0 ||
-        rawCoins > 9007199254740991 ||
-        rawCoins != rawCoins.truncateToDouble() ||
-        (rawNextClaim != null &&
-            (rawNextClaim is! String ||
-                DateTime.tryParse(rawNextClaim) == null))) {
-      throw const FormatException('Invalid room wallet response');
-    }
-    // Validate the complete payload before changing observable wallet state.
-    final nextCoins = rawCoins.toInt();
-    final nextClaimValue = rawNextClaim as String?;
-    coins = nextCoins;
-    nextClaim = nextClaimValue;
     walletReady = true;
+    coins = (d['coins'] as num).toInt();
+    nextClaim = d['nextClaim'] as String?;
   }
 
   Future<void> claimCoins() async {
